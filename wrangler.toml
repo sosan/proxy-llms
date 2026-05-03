@@ -9,7 +9,8 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-// new_sqlite_classes = ["ProcessorDurableObject"] // free
+# Uncomment the above line to enable NOT free tier SQLite support for the ProcessorDurableObject
+#  new_classes = ["ProcessorDurableObject"] 
 new_sqlite_classes = ["ProcessorDurableObject"]
 
 [vars]
