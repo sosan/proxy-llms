@@ -13,6 +13,11 @@ tag = "v1"
 #  new_classes = ["ProcessorDurableObject"] 
 new_sqlite_classes = ["ProcessorDurableObject"]
 
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [vars]
 NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEEPSEEK_V4_PRO_MODEL = "deepseek-ai/deepseek-v4-pro"
