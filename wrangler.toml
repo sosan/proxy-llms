@@ -1,4 +1,4 @@
-name = "multi-provider-proxy"
+name = "proxy-llms"
 main = "server.js"
 compatibility_date = "2023-12-01"
 
