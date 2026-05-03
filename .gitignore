@@ -6,3 +6,6 @@
 .idea/this_studio.iml
 .lightning_studio/*
 .gnupg/*
+.vscode/settings.json
+.env
+.local
