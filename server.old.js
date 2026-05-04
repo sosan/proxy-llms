@@ -1,17 +1,17 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
- 
+
 // =============================================================================
 // STRUCTURED PROMPT-DRIVEN DEVELOPMENT PATTERN
 // =============================================================================
 // Architecture: Multi-Provider AI Proxy with Async Processing
 // Contract: RESTful API with standardized error handling and response formats
 // Pattern: Event-driven processing with Durable Objects for state management
- 
+
 /**
  * SYSTEM CONTRACTS & INTERFACES
  */
- 
+
 // Standard API Response Contract
 const createResponse = (success, data, error = null) => ({
   success,
@@ -19,23 +19,7 @@ const createResponse = (success, data, error = null) => ({
   error,
   timestamp: new Date().toISOString()
 })
- 
-// Parse and validate JSON body — returns { payload } on success or { error, status } on failure
-const parseJSONBody = async (c) => {
-  let payload
-  try {
-    payload = await c.req.json()
-  } catch {
-    return { error: 'Invalid or missing request body: expected valid JSON', status: 400 }
-  }
- 
-  if (payload == null || typeof payload !== 'object') {
-    return { error: 'Request body must be a non-null JSON object', status: 400 }
-  }
- 
-  return { payload }
-}
- 
+
 // Process State Contract
 const ProcessStates = {
   PENDING: 'pending',
@@ -43,64 +27,35 @@ const ProcessStates = {
   COMPLETED: 'completed',
   FAILED: 'failed'
 }
- 
+
 // Provider Configuration Contract
-// models is now an object: { alias: 'provider/model-id' }
-// The first key in the object is used as the default model.
 const ProviderConfigs = {
+  deepseek: {
+    endpoint: '/deepseek/v1/chat/completions',
+    model: 'deepseek-ai/deepseek-v4-pro',
+    format: 'openai'
+  },
   claude: {
     endpoint: '/claude/v1/messages',
-    models: {
-      'claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet-20240620',
-      'claude-3-opus':     'anthropic/claude-3-opus-20240229',
-      'claude-3-haiku':    'anthropic/claude-3-haiku-20240307'
-    },
+    model: 'anthropic/claude-3-5-sonnet-20240620',
     format: 'anthropic'
   },
   openai: {
-    endpoint: '/openai/v1/chat/completions',
-    models: {
-      'gpt-oss-120b':       'openai/gpt-oss-120b',
-      'gpt-4o':             'openai/gpt-4o',
-      'gpt-4o-mini':        'openai/gpt-4o-mini',
-      'glm4.7':             'z-ai/glm4.7',
-      'deepseek-v4-pro':    'deepseek-ai/deepseek-v4-pro',
-      'deepseek-r1':        'deepseek-ai/deepseek-r1',
-      'deepseek-v3':        'deepseek-ai/deepseek-v3'
-    },
+    endpoint: '/openai/v1/chat/completions', 
+    model: 'openai/gpt-oss-120b',
     format: 'openai'
   },
-}
- 
-// Helper to resolve the full model ID from a config.
-// Accepts either an alias (e.g. 'gpt-4o') or a full model ID (e.g. 'openai/gpt-4o').
-// Falls back to the first model in the object if no payloadModel is provided.
-const resolveModel = (config, payloadModel = null) => {
-  const aliases = config.models
-  const fullIds = Object.values(aliases)
- 
-  if (payloadModel) {
-    // Check if it matches an alias
-    if (aliases[payloadModel]) {
-      return aliases[payloadModel]
-    }
-    // Check if it matches a full model ID directly
-    if (fullIds.includes(payloadModel)) {
-      return payloadModel
-    }
-    throw new Error(
-      `Model "${payloadModel}" is not supported. Supported aliases: ${Object.keys(aliases).join(', ')}`
-    )
+  zai: {
+    endpoint: '/zai/v1/chat/completions',
+    model: 'z-ai/glm4.7',
+    format: 'openai'
   }
- 
-  // Default: first model in the object
-  return fullIds[0]
 }
- 
+
 /**
  * CORE BUSINESS LOGIC MODULES
  */
- 
+
 // Rate Limiting Contract
 class RateLimiter {
   constructor(maxRequests = 40, windowMs = 60000) {
@@ -108,7 +63,7 @@ class RateLimiter {
     this.windowMs = windowMs
     this.requests = new Map()
   }
- 
+
   isAllowed(clientId) {
     const now = Date.now()
     const windowStart = now - this.windowMs
@@ -129,45 +84,43 @@ class RateLimiter {
     return true
   }
 }
- 
+
 // NVIDIA NIM Provider Contract
 class NIMProvider {
   constructor(apiKey, baseUrl) {
     this.apiKey = apiKey
     this.baseUrl = baseUrl
   }
- 
+
   async makeRequest(endpoint, payload, format = 'openai') {
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.apiKey}`
     }
- 
+
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
       })
- 
+
       if (!response.ok) {
         throw new Error(`NIM API Error: ${response.status} ${response.statusText}`)
       }
- 
+
       return await response.json()
     } catch (error) {
       throw new Error(`NIM Provider Error: ${error.message}`)
     }
   }
- 
+
   // Transform requests to match NIM expectations
   transformRequest(payload, config) {
-    const model = resolveModel(config, payload.model)
- 
     if (config.format === 'anthropic') {
       // Convert Anthropic format to OpenAI format for NIM
       return {
-        model,
+        model: config.model,
         messages: payload.messages || [{ role: 'user', content: payload.content || '' }],
         max_tokens: payload.max_tokens || 2048,
         temperature: payload.temperature || 0.7
@@ -175,9 +128,9 @@ class NIMProvider {
     }
     
     // Handle z.ai specific parameters
-    if (model === 'z-ai/glm4.7') {
+    if (config.model === 'z-ai/glm4.7') {
       return {
-        model,
+        model: config.model,
         messages: payload.messages,
         temperature: payload.temperature || 1,
         top_p: payload.top_p || 1,
@@ -191,22 +144,12 @@ class NIMProvider {
     }
     
     return {
-      model,
+      model: config.model,
       ...payload
     }
   }
 }
- 
-// Module-level singleton — initialized lazily on first request
-let nimProvider = null
- 
-const getNIMProvider = (env) => {
-  if (!nimProvider) {
-    nimProvider = new NIMProvider(env.NVIDIA_API_KEY, env.NVIDIA_BASE_URL)
-  }
-  return nimProvider
-}
- 
+
 // Async Processor Contract (Durable Object)
 export class ProcessorDurableObject {
   constructor(state, env) {
@@ -215,11 +158,11 @@ export class ProcessorDurableObject {
     this.nimProvider = new NIMProvider(env.NVIDIA_API_KEY, env.NVIDIA_BASE_URL)
     this.websockets = new Set()
   }
- 
+
   async fetch(request) {
     const url = new URL(request.url)
     const path = url.pathname
- 
+
     switch (path) {
       case '/start':
         return await this.startProcess(request)
@@ -231,7 +174,7 @@ export class ProcessorDurableObject {
         return new Response('Not Found', { status: 404 })
     }
   }
- 
+
   async startProcess(request) {
     try {
       const data = await request.json()
@@ -243,37 +186,37 @@ export class ProcessorDurableObject {
         startTime: Date.now(),
         progress: 0
       })
- 
+
       // Start async processing (don't await)
       this.processAsync(data)
- 
+
       return Response.json(createResponse(true, { 
         status: ProcessStates.PENDING,
         message: 'Process started'
       }))
- 
+
     } catch (error) {
       return Response.json(createResponse(false, null, error.message), { status: 500 })
     }
   }
- 
+
   async processAsync(data) {
     try {
       // Update to processing state
       await this.updateProgress(ProcessStates.PROCESSING, 10)
- 
+
       // Simulate complex processing with progress updates
       for (let i = 20; i <= 80; i += 20) {
         await new Promise(resolve => setTimeout(resolve, 1000))
         await this.updateProgress(ProcessStates.PROCESSING, i)
       }
- 
+
       // Make actual AI request
       const config = ProviderConfigs[data.provider] || ProviderConfigs.openai
       const transformedPayload = this.nimProvider.transformRequest(data.payload, config)
       
       const result = await this.nimProvider.makeRequest(config.endpoint, transformedPayload, config.format)
- 
+
       // Complete with results
       await this.state.storage.put('processState', {
         status: ProcessStates.COMPLETED,
@@ -282,13 +225,13 @@ export class ProcessorDurableObject {
         progress: 100,
         completedAt: Date.now()
       })
- 
+
       this.broadcastUpdate({ 
         status: ProcessStates.COMPLETED, 
         progress: 100, 
         result 
       })
- 
+
     } catch (error) {
       await this.state.storage.put('processState', {
         status: ProcessStates.FAILED,
@@ -297,14 +240,14 @@ export class ProcessorDurableObject {
         progress: 0,
         failedAt: Date.now()
       })
- 
+
       this.broadcastUpdate({ 
         status: ProcessStates.FAILED, 
         error: error.message 
       })
     }
   }
- 
+
   async updateProgress(status, progress) {
     const currentState = await this.state.storage.get('processState')
     const updatedState = { ...currentState, status, progress }
@@ -312,12 +255,12 @@ export class ProcessorDurableObject {
     
     this.broadcastUpdate({ status, progress })
   }
- 
+
   async getStatus() {
     const processState = await this.state.storage.get('processState')
     return Response.json(createResponse(true, processState || { status: 'not_found' }))
   }
- 
+
   async handleWebSocket(request) {
     if (request.headers.get('Upgrade') === 'websocket') {
       const [client, server] = Object.values(new WebSocketPair())
@@ -327,13 +270,13 @@ export class ProcessorDurableObject {
       server.addEventListener('close', () => {
         this.websockets.delete(server)
       })
- 
+
       return new Response(null, { status: 101, webSocket: client })
     }
     
     return new Response('Expected WebSocket', { status: 400 })
   }
- 
+
   broadcastUpdate(update) {
     const message = JSON.stringify(update)
     for (const ws of this.websockets) {
@@ -345,14 +288,14 @@ export class ProcessorDurableObject {
     }
   }
 }
- 
+
 /**
  * MAIN APPLICATION ASSEMBLY
  */
- 
+
 const app = new Hono()
 const rateLimiter = new RateLimiter()
- 
+
 // Middleware Pipeline
 app.use('*', cors())
 app.use('*', async (c, next) => {
@@ -364,32 +307,28 @@ app.use('*', async (c, next) => {
   
   await next()
 })
- 
+
 // Error Handler Middleware
 app.onError((err, c) => {
   console.error('Application Error:', err)
   return c.json(createResponse(false, null, 'Internal Server Error'), 500)
 })
- 
+
 /**
  * ROUTE DEFINITIONS - SYNCHRONOUS PROVIDERS
  */
- 
+
 // Provider route factory
 const createProviderRoute = (providerName) => {
   return async (c) => {
     try {
       const config = ProviderConfigs[providerName]
-      if (!config) {
-        return c.json(createResponse(false, null, `Unknown provider: ${providerName}`), 400)
-      }
- 
-      const { payload, error, status } = await parseJSONBody(c)
-      if (error) {
-        return c.json(createResponse(false, null, error), status)
-      }
+      const payload = await c.req.json()
       
-      const nimProvider = getNIMProvider(c.env)
+      const nimProvider = new NIMProvider(
+        c.env.NVIDIA_API_KEY, 
+        c.env.NVIDIA_BASE_URL
+      )
       
       const transformedPayload = nimProvider.transformRequest(payload, config)
       const result = await nimProvider.makeRequest(config.endpoint, transformedPayload, config.format)
@@ -402,24 +341,20 @@ const createProviderRoute = (providerName) => {
     }
   }
 }
- 
+
 // Register provider routes
 app.post('/deepseek/v1/chat/completions', createProviderRoute('deepseek'))
 app.post('/claude/v1/messages', createProviderRoute('claude'))
 app.post('/openai/v1/chat/completions', createProviderRoute('openai'))
-//app.post('/zai/v1/chat/completions', createProviderRoute('zai'))
- 
+app.post('/zai/v1/chat/completions', createProviderRoute('zai'))
+
 /**
  * ROUTE DEFINITIONS - ASYNCHRONOUS PROCESSING
  */
- 
+
 app.post('/api/process', async (c) => {
   try {
-    const { payload: data, error, status } = await parseJSONBody(c)
-    if (error) {
-      return c.json(createResponse(false, null, error), status)
-    }
- 
+    const data = await c.req.json()
     const processId = crypto.randomUUID()
     
     // Create Durable Object instance
@@ -446,7 +381,7 @@ app.post('/api/process', async (c) => {
     return c.json(createResponse(false, null, error.message), 500)
   }
 })
- 
+
 app.get('/api/status/:processId', async (c) => {
   try {
     const processId = c.req.param('processId')
@@ -463,7 +398,7 @@ app.get('/api/status/:processId', async (c) => {
     return c.json(createResponse(false, null, error.message), 500)
   }
 })
- 
+
 app.get('/api/stream/:processId', async (c) => {
   try {
     const processId = c.req.param('processId')
@@ -489,7 +424,7 @@ app.get('/api/stream/:processId', async (c) => {
     return c.json(createResponse(false, null, error.message), 500)
   }
 })
- 
+
 app.get('/api/websocket/:processId', async (c) => {
   try {
     const processId = c.req.param('processId')
@@ -505,7 +440,7 @@ app.get('/api/websocket/:processId', async (c) => {
     return new Response('WebSocket Error', { status: 500 })
   }
 })
- 
+
 // Health check endpoint
 app.get('/health', (c) => {
   return c.json(createResponse(true, { 
@@ -514,5 +449,5 @@ app.get('/health', (c) => {
     version: '1.0.0'
   }))
 })
- 
+
 export default app
