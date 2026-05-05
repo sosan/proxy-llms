@@ -3,22 +3,25 @@
   "version": "1.0.0",
   "description": "Multi-Provider AI Proxy following Structured-Prompt-Driven Development pattern",
   "type": "module",
-  "main": "server.js",
+  "main": "server.ts",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "wrangler dev --test"
+    "test": "wrangler dev --test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "hono": "^4.0.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
     "wrangler": "^4.87.0"
   },
   "keywords": [
     "cloudflare-workers",
-    "durable-objects", 
+    "durable-objects",
     "ai-proxy",
     "structured-development",
     "nvidia-nim"
@@ -27,7 +30,7 @@
     "pattern": "Structured-Prompt-Driven Development",
     "principles": [
       "Explicit contracts and interfaces",
-      "Self-documenting code structure", 
+      "Self-documenting code structure",
       "Clear separation of concerns",
       "Event-driven async processing",
       "Standardized error handling"

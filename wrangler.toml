@@ -1,23 +1,21 @@
 name = "proxy-llms"
-main = "server.js"
+main = "server.ts"
 compatibility_date = "2023-12-01"
-
+ 
 [durable_objects]
 bindings = [
   { name = "PROCESSOR", class_name = "ProcessorDurableObject" }
 ]
-
+ 
 [[migrations]]
 tag = "v1"
-# Uncomment the above line to enable NOT free tier SQLite support for the ProcessorDurableObject
-#  new_classes = ["ProcessorDurableObject"] 
 new_sqlite_classes = ["ProcessorDurableObject"]
-
+ 
 [observability]
 [observability.logs]
 enabled = true
 invocation_logs = true
-
+ 
 [vars]
 NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEEPSEEK_V4_PRO_MODEL = "deepseek-ai/deepseek-v4-pro"
