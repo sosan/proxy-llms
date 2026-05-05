@@ -3,77 +3,17 @@ import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Env, ApiResponse, MessageContentPart, ChatMessage, GenericPayload, ProcessState, ProviderConfig } from './interfaces/general'
 
+// Process States Contract
+const ProcessStates = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed'
+} as const
 
 // =============================================================================
 // STRUCTURED PROMPT-DRIVEN DEVELOPMENT PATTERN
 // =============================================================================
-
-/**
- * ENVIRONMENT BINDINGS
- */
-// interface Env {
-//   NVIDIA_API_KEY: string
-//   NVIDIA_BASE_URL: string
-//   PROCESSOR: DurableObjectNamespace
-// }
-
-/**
- * SYSTEM CONTRACTS & INTERFACES
- */
-
-// Define ApiResponse and ProcessState more precisely if not globally available or for clarity
-// interface ApiResponse<T = unknown> {
-//   success: boolean
-//   data: T | null
-//   error: string | null
-//   timestamp: string
-// }
-
-// // Define the structure for content parts within a message
-// interface MessageContentPart {
-//   type: 'text' | 'image'; // Add other types as needed
-//   text?: string;
-//   image_url?: { url: string }; // Example for image
-// }
-
-// // Define the structure for chat messages
-// interface ChatMessage {
-//   role: 'system' | 'user' | 'assistant' | 'tool';
-//   content: string | MessageContentPart[];
-// }
-
-// // Structure for the generic payload sent by the client
-// interface GenericPayload {
-//   provider?: string; // Explicitly specify the provider
-//   model?: string;    // The model alias or full ID to use
-//   messages?: ChatMessage[]; // Messages array for chat completions
-//   content?: string | MessageContentPart[];  // Fallback for single string content (e.g., some older OpenAI/completion APIs)
-//   temperature?: number;
-//   top_p?: number;
-//   max_tokens?: number;
-//   stream?: boolean;
-//   stream_options?: unknown; // Keep flexible for different provider stream options
-//   // Fields specific to certain models or providers that might not fit the common structure
-//   // For example, chat_template_kwargs is specific to some models like GLM
-//   [key: string]: unknown; // Allow for any additional provider-specific fields
-// }
-
-// interface ProcessState {
-//   status: string
-//   data?: GenericPayload // Store the original payload
-//   result?: unknown
-//   error?: string
-//   startTime?: number
-//   completedAt?: number
-//   failedAt?: number
-//   progress: number
-// }
-
-// interface ProviderConfig {
-//   endpoint: string;
-//   models: Record<string, string>; // alias: 'provider/model-id'
-//   format: 'anthropic' | 'openai'; // The format expected by the target API
-// }
 
 // Standard API Response Contract
 const createResponse = <T>(success: boolean, data: T | null, error: string | null = null): ApiResponse<T> => ({
@@ -89,18 +29,16 @@ const createResponse = <T>(success: boolean, data: T | null, error: string | nul
 const parseRequestBody = async (request: Request | HonoRequest): Promise<{ payload: GenericPayload; error?: undefined; status?: undefined } | { error: string; status: ContentfulStatusCode; payload?: undefined }> => {
   let payload: unknown
   try {
-    // Use request.json() directly as it's available on Request and HonoRequest
     payload = await request.json()
   } catch {
     return { error: 'Invalid or missing request body: expected valid JSON', status: 400 as ContentfulStatusCode }
   }
 
-  if (payload == null || typeof payload !== 'object') {
+  if (!payload || payload == null) {
     return { error: 'Request body must be a non-null JSON object', status: 400 as ContentfulStatusCode }
   }
 
   const genericPayload = payload as GenericPayload;
-  // Basic validation: ensure messages or content is present if it's a chat-like request
   if (!genericPayload.messages && !genericPayload.content && !genericPayload.provider) {
     // This check might be too strict depending on all use cases.
     // For now, it's a hint that something might be missing if it's not a simple API call.
@@ -110,13 +48,7 @@ const parseRequestBody = async (request: Request | HonoRequest): Promise<{ paylo
 }
 
 
-// Process States Contract
-const ProcessStates = {
-  PENDING: 'pending',
-  PROCESSING: 'processing',
-  COMPLETED: 'completed',
-  FAILED: 'failed'
-} as const
+
 
 // Provider Configuration Contract
 const ProviderConfigs: Record<string, ProviderConfig> = {
@@ -124,31 +56,34 @@ const ProviderConfigs: Record<string, ProviderConfig> = {
     endpoint: '/claude/v1/messages',
     models: {
       'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet-20240620',
-      'claude-3-opus':     'anthropic/claude-3-opus-20240229',
-      'claude-3-haiku':    'anthropic/claude-3-haiku-20240307'
+      'claude-3-opus': 'anthropic/claude-3-opus-20240229',
+      'claude-3-haiku': 'anthropic/claude-3-haiku-20240307',
+      'anthropic/claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet-20240620',
+      'anthropic/claude-3-opus': 'anthropic/claude-3-opus-20240229',
+      'anthropic/claude-3-haiku': 'anthropic/claude-3-haiku-20240307'
     },
     format: 'anthropic'
   },
   openai: {
     endpoint: '/openai/v1/chat/completions',
     models: {
-      'gpt-oss-120b':       'openai/gpt-oss-120b',
-      'gpt-4o':             'openai/gpt-4o',
-      'gpt-4o-mini':        'openai/gpt-4o-mini',
-      'glm4.7':             'z-ai/glm4.7', // Alias for GLM4.7 specific handling
-      'deepseek-v4-pro':    'deepseek-ai/deepseek-v4-pro', // This alias might conflict with a specific 'deepseek' provider.
-      'deepseek-r1':        'deepseek-ai/deepseek-r1',
-      'deepseek-v3':        'deepseek-ai/deepseek-v3'
-    },
-    format: 'openai'
-  },
-  // Added a specific deepseek config, assuming it follows openai format
-  deepseek: {
-    endpoint: '/deepseek/v1/chat/completions',
-    models: {
-      'deepseek-v4-pro':    'deepseek-ai/deepseek-v4-pro',
-      'deepseek-r1':        'deepseek-ai/deepseek-r1',
-      'deepseek-v3':        'deepseek-ai/deepseek-v3'
+      'gpt-oss-120b': 'openai/gpt-oss-120b',
+      'gpt-4o': 'openai/gpt-4o',
+      'gpt-4o-mini': 'openai/gpt-4o-mini',
+      'glm4.7': 'z-ai/glm4.7',
+      'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro',
+      'deepseek-r1': 'deepseek-ai/deepseek-r1',
+      'deepseek-v3': 'deepseek-ai/deepseek-v3',
+
+
+      'openai/gpt-oss-120b': 'openai/gpt-oss-120b',
+      'openai/gpt-4o': 'openai/gpt-4o',
+      'openai/gpt-4o-mini': 'openai/gpt-4o-mini',
+      'z-ai/glm4.7': 'z-ai/glm4.7',
+      'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
+      'deepseek/deepseek-r1': 'deepseek/deepseek-r1',
+      'deepseek/deepseek-v3': 'deepseek/deepseek-v3'
+
     },
     format: 'openai'
   }
@@ -160,6 +95,7 @@ const resolveModel = (config: ProviderConfig, payloadModel: string | null | unde
   const fullIds = Object.values(aliases);
 
   if (payloadModel) {
+    console.log(`Resolving model for payload model: "${payloadModel}" with config format: "${config.format}"`);
     if (aliases[payloadModel]) {
       return aliases[payloadModel]; // Found an alias
     }
@@ -282,7 +218,7 @@ class NIMProvider {
     // If no messages were formed and provider is specified, try to default to a simple user message
     // This fallback might need adjustment based on specific API requirements.
     if (messages.length === 0 && payload.provider) {
-        messages.push({ role: 'user', content: `Default message for ${payload.provider} provider.` });
+      messages.push({ role: 'user', content: `Default message for ${payload.provider} provider.` });
     }
 
     // General payload structure, adaptable for different providers
@@ -300,12 +236,12 @@ class NIMProvider {
     for (const key in payload) {
       // Avoid overwriting common fields already handled, unless the payload explicitly provides them
       if (!(key in commonPayload) || payload[key] !== undefined) {
-         // Handle potential specific fields like chat_template_kwargs if they exist in payload
-         if (key === 'chat_template_kwargs' && config.format === 'openai') { // Example: GLM needs this, assume OpenAI format can handle it or we transform later
-             commonPayload[key] = payload[key];
-         } else if (key !== 'provider' && key !== 'model' && key !== 'content' && key !== 'messages') { // Don't re-add already processed or routing fields
-             commonPayload[key] = payload[key];
-         }
+        // Handle potential specific fields like chat_template_kwargs if they exist in payload
+        if (key === 'chat_template_kwargs' && config.format === 'openai') { // Example: GLM needs this, assume OpenAI format can handle it or we transform later
+          commonPayload[key] = payload[key];
+        } else if (key !== 'provider' && key !== 'model' && key !== 'content' && key !== 'messages') { // Don't re-add already processed or routing fields
+          commonPayload[key] = payload[key];
+        }
       }
     }
 
@@ -371,10 +307,10 @@ export class ProcessorDurableObject {
       } else if (data.model && !data.provider) {
         let inferredProvider = 'openai'; // Default provider
         for (const pName in ProviderConfigs) {
-            if (ProviderConfigs[pName].models[data.model] || Object.values(ProviderConfigs[pName].models).includes(data.model)) {
-                inferredProvider = pName;
-                break;
-            }
+          if (ProviderConfigs[pName].models[data.model] || Object.values(ProviderConfigs[pName].models).includes(data.model)) {
+            inferredProvider = pName;
+            break;
+          }
         }
         data.provider = inferredProvider;
       }
