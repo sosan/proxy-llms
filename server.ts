@@ -1,6 +1,8 @@
 import { Hono, Context, HonoRequest } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
+import { Env, ApiResponse, MessageContentPart, ChatMessage, GenericPayload, ProcessState, ProviderConfig } from './interfaces/general'
+
 
 // =============================================================================
 // STRUCTURED PROMPT-DRIVEN DEVELOPMENT PATTERN
@@ -9,69 +11,69 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 /**
  * ENVIRONMENT BINDINGS
  */
-interface Env {
-  NVIDIA_API_KEY: string
-  NVIDIA_BASE_URL: string
-  PROCESSOR: DurableObjectNamespace
-}
+// interface Env {
+//   NVIDIA_API_KEY: string
+//   NVIDIA_BASE_URL: string
+//   PROCESSOR: DurableObjectNamespace
+// }
 
 /**
  * SYSTEM CONTRACTS & INTERFACES
  */
 
 // Define ApiResponse and ProcessState more precisely if not globally available or for clarity
-interface ApiResponse<T = unknown> {
-  success: boolean
-  data: T | null
-  error: string | null
-  timestamp: string
-}
+// interface ApiResponse<T = unknown> {
+//   success: boolean
+//   data: T | null
+//   error: string | null
+//   timestamp: string
+// }
 
-// Define the structure for content parts within a message
-interface MessageContentPart {
-  type: 'text' | 'image'; // Add other types as needed
-  text?: string;
-  image_url?: { url: string }; // Example for image
-}
+// // Define the structure for content parts within a message
+// interface MessageContentPart {
+//   type: 'text' | 'image'; // Add other types as needed
+//   text?: string;
+//   image_url?: { url: string }; // Example for image
+// }
 
-// Define the structure for chat messages
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | MessageContentPart[];
-}
+// // Define the structure for chat messages
+// interface ChatMessage {
+//   role: 'system' | 'user' | 'assistant' | 'tool';
+//   content: string | MessageContentPart[];
+// }
 
-// Structure for the generic payload sent by the client
-interface GenericPayload {
-  provider?: string; // Explicitly specify the provider
-  model?: string;    // The model alias or full ID to use
-  messages?: ChatMessage[]; // Messages array for chat completions
-  content?: string | MessageContentPart[];  // Fallback for single string content (e.g., some older OpenAI/completion APIs)
-  temperature?: number;
-  top_p?: number;
-  max_tokens?: number;
-  stream?: boolean;
-  stream_options?: unknown; // Keep flexible for different provider stream options
-  // Fields specific to certain models or providers that might not fit the common structure
-  // For example, chat_template_kwargs is specific to some models like GLM
-  [key: string]: unknown; // Allow for any additional provider-specific fields
-}
+// // Structure for the generic payload sent by the client
+// interface GenericPayload {
+//   provider?: string; // Explicitly specify the provider
+//   model?: string;    // The model alias or full ID to use
+//   messages?: ChatMessage[]; // Messages array for chat completions
+//   content?: string | MessageContentPart[];  // Fallback for single string content (e.g., some older OpenAI/completion APIs)
+//   temperature?: number;
+//   top_p?: number;
+//   max_tokens?: number;
+//   stream?: boolean;
+//   stream_options?: unknown; // Keep flexible for different provider stream options
+//   // Fields specific to certain models or providers that might not fit the common structure
+//   // For example, chat_template_kwargs is specific to some models like GLM
+//   [key: string]: unknown; // Allow for any additional provider-specific fields
+// }
 
-interface ProcessState {
-  status: string
-  data?: GenericPayload // Store the original payload
-  result?: unknown
-  error?: string
-  startTime?: number
-  completedAt?: number
-  failedAt?: number
-  progress: number
-}
+// interface ProcessState {
+//   status: string
+//   data?: GenericPayload // Store the original payload
+//   result?: unknown
+//   error?: string
+//   startTime?: number
+//   completedAt?: number
+//   failedAt?: number
+//   progress: number
+// }
 
-interface ProviderConfig {
-  endpoint: string;
-  models: Record<string, string>; // alias: 'provider/model-id'
-  format: 'anthropic' | 'openai'; // The format expected by the target API
-}
+// interface ProviderConfig {
+//   endpoint: string;
+//   models: Record<string, string>; // alias: 'provider/model-id'
+//   format: 'anthropic' | 'openai'; // The format expected by the target API
+// }
 
 // Standard API Response Contract
 const createResponse = <T>(success: boolean, data: T | null, error: string | null = null): ApiResponse<T> => ({
