@@ -17,9 +17,4 @@ enabled = true
 invocation_logs = true
  
 [vars]
-NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEEPSEEK_V4_PRO_MODEL = "deepseek-ai/deepseek-v4-pro"
-MODEL_HAIKU = "anthropic/claude-3-haiku-20240307"
-MODEL_SONNET = "anthropic/claude-3-5-sonnet-20240620"
-MODEL_OPUS = "anthropic/claude-3-opus-20240229"
-OPENAI_MODEL = "meta/llama-3.1-405b-instruct"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
