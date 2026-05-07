@@ -2,6 +2,8 @@ import { Hono, Context, HonoRequest } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Env, ApiResponse, MessageContentPart, ChatMessage, GenericPayload, ProcessState, ProviderConfig } from './interfaces/general'
+import { createModelsList, ModelDefaultsById, ProviderConfigs, resolveModel } from './config/providers'
+import { ProviderError } from './errors/provider-error'
 
 // Process States Contract
 const ProcessStates = {
@@ -10,6 +12,12 @@ const ProcessStates = {
   COMPLETED: 'completed',
   FAILED: 'failed'
 } as const
+
+const DEFAULT_MAX_TOKENS = 32768
+const DEFAULT_MAX_TEMP = 1
+const DEFAULT_MAX_TOP_P = 1
+const DEFAULT_IS_STREAMING = false
+const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'content'])
 
 // =============================================================================
 // STRUCTURED PROMPT-DRIVEN DEVELOPMENT PATTERN
@@ -22,16 +30,6 @@ const createResponse = <T>(success: boolean, data: T | null, error: string | nul
   error,
   timestamp: new Date().toISOString()
 })
-
-class ProviderError extends Error {
-  status: ContentfulStatusCode
-
-  constructor(message: string, status: ContentfulStatusCode) {
-    super(message)
-    this.name = 'ProviderError'
-    this.status = status
-  }
-}
 
 // --- Adapted for Durable Objects ---
 // This function takes a Request object and returns a parsed payload or an error.
@@ -56,94 +54,6 @@ const parseRequestBody = async (request: Request | HonoRequest): Promise<{ paylo
 
   return { payload: genericPayload }
 }
-
-
-
-
-// Provider Configuration Contract
-const ProviderConfigs: Record<string, ProviderConfig> = {
-  claude: {
-    endpoint: '/messages',
-    models: {
-      'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet-20240620',
-      'claude-3-opus': 'anthropic/claude-3-opus-20240229',
-      'claude-3-haiku': 'anthropic/claude-3-haiku-20240307',
-      'anthropic/claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet-20240620',
-      'anthropic/claude-3-opus': 'anthropic/claude-3-opus-20240229',
-      'anthropic/claude-3-haiku': 'anthropic/claude-3-haiku-20240307'
-    },
-    format: 'anthropic'
-  },
-  openai: {
-    endpoint: '/chat/completions',
-    models: {
-      'gpt-oss-120b': 'openai/gpt-oss-120b',
-      'gpt-4o': 'openai/gpt-4o',
-      'gpt-4o-mini': 'openai/gpt-4o-mini',
-      'glm4.7': 'z-ai/glm4.7',
-      'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro',
-      'deepseek-r1': 'deepseek-ai/deepseek-r1',
-      'deepseek-v3': 'deepseek-ai/deepseek-v3',
-      'minimax-m2.7': 'minimaxai/minimax-m2.7',
-      'kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
-      'qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
-      'openai/gpt-oss-120b': 'openai/gpt-oss-120b',
-      'openai/gpt-4o': 'openai/gpt-4o',
-      'openai/gpt-4o-mini': 'openai/gpt-4o-mini',
-      'z-ai/glm4.7': 'z-ai/glm4.7',
-      'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
-      'deepseek/deepseek-r1': 'deepseek/deepseek-r1',
-      'deepseek/deepseek-v3': 'deepseek/deepseek-v3',
-      'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7',
-      'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
-      'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
-    },
-    format: 'openai'
-  }
-}
-
-// Helper to resolve the full model ID from a config.
-const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
-  const aliases = config.models;
-  const fullIds = Object.values(aliases);
-
-  if (payloadModel) {
-    console.log(`Resolving model for payload model: "${payloadModel}" with config format: "${config.format}"`);
-    if (aliases[payloadModel]) {
-      return aliases[payloadModel]; // Found an alias
-    }
-    // Allow passing full model ID directly
-    if (fullIds.includes(payloadModel)) {
-      return payloadModel;
-    }
-    // If it's not an alias and not a full ID, assume it's an unsupported alias
-    throw new Error(
-      `Model alias "${payloadModel}" is not supported by this provider config. Supported aliases: ${Object.keys(aliases).join(', ')}`
-    );
-  }
-
-  // Return the default model if none is specified
-  const defaultAlias = Object.keys(aliases)[0];
-  return aliases[defaultAlias];
-}
-
-const createModelsList = (providerName: string) => {
-  const config = ProviderConfigs[providerName]
-  const created = 0
-  const modelsData = Object.keys(config.models).map((id) => ({
-    id,
-    object: 'model',
-    created,
-    owned_by: config.models[id].split('/')[0] || providerName,
-  }));
-  
-  console.log("modelsdata", JSON.stringify(modelsData));
-  return {
-    object: 'list',
-    data: modelsData,
-  }
-}
-
 /**
  * CORE BUSINESS LOGIC MODULES
  */
@@ -323,6 +233,7 @@ class NIMProvider {
   // Modified to accept GenericPayload and transform it for specific providers
   transformRequest(payload: GenericPayload, config: ProviderConfig): unknown {
     const model = resolveModel(config, payload.model); // Use the resolved model
+    const modelDefaults = ModelDefaultsById[model] ?? {}
 
     // Prepare messages, checking for both 'messages' array and 'content' string/array
     let messages: ChatMessage[] = [];
@@ -346,24 +257,17 @@ class NIMProvider {
     const commonPayload: Record<string, unknown> = {
       model: model, // Use the resolved model ID
       messages: messages,
-      temperature: payload.temperature ?? (config.format === 'openai' ? 0.7 : 1.0), // Default temps
-      top_p: payload.top_p ?? 1,
-      max_tokens: payload.max_tokens ?? (config.format === 'openai' ? 2048 : 32768), // Default max_tokens
-      stream: payload.stream ?? false,
+      temperature: payload.temperature ?? modelDefaults.temperature ?? DEFAULT_MAX_TEMP,
+      top_p: payload.top_p ?? modelDefaults.top_p ?? DEFAULT_MAX_TOP_P,
+      max_tokens: payload.max_tokens ?? modelDefaults.max_tokens ?? DEFAULT_MAX_TOKENS,
+      stream: payload.stream ?? modelDefaults.stream ?? DEFAULT_IS_STREAMING,
     };
 
-    // Add provider-specific fields by merging payload's unknown fields
-    // This allows passing fields like 'chat_template_kwargs' from GenericPayload
-    for (const key in payload) {
-      // Avoid overwriting common fields already handled, unless the payload explicitly provides them
-      if (!(key in commonPayload) || payload[key] !== undefined) {
-        // Handle potential specific fields like chat_template_kwargs if they exist in payload
-        if (key === 'chat_template_kwargs' && config.format === 'openai') { // Example: GLM needs this, assume OpenAI format can handle it or we transform later
-          commonPayload[key] = payload[key];
-        } else if (key !== 'provider' && key !== 'model' && key !== 'content' && key !== 'messages') { // Don't re-add already processed or routing fields
-          commonPayload[key] = payload[key];
-        }
-      }
+    // Forward OpenAI/NVIDIA-compatible params such as tools, tool_choice,
+    // response_format, stop, seed, penalties, stream_options, or chat_template_kwargs.
+    for (const [key, value] of Object.entries(payload)) {
+      if (ROUTING_PAYLOAD_KEYS.has(key) || value === undefined) continue
+      commonPayload[key] = value
     }
 
     return commonPayload;
