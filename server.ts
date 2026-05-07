@@ -23,7 +23,17 @@ const createResponse = <T>(success: boolean, data: T | null, error: string | nul
   timestamp: new Date().toISOString()
 })
 
-// --- Adapted parseJSONBody for Durable Objects ---
+class ProviderError extends Error {
+  status: ContentfulStatusCode
+
+  constructor(message: string, status: ContentfulStatusCode) {
+    super(message)
+    this.name = 'ProviderError'
+    this.status = status
+  }
+}
+
+// --- Adapted for Durable Objects ---
 // This function takes a Request object and returns a parsed payload or an error.
 // Modified to accept HonoRequest as well, by using request.json() which is available on both.
 const parseRequestBody = async (request: Request | HonoRequest): Promise<{ payload: GenericPayload; error?: undefined; status?: undefined } | { error: string; status: ContentfulStatusCode; payload?: undefined }> => {
@@ -53,7 +63,7 @@ const parseRequestBody = async (request: Request | HonoRequest): Promise<{ paylo
 // Provider Configuration Contract
 const ProviderConfigs: Record<string, ProviderConfig> = {
   claude: {
-    endpoint: '/claude/v1/messages',
+    endpoint: '/messages',
     models: {
       'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet-20240620',
       'claude-3-opus': 'anthropic/claude-3-opus-20240229',
@@ -65,7 +75,7 @@ const ProviderConfigs: Record<string, ProviderConfig> = {
     format: 'anthropic'
   },
   openai: {
-    endpoint: '/openai/v1/chat/completions',
+    endpoint: '/chat/completions',
     models: {
       'gpt-oss-120b': 'openai/gpt-oss-120b',
       'gpt-4o': 'openai/gpt-4o',
@@ -74,16 +84,17 @@ const ProviderConfigs: Record<string, ProviderConfig> = {
       'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro',
       'deepseek-r1': 'deepseek-ai/deepseek-r1',
       'deepseek-v3': 'deepseek-ai/deepseek-v3',
-
-
+      'minimax-m2.7': 'minimaxai/minimax-m2.7',
+      'kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
       'openai/gpt-oss-120b': 'openai/gpt-oss-120b',
       'openai/gpt-4o': 'openai/gpt-4o',
       'openai/gpt-4o-mini': 'openai/gpt-4o-mini',
       'z-ai/glm4.7': 'z-ai/glm4.7',
       'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
       'deepseek/deepseek-r1': 'deepseek/deepseek-r1',
-      'deepseek/deepseek-v3': 'deepseek/deepseek-v3'
-
+      'deepseek/deepseek-v3': 'deepseek/deepseek-v3',
+      'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7',
+      'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
     },
     format: 'openai'
   }
@@ -112,6 +123,21 @@ const resolveModel = (config: ProviderConfig, payloadModel: string | null | unde
   // Return the default model if none is specified
   const defaultAlias = Object.keys(aliases)[0];
   return aliases[defaultAlias];
+}
+
+const createModelsList = (providerName: string) => {
+  const config = ProviderConfigs[providerName]
+  const created = 0
+
+  return {
+    object: 'list',
+    data: Object.keys(config.models).map((id) => ({
+      id,
+      object: 'model',
+      created,
+      owned_by: config.models[id].split('/')[0] || providerName,
+    })),
+  }
 }
 
 /**
@@ -153,51 +179,261 @@ class RateLimiter {
 class NIMProvider {
   private apiKey: string
   private baseUrl: string
+  private readonly responseTimeoutMs = 180_000
 
   constructor(apiKey: string, baseUrl: string) {
     this.apiKey = apiKey
     this.baseUrl = baseUrl
   }
 
-  async makeRequest(endpoint: string, payload: unknown, configFormat: string): Promise<unknown> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`
-    }
+  private async readErrorBody(response: Response): Promise<unknown> {
+    const text = await response.text().catch(() => '')
+    if (!text) return '<empty>'
 
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      })
-
-      if (!response.ok) {
-        let errorMessage = `NIM API Error: ${response.status} ${response.statusText}`;
-        try {
-          const errorBody = await response.json();
-          if (typeof errorBody === 'object' && errorBody !== null && 'error' in errorBody) {
-            errorMessage = `NIM API Error: ${response.status} - ${JSON.stringify(errorBody.error)}`;
-          } else if (typeof errorBody === 'object' && errorBody !== null && 'message' in errorBody) {
-            errorMessage = `NIM API Error: ${response.status} - ${errorBody.message}`;
-          } else if (typeof errorBody === 'object' && errorBody !== null) {
-            errorMessage = `NIM API Error: ${response.status} - ${JSON.stringify(errorBody)}`;
-          }
-        } catch (e) {
-          console.warn("Could not parse error response body from NIM API:", e);
-        }
-        throw new Error(errorMessage);
-      }
-
-      return await response.json()
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`NIM Provider Error: ${error.message}`)
-      } else {
-        throw new Error(`NIM Provider Error: An unknown error occurred`)
-      }
+      return JSON.parse(text)
+    } catch {
+      return text
     }
   }
+
+  private createAbortTimeout(requestId: string): { signal: AbortSignal; clear: () => void } {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      console.warn(`[${requestId}] ⚠ Timeout propio alcanzado — abortando request`)
+      controller.abort()
+    }, this.responseTimeoutMs)
+
+    return {
+      signal: controller.signal,
+      clear: () => clearTimeout(timeoutId),
+    }
+  }
+
+  // async makeRequest(endpoint: string,payload: unknown, configFormat: string): Promise<unknown> {
+  //   try {
+  //     const uri = `${this.baseUrl}${endpoint}`;
+  //     console.log(`Making request to NIM API at ${uri} with payload:`);
+  //     const response = await fetch(uri, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': `Bearer ${this.apiKey}`
+  //       },
+  //       body: JSON.stringify(payload)
+  //     })
+  //     console.log("response:" + JSON.stringify(response));
+  //     if (!response.ok) {
+  //       let errorMessage = `NIM API Error: ${response.status} ${response.statusText}`;
+  //       try {
+  //         const errorBody = await response.json();
+  //         if (typeof errorBody === 'object' && errorBody !== null && 'error' in errorBody) {
+  //           errorMessage = `NIM API Error: ${response.status} - ${JSON.stringify(errorBody.error)}`;
+  //         } else if (typeof errorBody === 'object' && errorBody !== null && 'message' in errorBody) {
+  //           errorMessage = `NIM API Error: ${response.status} - ${errorBody.message}`;
+  //         } else if (typeof errorBody === 'object' && errorBody !== null) {
+  //           errorMessage = `NIM API Error: ${response.status} - ${JSON.stringify(errorBody)}`;
+  //         }
+  //       } catch (e) {
+  //         console.warn("Could not parse error response body from NIM API:", e);
+  //       }
+  //       throw new Error(errorMessage);
+  //     }
+
+  //     return await response.json()
+  //   } catch (error) {
+  //     if (error instanceof Error) {
+  //       throw new Error(`NIM Provider Error: ${error.message}`)
+  //     } else {
+  //       throw new Error(`NIM Provider Error: An unknown error occurred`)
+  //     }
+  //   }
+  // }
+
+  // async makeRequest(
+  //   endpoint: string,
+  //   payload: unknown,
+  //   _configFormat: string,
+  //   onChunk?: (chunk: unknown) => void
+  // ): Promise<unknown> {
+  //   const p = payload as Record<string, unknown>
+  //   const isStream = p.stream === true
+  //   console.log("streaming:", isStream);
+  //   const uri = `${this.baseUrl}${endpoint}`
+  //   console.log("uri formated: ", uri);
+  //   const response = await fetch(uri, {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //       'Authorization': `Bearer ${this.apiKey}`,
+  //     },
+  //     body: JSON.stringify(payload),
+  //   })
+
+  //   if (!response.ok) {
+  //     let errorMessage = `Nvidia API Error: ${response.status} ${response.statusText}`
+  //     try {
+  //       const errorBody = await response.json() as Record<string, unknown>
+  //       errorMessage = `Nvidia API Error: ${response.status} - ${JSON.stringify(errorBody.error ?? errorBody.message ?? errorBody)}`
+  //     } catch { /* not parseable */ }
+  //     throw new Error(errorMessage)
+  //   }
+
+  //   // without streaming, just return the full response as JSON
+  //   if (!isStream) {
+  //     return response.json()
+  //   }
+
+  //   // with streaming 
+  //   const reader = response.body?.getReader()
+  //   if (!reader) throw new Error('NIM Provider Error: No response body for streaming')
+
+  //   const decoder = new TextDecoder()
+  //   let fullContent = ''
+  //   let fullReasoning = ''
+  //   let lastData: Record<string, unknown> = {}
+
+  //   while (true) {
+  //     const { done, value } = await reader.read()
+  //     if (done) break
+
+  //     const lines = decoder.decode(value, { stream: true }).split('\n')
+  //     for (const line of lines) {
+  //       if (!line.startsWith('data: ') || line.trim() === 'data: [DONE]') continue
+  //       try {
+  //         const chunk = JSON.parse(line.slice(6)) as Record<string, unknown>
+  //         const delta = (chunk.choices as Array<{ delta?: { content?: string; reasoning_content?: string } }>)?.[0]?.delta
+  //         if (delta?.reasoning_content) fullReasoning += delta.reasoning_content
+  //         if (delta?.content) fullContent += delta.content
+  //         lastData = chunk
+
+  //         // emit every chunk to Durable Object through callback
+  //         onChunk?.(chunk)
+  //       } catch { /* chunk mal formado */ }
+  //     }
+  //   }
+
+  //   // all chunks received, return the full content in the same structure as a non-streaming response,
+  //   // using the last chunk's metadata (like finish_reason) but replacing the content with the full accumulated content. 
+  //   return {
+  //     ...lastData,
+  //     choices: [{
+  //       ...((lastData.choices as unknown[])?.[0] ?? {}),
+  //       message: {
+  //         role: 'assistant',
+  //         content: fullContent,
+  //         ...(fullReasoning ? { reasoning_content: fullReasoning } : {}),
+  //       },
+  //       finish_reason: ((lastData.choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason) ?? 'stop',
+  //     }],
+  //   }
+  // }
+
+  async makeStreamRequest(payload: unknown): Promise<Response> {
+    const requestId = crypto.randomUUID().slice(0, 8)
+    const uri = `${this.baseUrl}/chat/completions`
+    const timeout = this.createAbortTimeout(requestId)
+
+    console.log(`[${requestId}] → Stream request`, {
+      uri,
+      model: (payload as Record<string, unknown>).model,
+    })
+
+    let response: Response
+    try {
+      response = await fetch(uri, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: timeout.signal,
+      })
+    } catch (err) {
+      timeout.clear()
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error(`[${requestId}] ✘ Timeout — NVIDIA no respondió a tiempo`)
+        throw new ProviderError('NIM Provider Error: Timeout esperando respuesta de NVIDIA', 504 as ContentfulStatusCode)
+      }
+      console.error(`[${requestId}] ✘ Error de red`, { error: err instanceof Error ? err.message : err })
+      throw new ProviderError(`NIM Provider Error (red): ${err instanceof Error ? err.message : 'unknown'}`, 502 as ContentfulStatusCode)
+    }
+
+    timeout.clear()
+
+    console.log(`[${requestId}] ← Respuesta upstream`, {
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+    })
+
+    if (!response.ok) {
+      const errorBody = await this.readErrorBody(response)
+      console.error(`[${requestId}] ✘ Upstream error`, { status: response.status, body: errorBody })
+      throw new ProviderError(`NIM API Error: ${response.status} — ${JSON.stringify(errorBody)}`, response.status as ContentfulStatusCode)
+    }
+
+    return response
+  }
+
+  // Bufferiza la respuesta completa y la devuelve como objeto
+  async makeRequest(
+    endpoint: string,
+    payload: unknown,
+    _configFormat: string,
+    onChunk?: (chunk: unknown) => void
+  ): Promise<unknown> {
+    const requestId = crypto.randomUUID().slice(0, 8)
+    const uri = `${this.baseUrl}${endpoint}`
+    const timeout = this.createAbortTimeout(requestId)
+
+    console.log(`[${requestId}] → Request`, {
+      uri,
+      model: (payload as Record<string, unknown>).model,
+      messages: ((payload as Record<string, unknown>).messages as unknown[])?.length ?? 0,
+    })
+
+    let response: Response
+    try {
+      response = await fetch(uri, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: timeout.signal,
+      })
+    } catch (err) {
+      timeout.clear()
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error(`[${requestId}] ✘ Timeout — NVIDIA no respondió a tiempo`)
+        throw new ProviderError('NIM Provider Error: Timeout esperando respuesta de NVIDIA', 504 as ContentfulStatusCode)
+      }
+      console.error(`[${requestId}] ✘ Error de red`, { error: err instanceof Error ? err.message : err })
+      throw new ProviderError(`NIM Provider Error (red): ${err instanceof Error ? err.message : 'unknown'}`, 502 as ContentfulStatusCode)
+    }
+
+    timeout.clear()
+
+    console.log(`[${requestId}] ← Respuesta recibida`, {
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+    })
+
+    if (!response.ok) {
+      const errorBody = await this.readErrorBody(response)
+      console.error(`[${requestId}] ✘ Error del servidor`, { status: response.status, body: errorBody })
+      throw new ProviderError(`NIM API Error: ${response.status} — ${JSON.stringify(errorBody)}`, response.status as ContentfulStatusCode)
+    }
+
+    const json = await response.json()
+    console.log(`[${requestId}] ✔ Completada`, {
+      finish_reason: ((json as Record<string, unknown>).choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason,
+    })
+    return json
+  }
+
 
   // Modified to accept GenericPayload and transform it for specific providers
   transformRequest(payload: GenericPayload, config: ProviderConfig): unknown {
@@ -291,7 +527,6 @@ export class ProcessorDurableObject {
 
   private async startProcess(request: Request): Promise<Response> {
     try {
-      // Use the adapted parseRequestBody helper
       const result = await parseRequestBody(request)
       if (result.error) {
         return Response.json(createResponse(false, null, result.error), { status: result.status })
@@ -336,52 +571,102 @@ export class ProcessorDurableObject {
     }
   }
 
+  // private async processAsync(data: GenericPayload): Promise<void> {
+  //   try {
+  //     await this.updateProgress(ProcessStates.PROCESSING, 10)
+
+  //     for (let i = 20; i <= 80; i += 20) {
+  //       await new Promise(resolve => setTimeout(resolve, 1000))
+  //       await this.updateProgress(ProcessStates.PROCESSING, i)
+  //     }
+
+  //     const providerName = data.provider || 'openai';
+  //     const config = ProviderConfigs[providerName] || ProviderConfigs.openai;
+
+  //     const transformedPayload = this.nimProvider.transformRequest(data, config);
+  //     const result = await this.nimProvider.makeRequest(config.endpoint, transformedPayload, config.format);
+
+  //     await this.state.storage.put('processState', {
+  //       status: ProcessStates.COMPLETED,
+  //       data: data,
+  //       result: result,
+  //       progress: 100,
+  //       completedAt: Date.now()
+  //     } satisfies ProcessState)
+
+  //     this.broadcastUpdate({
+  //       status: ProcessStates.COMPLETED,
+  //       progress: 100,
+  //       result
+  //     })
+
+  //   } catch (error) {
+  //     console.error('Process Async Error:', error);
+  //     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+  //     await this.state.storage.put('processState', {
+  //       status: ProcessStates.FAILED,
+  //       data: data,
+  //       error: errorMessage,
+  //       progress: 0,
+  //       failedAt: Date.now()
+  //     } satisfies ProcessState)
+
+  //     this.broadcastUpdate({
+  //       status: ProcessStates.FAILED,
+  //       error: errorMessage
+  //     })
+  //   }
+  // }
+
   private async processAsync(data: GenericPayload): Promise<void> {
     try {
       await this.updateProgress(ProcessStates.PROCESSING, 10)
 
-      for (let i = 20; i <= 80; i += 20) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        await this.updateProgress(ProcessStates.PROCESSING, i)
-      }
+      const providerName = data.provider || 'openai'
+      const config = ProviderConfigs[providerName] || ProviderConfigs.openai
+      const transformedPayload = this.nimProvider.transformRequest(data, config)
 
-      const providerName = data.provider || 'openai';
-      const config = ProviderConfigs[providerName] || ProviderConfigs.openai;
-
-      const transformedPayload = this.nimProvider.transformRequest(data, config);
-      const result = await this.nimProvider.makeRequest(config.endpoint, transformedPayload, config.format);
+      // 👇 Si el payload pide stream, cada chunk llega por WebSocket en tiempo real
+      const result = await this.nimProvider.makeRequest(
+        config.endpoint,
+        transformedPayload,
+        config.format,
+        (chunk) => {
+          this.broadcastUpdate({
+            status: ProcessStates.PROCESSING,
+            chunk, // el cliente recibe cada token por WebSocket
+          })
+        }
+      )
 
       await this.state.storage.put('processState', {
         status: ProcessStates.COMPLETED,
-        data: data,
-        result: result,
+        data,
+        result,
         progress: 100,
-        completedAt: Date.now()
+        completedAt: Date.now(),
       } satisfies ProcessState)
 
       this.broadcastUpdate({
         status: ProcessStates.COMPLETED,
         progress: 100,
-        result
+        result,
       })
 
     } catch (error) {
-      console.error('Process Async Error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
       await this.state.storage.put('processState', {
         status: ProcessStates.FAILED,
-        data: data,
+        data,
         error: errorMessage,
         progress: 0,
-        failedAt: Date.now()
+        failedAt: Date.now(),
       } satisfies ProcessState)
 
-      this.broadcastUpdate({
-        status: ProcessStates.FAILED,
-        error: errorMessage
-      })
+      this.broadcastUpdate({ status: ProcessStates.FAILED, error: errorMessage })
     }
   }
+
 
   private async updateProgress(status: string, progress: number): Promise<void> {
     const currentState = await this.state.storage.get<ProcessState>('processState')
@@ -475,10 +760,6 @@ app.onError((err, c) => {
   return c.json(createResponse(false, null, `Internal Server Error: ${errorMessage}`), { status: 500 })
 })
 
-/**
- * ROUTE DEFINITIONS - SYNCHRONOUS PROVIDERS
- */
-
 const createProviderRoute = (providerName: string) => {
   return async (c: Context<{ Bindings: Env }>) => {
     try {
@@ -487,7 +768,6 @@ const createProviderRoute = (providerName: string) => {
         return c.json(createResponse(false, null, `Unknown provider: ${providerName}`), { status: 400 })
       }
 
-      // Pass c.req directly to parseRequestBody, as it now accepts HonoRequest
       const result = await parseRequestBody(c.req)
       if (result.error) {
         return c.json(createResponse(false, null, result.error), { status: result.status })
@@ -495,22 +775,71 @@ const createProviderRoute = (providerName: string) => {
 
       const nim = getNIMProvider(c.env)
       const transformedPayload = nim.transformRequest(result.payload!, config)
-      const response = await nim.makeRequest(config.endpoint, transformedPayload, config.format)
+      const isStream = (transformedPayload as Record<string, unknown>).stream === true
 
+      if (isStream) {
+        const upstream = await nim.makeStreamRequest(transformedPayload)
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        })
+      }
+
+      const response = await nim.makeRequest(config.endpoint, transformedPayload, config.format)
       return c.json(createResponse(true, response))
 
     } catch (error) {
-      console.error(`${providerName} Provider Error:`, error)
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      return c.json(createResponse(false, null, `Provider error: ${errorMessage}`), { status: 500 })
+      console.error(`[${providerName}] ✘ Provider Error:`, error)
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
+      const status = error instanceof ProviderError ? error.status : 500
+      return c.json(createResponse(false, null, `Provider error: ${errorMessage}`), { status })
     }
   }
 }
+
+/**
+ * ROUTE DEFINITIONS - SYNCHRONOUS PROVIDERS
+ */
+
+// const createProviderRoute = (providerName: string) => {
+//   return async (c: Context<{ Bindings: Env }>) => {
+//     try {
+//       const config = ProviderConfigs[providerName]
+//       if (!config) {
+//         return c.json(createResponse(false, null, `Unknown provider: ${providerName}`), { status: 400 })
+//       }
+
+//       // accepts HonoRequest
+//       const result = await parseRequestBody(c.req)
+//       if (result.error) {
+//         console.log("Error: " + result.error);
+//         return c.json(createResponse(false, null, result.error), { status: result.status })
+//       }
+
+//       const nim = getNIMProvider(c.env)
+//       const transformedPayload = nim.transformRequest(result.payload!, config)
+//       const response = await nim.makeRequest(config.endpoint, transformedPayload, config.format)
+
+//       return c.json(createResponse(true, response))
+
+//     } catch (error) {
+//       console.error(`${providerName} Provider Error:`, error)
+//       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+//       return c.json(createResponse(false, null, `Provider error: ${errorMessage}`), { status: 500 })
+//     }
+//   }
+// }
 
 // Register routes for specific providers
 app.post('/deepseek/v1/chat/completions', createProviderRoute('deepseek'))
 app.post('/claude/v1/messages', createProviderRoute('claude'))
 app.post('/openai/v1/chat/completions', createProviderRoute('openai'))
+app.get('/openai/v1/models', (c) => c.json(createModelsList('openai')))
+app.get('/openai/models', (c) => c.json(createModelsList('openai')))
 
 /**
  * ROUTE DEFINITIONS - ASYNCHRONOUS PROCESSING

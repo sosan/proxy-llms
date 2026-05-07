@@ -10,4 +10,7 @@
 .env
 .local
 .env
-.cline/*
+.cline/
+node_modules/
+.wrangler/
+.env

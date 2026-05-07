@@ -11,29 +11,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "hono": "^4.0.0"
+    "hono": "^4.12.17"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.0.0",
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "wrangler": "^4.87.0"
+    "@cloudflare/workers-types": "^4.20260506.1",
+    "@types/node": "25.6.0",
+    "typescript": "6.0.3",
+    "wrangler": "^4.88.0"
   },
-  "keywords": [
-    "cloudflare-workers",
-    "durable-objects",
-    "ai-proxy",
-    "structured-development",
-    "nvidia-nim"
-  ],
-  "architecture": {
-    "pattern": "Structured-Prompt-Driven Development",
-    "principles": [
-      "Explicit contracts and interfaces",
-      "Self-documenting code structure",
-      "Clear separation of concerns",
-      "Event-driven async processing",
-      "Standardized error handling"
-    ]
+  "volta": {
+    "node": "24.15.0"
   }
 }
