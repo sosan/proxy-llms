@@ -123,14 +123,15 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
 export const createModelsList = (providerName: string) => {
   const config = ProviderConfigs[providerName]
   const created = 0
+  const aliases = Object.entries(config.models).filter(([id, resolvedId]) => id !== resolvedId)
 
   return {
     object: 'list',
-    data: Object.keys(config.models).map((id) => ({
+    data: aliases.map(([id, resolvedId]) => ({
       id,
       object: 'model',
       created,
-      owned_by: config.models[id].split('/')[0] || providerName,
+      owned_by: resolvedId.split('/')[0] || providerName,
     })),
   }
 }

@@ -17,7 +17,7 @@ const DEFAULT_MAX_TOKENS = 32768
 const DEFAULT_MAX_TEMP = 1
 const DEFAULT_MAX_TOP_P = 1
 const DEFAULT_IS_STREAMING = false
-const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'content'])
+const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'model', 'messages', 'content'])
 
 // =============================================================================
 // STRUCTURED PROMPT-DRIVEN DEVELOPMENT PATTERN
