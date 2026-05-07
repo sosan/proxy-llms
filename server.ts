@@ -210,128 +210,9 @@ class NIMProvider {
     }
   }
 
-  // async makeRequest(endpoint: string,payload: unknown, configFormat: string): Promise<unknown> {
-  //   try {
-  //     const uri = `${this.baseUrl}${endpoint}`;
-  //     console.log(`Making request to NIM API at ${uri} with payload:`);
-  //     const response = await fetch(uri, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         'Authorization': `Bearer ${this.apiKey}`
-  //       },
-  //       body: JSON.stringify(payload)
-  //     })
-  //     console.log("response:" + JSON.stringify(response));
-  //     if (!response.ok) {
-  //       let errorMessage = `NIM API Error: ${response.status} ${response.statusText}`;
-  //       try {
-  //         const errorBody = await response.json();
-  //         if (typeof errorBody === 'object' && errorBody !== null && 'error' in errorBody) {
-  //           errorMessage = `NIM API Error: ${response.status} - ${JSON.stringify(errorBody.error)}`;
-  //         } else if (typeof errorBody === 'object' && errorBody !== null && 'message' in errorBody) {
-  //           errorMessage = `NIM API Error: ${response.status} - ${errorBody.message}`;
-  //         } else if (typeof errorBody === 'object' && errorBody !== null) {
-  //           errorMessage = `NIM API Error: ${response.status} - ${JSON.stringify(errorBody)}`;
-  //         }
-  //       } catch (e) {
-  //         console.warn("Could not parse error response body from NIM API:", e);
-  //       }
-  //       throw new Error(errorMessage);
-  //     }
-
-  //     return await response.json()
-  //   } catch (error) {
-  //     if (error instanceof Error) {
-  //       throw new Error(`NIM Provider Error: ${error.message}`)
-  //     } else {
-  //       throw new Error(`NIM Provider Error: An unknown error occurred`)
-  //     }
-  //   }
-  // }
-
-  // async makeRequest(
-  //   endpoint: string,
-  //   payload: unknown,
-  //   _configFormat: string,
-  //   onChunk?: (chunk: unknown) => void
-  // ): Promise<unknown> {
-  //   const p = payload as Record<string, unknown>
-  //   const isStream = p.stream === true
-  //   console.log("streaming:", isStream);
-  //   const uri = `${this.baseUrl}${endpoint}`
-  //   console.log("uri formated: ", uri);
-  //   const response = await fetch(uri, {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //       'Authorization': `Bearer ${this.apiKey}`,
-  //     },
-  //     body: JSON.stringify(payload),
-  //   })
-
-  //   if (!response.ok) {
-  //     let errorMessage = `Nvidia API Error: ${response.status} ${response.statusText}`
-  //     try {
-  //       const errorBody = await response.json() as Record<string, unknown>
-  //       errorMessage = `Nvidia API Error: ${response.status} - ${JSON.stringify(errorBody.error ?? errorBody.message ?? errorBody)}`
-  //     } catch { /* not parseable */ }
-  //     throw new Error(errorMessage)
-  //   }
-
-  //   // without streaming, just return the full response as JSON
-  //   if (!isStream) {
-  //     return response.json()
-  //   }
-
-  //   // with streaming 
-  //   const reader = response.body?.getReader()
-  //   if (!reader) throw new Error('NIM Provider Error: No response body for streaming')
-
-  //   const decoder = new TextDecoder()
-  //   let fullContent = ''
-  //   let fullReasoning = ''
-  //   let lastData: Record<string, unknown> = {}
-
-  //   while (true) {
-  //     const { done, value } = await reader.read()
-  //     if (done) break
-
-  //     const lines = decoder.decode(value, { stream: true }).split('\n')
-  //     for (const line of lines) {
-  //       if (!line.startsWith('data: ') || line.trim() === 'data: [DONE]') continue
-  //       try {
-  //         const chunk = JSON.parse(line.slice(6)) as Record<string, unknown>
-  //         const delta = (chunk.choices as Array<{ delta?: { content?: string; reasoning_content?: string } }>)?.[0]?.delta
-  //         if (delta?.reasoning_content) fullReasoning += delta.reasoning_content
-  //         if (delta?.content) fullContent += delta.content
-  //         lastData = chunk
-
-  //         // emit every chunk to Durable Object through callback
-  //         onChunk?.(chunk)
-  //       } catch { /* chunk mal formado */ }
-  //     }
-  //   }
-
-  //   // all chunks received, return the full content in the same structure as a non-streaming response,
-  //   // using the last chunk's metadata (like finish_reason) but replacing the content with the full accumulated content. 
-  //   return {
-  //     ...lastData,
-  //     choices: [{
-  //       ...((lastData.choices as unknown[])?.[0] ?? {}),
-  //       message: {
-  //         role: 'assistant',
-  //         content: fullContent,
-  //         ...(fullReasoning ? { reasoning_content: fullReasoning } : {}),
-  //       },
-  //       finish_reason: ((lastData.choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason) ?? 'stop',
-  //     }],
-  //   }
-  // }
-
-  async makeStreamRequest(payload: unknown): Promise<Response> {
+  async makeStreamRequest(endpoint: string, payload: unknown): Promise<Response> {
     const requestId = crypto.randomUUID().slice(0, 8)
-    const uri = `${this.baseUrl}/chat/completions`
+    const uri = `${this.baseUrl}${endpoint}`
     const timeout = this.createAbortTimeout(requestId)
 
     console.log(`[${requestId}] → Stream request`, {
@@ -571,53 +452,6 @@ export class ProcessorDurableObject {
     }
   }
 
-  // private async processAsync(data: GenericPayload): Promise<void> {
-  //   try {
-  //     await this.updateProgress(ProcessStates.PROCESSING, 10)
-
-  //     for (let i = 20; i <= 80; i += 20) {
-  //       await new Promise(resolve => setTimeout(resolve, 1000))
-  //       await this.updateProgress(ProcessStates.PROCESSING, i)
-  //     }
-
-  //     const providerName = data.provider || 'openai';
-  //     const config = ProviderConfigs[providerName] || ProviderConfigs.openai;
-
-  //     const transformedPayload = this.nimProvider.transformRequest(data, config);
-  //     const result = await this.nimProvider.makeRequest(config.endpoint, transformedPayload, config.format);
-
-  //     await this.state.storage.put('processState', {
-  //       status: ProcessStates.COMPLETED,
-  //       data: data,
-  //       result: result,
-  //       progress: 100,
-  //       completedAt: Date.now()
-  //     } satisfies ProcessState)
-
-  //     this.broadcastUpdate({
-  //       status: ProcessStates.COMPLETED,
-  //       progress: 100,
-  //       result
-  //     })
-
-  //   } catch (error) {
-  //     console.error('Process Async Error:', error);
-  //     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-  //     await this.state.storage.put('processState', {
-  //       status: ProcessStates.FAILED,
-  //       data: data,
-  //       error: errorMessage,
-  //       progress: 0,
-  //       failedAt: Date.now()
-  //     } satisfies ProcessState)
-
-  //     this.broadcastUpdate({
-  //       status: ProcessStates.FAILED,
-  //       error: errorMessage
-  //     })
-  //   }
-  // }
-
   private async processAsync(data: GenericPayload): Promise<void> {
     try {
       await this.updateProgress(ProcessStates.PROCESSING, 10)
@@ -778,7 +612,7 @@ const createProviderRoute = (providerName: string) => {
       const isStream = (transformedPayload as Record<string, unknown>).stream === true
 
       if (isStream) {
-        const upstream = await nim.makeStreamRequest(transformedPayload)
+        const upstream = await nim.makeStreamRequest(config.endpoint, transformedPayload)
         return new Response(upstream.body, {
           status: upstream.status,
           headers: {
@@ -804,35 +638,6 @@ const createProviderRoute = (providerName: string) => {
 /**
  * ROUTE DEFINITIONS - SYNCHRONOUS PROVIDERS
  */
-
-// const createProviderRoute = (providerName: string) => {
-//   return async (c: Context<{ Bindings: Env }>) => {
-//     try {
-//       const config = ProviderConfigs[providerName]
-//       if (!config) {
-//         return c.json(createResponse(false, null, `Unknown provider: ${providerName}`), { status: 400 })
-//       }
-
-//       // accepts HonoRequest
-//       const result = await parseRequestBody(c.req)
-//       if (result.error) {
-//         console.log("Error: " + result.error);
-//         return c.json(createResponse(false, null, result.error), { status: result.status })
-//       }
-
-//       const nim = getNIMProvider(c.env)
-//       const transformedPayload = nim.transformRequest(result.payload!, config)
-//       const response = await nim.makeRequest(config.endpoint, transformedPayload, config.format)
-
-//       return c.json(createResponse(true, response))
-
-//     } catch (error) {
-//       console.error(`${providerName} Provider Error:`, error)
-//       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-//       return c.json(createResponse(false, null, `Provider error: ${errorMessage}`), { status: 500 })
-//     }
-//   }
-// }
 
 // Register routes for specific providers
 app.post('/deepseek/v1/chat/completions', createProviderRoute('deepseek'))
