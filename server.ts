@@ -86,6 +86,7 @@ const ProviderConfigs: Record<string, ProviderConfig> = {
       'deepseek-v3': 'deepseek-ai/deepseek-v3',
       'minimax-m2.7': 'minimaxai/minimax-m2.7',
       'kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
+      'qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
       'openai/gpt-oss-120b': 'openai/gpt-oss-120b',
       'openai/gpt-4o': 'openai/gpt-4o',
       'openai/gpt-4o-mini': 'openai/gpt-4o-mini',
@@ -95,6 +96,7 @@ const ProviderConfigs: Record<string, ProviderConfig> = {
       'deepseek/deepseek-v3': 'deepseek/deepseek-v3',
       'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7',
       'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
+      'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
     },
     format: 'openai'
   }
@@ -128,15 +130,17 @@ const resolveModel = (config: ProviderConfig, payloadModel: string | null | unde
 const createModelsList = (providerName: string) => {
   const config = ProviderConfigs[providerName]
   const created = 0
-
+  const modelsData = Object.keys(config.models).map((id) => ({
+    id,
+    object: 'model',
+    created,
+    owned_by: config.models[id].split('/')[0] || providerName,
+  }));
+  
+  console.log("modelsdata", JSON.stringify(modelsData));
   return {
     object: 'list',
-    data: Object.keys(config.models).map((id) => ({
-      id,
-      object: 'model',
-      created,
-      owned_by: config.models[id].split('/')[0] || providerName,
-    })),
+    data: modelsData,
   }
 }
 
