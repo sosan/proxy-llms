@@ -5,6 +5,7 @@ export type ModelDefaults = {
   top_p?: number
   max_tokens?: number
   stream?: boolean
+  extra?: Record<string, unknown>
 }
 
 export const ProviderConfigs: Record<string, ProviderConfig> = {
@@ -77,10 +78,15 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     stream: true,
   },
   'deepseek-ai/deepseek-v4-pro': {
-    temperature: 0.2,
+    temperature: 1,
     top_p: 0.95,
-    max_tokens: 32768,
+    max_tokens: 16384,
     stream: true,
+    extra: {
+      chat_template_kwargs: {
+        thinking: false,
+      },
+    },
   },
   'deepseek-ai/deepseek-r1': {
     temperature: 0.6,

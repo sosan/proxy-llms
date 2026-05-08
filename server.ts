@@ -297,6 +297,7 @@ class NIMProvider {
 
     // General payload structure, adaptable for different providers
     const commonPayload: Record<string, unknown> = {
+      ...modelDefaults.extra,
       model: model, // Use the resolved model ID
       messages: messages,
       temperature: payload.temperature ?? modelDefaults.temperature ?? DEFAULT_MAX_TEMP,
