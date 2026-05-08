@@ -93,7 +93,7 @@ class RateLimiter {
 class NIMProvider {
   private apiKey: string
   private baseUrl: string
-  private readonly responseTimeoutMs = 180_000
+  private readonly responseTimeoutMs = 980_000
 
   constructor(apiKey: string, baseUrl: string) {
     this.apiKey = apiKey
@@ -132,6 +132,30 @@ class NIMProvider {
       ...safePayload,
       messages_count: Array.isArray(payloadRecord.messages) ? payloadRecord.messages.length : 0,
     })
+  }
+
+  private createUpstreamError(response: Response, errorBody: unknown): ProviderError {
+    const retryAfter = response.headers.get('retry-after') ?? undefined
+
+    if (response.status === 429) {
+      const retryHint = retryAfter ? ` Retry after ${retryAfter} seconds.` : ''
+
+      return new ProviderError(
+        `NVIDIA API rate limited the request: ${JSON.stringify(errorBody)}`,
+        429 as ContentfulStatusCode,
+        'upstream_rate_limited',
+        `NVIDIA rate limit reached. Wait a bit before retrying or switch to another model.${retryHint}`,
+        retryAfter
+      )
+    }
+
+    return new ProviderError(
+      `NVIDIA API returned ${response.status}: ${JSON.stringify(errorBody)}`,
+      response.status as ContentfulStatusCode,
+      'upstream_error',
+      `NVIDIA returned error ${response.status}.`,
+      retryAfter
+    )
   }
 
   async makeStreamRequest(endpoint: string, payload: unknown): Promise<Response> {
@@ -185,13 +209,12 @@ class NIMProvider {
 
     if (!response.ok) {
       const errorBody = await this.readErrorBody(response)
-      console.error(`[${requestId}] ✘ Upstream error`, { status: response.status, body: errorBody })
-      throw new ProviderError(
-        `NVIDIA API returned ${response.status}: ${JSON.stringify(errorBody)}`,
-        response.status as ContentfulStatusCode,
-        'upstream_error',
-        `NVIDIA returned error ${response.status}.`
-      )
+      console.error(`[${requestId}] ✘ Upstream error`, {
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+        body: errorBody,
+      })
+      throw this.createUpstreamError(response, errorBody)
     }
 
     return response
@@ -255,13 +278,12 @@ class NIMProvider {
 
     if (!response.ok) {
       const errorBody = await this.readErrorBody(response)
-      console.error(`[${requestId}] ✘ Error del servidor`, { status: response.status, body: errorBody })
-      throw new ProviderError(
-        `NVIDIA API returned ${response.status}: ${JSON.stringify(errorBody)}`,
-        response.status as ContentfulStatusCode,
-        'upstream_error',
-        `NVIDIA returned error ${response.status}.`
-      )
+      console.error(`[${requestId}] ✘ Error del servidor`, {
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+        body: errorBody,
+      })
+      throw this.createUpstreamError(response, errorBody)
     }
 
     const json = await response.json()
@@ -582,8 +604,14 @@ const createProviderRoute = (providerName: string) => {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
       const status = error instanceof ProviderError ? error.status : 500
       const publicMessage = error instanceof ProviderError ? error.publicMessage : `Provider error: ${errorMessage}`
-      const errorData = error instanceof ProviderError ? { code: error.code, status } : null
-      return c.json(createResponse(false, errorData, publicMessage), { status })
+      const errorData = error instanceof ProviderError
+        ? { code: error.code, status, ...(error.retryAfter ? { retry_after: error.retryAfter } : {}) }
+        : null
+      const headers = error instanceof ProviderError && error.retryAfter
+        ? { 'Retry-After': error.retryAfter }
+        : undefined
+
+      return c.json(createResponse(false, errorData, publicMessage), { status, headers })
     }
   }
 }
