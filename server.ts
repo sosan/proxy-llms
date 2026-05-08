@@ -124,6 +124,16 @@ class NIMProvider {
     }
   }
 
+  private logUpstreamConfig(requestId: string, payload: unknown): void {
+    const payloadRecord = payload as Record<string, unknown>
+    const { messages: _messages, ...safePayload } = payloadRecord
+
+    console.log(`[${requestId}] → NVIDIA config`, {
+      ...safePayload,
+      messages_count: Array.isArray(payloadRecord.messages) ? payloadRecord.messages.length : 0,
+    })
+  }
+
   async makeStreamRequest(endpoint: string, payload: unknown): Promise<Response> {
     const requestId = crypto.randomUUID().slice(0, 8)
     const uri = `${this.baseUrl}${endpoint}`
@@ -133,6 +143,7 @@ class NIMProvider {
       uri,
       model: (payload as Record<string, unknown>).model,
     })
+    this.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {
@@ -148,11 +159,21 @@ class NIMProvider {
     } catch (err) {
       timeout.clear()
       if (err instanceof Error && err.name === 'AbortError') {
-        console.error(`[${requestId}] ✘ Timeout — NVIDIA no respondió a tiempo`)
-        throw new ProviderError('NIM Provider Error: Timeout esperando respuesta de NVIDIA', 504 as ContentfulStatusCode)
+        console.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
+        throw new ProviderError(
+          'NVIDIA did not send a response before the proxy timeout',
+          504 as ContentfulStatusCode,
+          'upstream_timeout',
+          'NVIDIA took too long to respond. Retry the request or try a faster model.'
+        )
       }
       console.error(`[${requestId}] ✘ Error de red`, { error: err instanceof Error ? err.message : err })
-      throw new ProviderError(`NIM Provider Error (red): ${err instanceof Error ? err.message : 'unknown'}`, 502 as ContentfulStatusCode)
+      throw new ProviderError(
+        `Network error while contacting NVIDIA: ${err instanceof Error ? err.message : 'unknown'}`,
+        502 as ContentfulStatusCode,
+        'upstream_network_error',
+        'Could not connect to NVIDIA. Retry the request in a few seconds.'
+      )
     }
 
     timeout.clear()
@@ -165,7 +186,12 @@ class NIMProvider {
     if (!response.ok) {
       const errorBody = await this.readErrorBody(response)
       console.error(`[${requestId}] ✘ Upstream error`, { status: response.status, body: errorBody })
-      throw new ProviderError(`NIM API Error: ${response.status} — ${JSON.stringify(errorBody)}`, response.status as ContentfulStatusCode)
+      throw new ProviderError(
+        `NVIDIA API returned ${response.status}: ${JSON.stringify(errorBody)}`,
+        response.status as ContentfulStatusCode,
+        'upstream_error',
+        `NVIDIA returned error ${response.status}.`
+      )
     }
 
     return response
@@ -187,6 +213,7 @@ class NIMProvider {
       model: (payload as Record<string, unknown>).model,
       messages: ((payload as Record<string, unknown>).messages as unknown[])?.length ?? 0,
     })
+    this.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {
@@ -202,11 +229,21 @@ class NIMProvider {
     } catch (err) {
       timeout.clear()
       if (err instanceof Error && err.name === 'AbortError') {
-        console.error(`[${requestId}] ✘ Timeout — NVIDIA no respondió a tiempo`)
-        throw new ProviderError('NIM Provider Error: Timeout esperando respuesta de NVIDIA', 504 as ContentfulStatusCode)
+        console.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
+        throw new ProviderError(
+          'NVIDIA did not send a response before the proxy timeout',
+          504 as ContentfulStatusCode,
+          'upstream_timeout',
+          'NVIDIA took too long to respond. Retry the request or try a faster model.'
+        )
       }
       console.error(`[${requestId}] ✘ Error de red`, { error: err instanceof Error ? err.message : err })
-      throw new ProviderError(`NIM Provider Error (red): ${err instanceof Error ? err.message : 'unknown'}`, 502 as ContentfulStatusCode)
+      throw new ProviderError(
+        `Network error while contacting NVIDIA: ${err instanceof Error ? err.message : 'unknown'}`,
+        502 as ContentfulStatusCode,
+        'upstream_network_error',
+        'Could not connect to NVIDIA. Retry the request in a few seconds.'
+      )
     }
 
     timeout.clear()
@@ -219,7 +256,12 @@ class NIMProvider {
     if (!response.ok) {
       const errorBody = await this.readErrorBody(response)
       console.error(`[${requestId}] ✘ Error del servidor`, { status: response.status, body: errorBody })
-      throw new ProviderError(`NIM API Error: ${response.status} — ${JSON.stringify(errorBody)}`, response.status as ContentfulStatusCode)
+      throw new ProviderError(
+        `NVIDIA API returned ${response.status}: ${JSON.stringify(errorBody)}`,
+        response.status as ContentfulStatusCode,
+        'upstream_error',
+        `NVIDIA returned error ${response.status}.`
+      )
     }
 
     const json = await response.json()
@@ -538,7 +580,9 @@ const createProviderRoute = (providerName: string) => {
       console.error(`[${providerName}] ✘ Provider Error:`, error)
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
       const status = error instanceof ProviderError ? error.status : 500
-      return c.json(createResponse(false, null, `Provider error: ${errorMessage}`), { status })
+      const publicMessage = error instanceof ProviderError ? error.publicMessage : `Provider error: ${errorMessage}`
+      const errorData = error instanceof ProviderError ? { code: error.code, status } : null
+      return c.json(createResponse(false, errorData, publicMessage), { status })
     }
   }
 }
