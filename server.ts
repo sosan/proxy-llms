@@ -17,6 +17,7 @@ const DEFAULT_MAX_TOKENS = 32768
 const DEFAULT_MAX_TEMP = 1
 const DEFAULT_MAX_TOP_P = 1
 const DEFAULT_IS_STREAMING = false
+const NVIDIA_RATE_LIMIT_KEY = 'nvidia-upstream'
 const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'model', 'messages', 'content'])
 
 // =============================================================================
@@ -583,6 +584,13 @@ const createProviderRoute = (providerName: string) => {
       const nim = getNIMProvider(c.env)
       const transformedPayload = nim.transformRequest(result.payload!, config)
       const isStream = (transformedPayload as Record<string, unknown>).stream === true
+
+      if (!rateLimiter.isAllowed(NVIDIA_RATE_LIMIT_KEY)) {
+        return c.json(
+          createResponse(false, { code: 'proxy_rate_limited', status: 429 }, 'Proxy rate limit reached before calling NVIDIA. Wait a bit before retrying.'),
+          { status: 429 }
+        )
+      }
 
       if (isStream) {
         const upstream = await nim.makeStreamRequest(config.endpoint, transformedPayload)
