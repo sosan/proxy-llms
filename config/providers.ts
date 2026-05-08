@@ -85,6 +85,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     extra: {
       chat_template_kwargs: {
         thinking: false,
+        reasoning_effort: 'none'
       },
     },
   },
