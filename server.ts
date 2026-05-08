@@ -552,6 +552,7 @@ app.post('/deepseek/v1/chat/completions', createProviderRoute('deepseek'))
 app.post('/claude/v1/messages', createProviderRoute('claude'))
 app.post('/openai/v1/chat/completions', createProviderRoute('openai'))
 app.get('/openai/v1/models', (c) => c.json(createModelsList('openai')))
+app.get('/claude/v1/models', (c) => c.json(createModelsList('claude')));
 app.get('/openai/models', (c) => c.json(createModelsList('openai')))
 
 /**

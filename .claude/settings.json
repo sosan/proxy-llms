@@ -1,0 +1,103 @@
+{
+  "autoMemoryEnabled": true,
+  "alwaysThinkingEnabled": true,
+  "showThinkingSummaries": true,
+  "env": {
+    "CLAUDE_CODE_AUTO_CONNECT_IDE": "true",
+    "DISABLE_ERROR_REPORTING": "1",
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(ls:*)",
+      "Bash(npm run typecheck)",
+      "Bash(rg:*)",
+      "Bash(sed:*)",
+      "Bash(wc:*)",
+      "Edit(.claude/**)",
+      "Edit(CLAUDE.md)",
+      "Edit(config/**)",
+      "Edit(errors/**)",
+      "Edit(interfaces/**)",
+      "Edit(server.ts)",
+      "Read(.claude/**)",
+      "Read(config/**)",
+      "Read(errors/**)",
+      "Read(interfaces/**)",
+      "Read(server.ts)",
+      "WebFetch(domain:blog.marcolancini.it)",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:docs.nvidia.com)",
+      "WebFetch(domain:github.com)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(sudo *)",
+      "Bash(git push --force*)",
+      "Bash(git push *--force*)",
+      "Bash(git reset --hard*)",
+      "Bash(npm run deploy)",
+      "Bash(wrangler deploy*)",
+      "Edit(.env)",
+      "Edit(.local)",
+      "Read(.env)",
+      "Read(.local)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.git-credentials)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'rm[[:space:]]+-[^[:space:]]*r[^[:space:]]*f'; then echo 'BLOCKED: destructive rm command' >&2; exit 2; fi"
+          },
+          {
+            "type": "command",
+            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard'; then echo 'BLOCKED: git reset --hard must be explicitly requested by the user' >&2; exit 2; fi"
+          },
+          {
+            "type": "command",
+            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE '(wrangler|npm)[[:space:]].*deploy'; then echo 'BLOCKED: deploy commands must be run by the user intentionally' >&2; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/warn-sensitive-files.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": [
+      "Resolving model aliases",
+      "Checking Worker routes",
+      "Forwarding tokens",
+      "Reading upstream headers",
+      "Keeping streams warm",
+      "Inspecting provider config",
+      "Typechecking the proxy",
+      "Watching for timeouts"
+    ]
+  }
+}
+

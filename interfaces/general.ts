@@ -66,5 +66,5 @@ export interface ProcessState {
 export interface ProviderConfig {
   endpoint: string;
   models: Record<string, string>; // alias: 'provider/model-id'
-  format: 'anthropic' | 'openai'; // The format expected by the target API
+  format: 'anthropic' | 'openai' | 'google';
 }

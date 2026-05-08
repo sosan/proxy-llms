@@ -46,6 +46,15 @@ export const ProviderConfigs: Record<string, ProviderConfig> = {
     },
     format: 'openai',
   },
+  google: {
+    endpoint: '/chat/completions',
+    models: {
+      'google/gemma-3n-e4b-it': 'google/gemma-3n-e4b-it',
+      'gemma-3n-e4b-it': 'google/gemma-3n-e4b-it',
+    },
+    format: 'google',
+  },
+
 }
 
 export const ModelDefaultsById: Record<string, ModelDefaults> = {
@@ -59,6 +68,12 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     temperature: 0.3,
     top_p: 0.95,
     max_tokens: 32768,
+    stream: true,
+  },
+  'z-ai/glm5.1': {
+    temperature: 0.3,
+    top_p: 0.95,
+    max_tokens: 131072,
     stream: true,
   },
   'deepseek-ai/deepseek-v4-pro': {
