@@ -16,25 +16,44 @@
       "Bash(git status:*)",
       "Bash(ls:*)",
       "Bash(npm run typecheck)",
+      "Bash(npm run test)",
+      "Bash(npm run build)",
       "Bash(rg:*)",
       "Bash(sed:*)",
       "Bash(wc:*)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx wrangler --version)",
       "Edit(.claude/**)",
       "Edit(CLAUDE.md)",
       "Edit(config/**)",
       "Edit(errors/**)",
       "Edit(interfaces/**)",
       "Edit(server.ts)",
+      "Edit(package.json)",
+      "Edit(tsconfig.json)",
+      "Edit(wrangler.toml)",
+      "Edit(README.md)",
+      "Edit(test-*.js)",
+      "Edit(*.test.ts)",
       "Read(.claude/**)",
       "Read(config/**)",
       "Read(errors/**)",
       "Read(interfaces/**)",
       "Read(server.ts)",
+      "Read(package.json)",
+      "Read(tsconfig.json)",
+      "Read(wrangler.toml)",
+      "Read(README.md)",
+      "Read(test-*.js)",
+      "Read(*.test.ts)",
       "WebFetch(domain:blog.marcolancini.it)",
       "WebFetch(domain:developers.cloudflare.com)",
       "WebFetch(domain:docs.claude.com)",
       "WebFetch(domain:docs.nvidia.com)",
       "WebFetch(domain:github.com)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:platform.openai.com)",
       "WebSearch"
     ],
     "deny": [
@@ -44,10 +63,19 @@
       "Bash(git push --force*)",
       "Bash(git push *--force*)",
       "Bash(git reset --hard*)",
+      "Bash(git clean -fd*)",
       "Bash(npm run deploy)",
       "Bash(wrangler deploy*)",
+      "Bash(npm publish)",
+      "Bash(npm unpublish)",
+      "Bash(chmod 777*)",
+      "Bash(chmod -R 777*)",
       "Edit(.env)",
       "Edit(.local)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.aws/**)",
+      "Edit(~/.config/gh/**)",
+      "Edit(~/.git-credentials)",
       "Read(.env)",
       "Read(.local)",
       "Read(~/.ssh/**)",
@@ -72,6 +100,10 @@
           {
             "type": "command",
             "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE '(wrangler|npm)[[:space:]].*deploy'; then echo 'BLOCKED: deploy commands must be run by the user intentionally' >&2; exit 2; fi"
+          },
+          {
+            "type": "command",
+            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'chmod[[:space:]]+777'; then echo 'BLOCKED: chmod 777 is unsafe, use more restrictive permissions' >&2; exit 2; fi"
           }
         ]
       },
@@ -96,8 +128,11 @@
       "Keeping streams warm",
       "Inspecting provider config",
       "Typechecking the proxy",
-      "Watching for timeouts"
+      "Watching for timeouts",
+      "Validating OpenAI compatibility",
+      "Processing provider requests",
+      "Managing Durable Objects",
+      "Optimizing streaming responses"
     ]
   }
 }
-

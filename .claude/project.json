@@ -1,0 +1,37 @@
+{
+  "name": "proxy-llms",
+  "description": "Cloudflare Worker proxy for LLM providers with OpenAI-compatible API",
+  "type": "cloudflare-worker",
+  "primaryLanguage": "TypeScript",
+  "runtime": "Cloudflare Workers",
+  "keyFiles": [
+    "server.ts",
+    "config/providers.ts",
+    "interfaces/general.ts",
+    "errors/provider-error.ts",
+    "wrangler.toml",
+    "package.json",
+    "tsconfig.json"
+  ],
+  "architecture": {
+    "pattern": "proxy",
+    "primaryResponsibility": "Forward OpenAI-compatible requests to upstream LLM providers",
+    "keyConcerns": [
+      "Model alias resolution",
+      "Streaming response preservation",
+      "Error status code forwarding",
+      "Provider-agnostic interface"
+    ]
+  },
+  "conventions": {
+    "modelAliases": "config/providers.ts",
+    "errorHandling": "errors/provider-error.ts",
+    "interfaces": "interfaces/general.ts",
+    "typeCheckCommand": "npm run typecheck"
+  },
+  "security": {
+    "sensitiveFiles": [".env", ".local", "wrangler.toml"],
+    "secretHandling": "Environment variables only, never committed",
+    "authScope": "NVIDIA upstream URLs only"
+  }
+}
