@@ -10,6 +10,14 @@ This repository is a Cloudflare Worker proxy for OpenAI-compatible clients such 
 - `errors/provider-error.ts`: provider error type that preserves upstream HTTP status codes.
 - `wrangler.toml`: Cloudflare Worker and Durable Object configuration.
 
+## Architecture
+
+- **Pattern**: Proxy — forward OpenAI-compatible requests to upstream LLM providers
+- **Primary responsibility**: Transparent request forwarding with model alias resolution
+- **Key concerns**: Model alias resolution, streaming response preservation, error status code forwarding, provider-agnostic interface
+- **Runtime**: Cloudflare Workers
+- **Primary language**: TypeScript
+
 ## Local Commands
 
 - Install dependencies: `npm install`
@@ -39,7 +47,17 @@ Prefer `npm run typecheck` after TypeScript changes. Do not run deploy commands 
 - Avoid broad refactors in `server.ts`; extract focused modules when a block becomes mostly configuration or reusable utility logic.
 - If changing model resolution, verify both alias and full NVIDIA ID inputs still work.
 
+## Security
+
+- Sensitive files: `.env`, `.local`, `wrangler.toml` — never commit or expose
+- Secret handling: Environment variables only, never hardcoded or committed
+- Auth scope: NVIDIA upstream URLs only
+
+## Custom Slash Commands
+
+- `/pattern-review` — Review changes for consistency with local patterns and architectural decisions
+- `/security-review` — Review changes for secret handling, unsafe commands, and security risks
+
 ## Preferred Workflow
 
 Read `.claude/shared/workflow.md` before non-trivial changes. For focused edits, inspect the relevant file, patch narrowly, and run `npm run typecheck`.
-

@@ -30,13 +30,13 @@ for pattern in "${sensitive_files[@]}"; do
 done
 
 if [ "$is_sensitive" = true ]; then
-  echo "⚠️  WARNING: You are editing a sensitive or high-impact file: $path" >&2
+  echo "⚠️ WARNING: You are editing a sensitive or high-impact file: $path" >&2
   echo "" >&2
   echo "Please ensure:" >&2
-  echo "  • No secrets, API keys, or tokens are being committed" >&2
-  echo "  • Configuration changes are intentional and tested" >&2
-  echo "  • Model alias resolution is verified" >&2
-  echo "  • Deployment impact is understood" >&2
+  echo " • No secrets, API keys, or tokens are being committed" >&2
+  echo " • Configuration changes are intentional and tested" >&2
+  echo " • Model alias resolution is verified" >&2
+  echo " • Deployment impact is understood" >&2
   echo "" >&2
 fi
 

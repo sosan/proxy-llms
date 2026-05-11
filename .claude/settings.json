@@ -1,138 +1,138 @@
 {
-  "autoMemoryEnabled": true,
-  "alwaysThinkingEnabled": true,
-  "showThinkingSummaries": true,
-  "env": {
-    "CLAUDE_CODE_AUTO_CONNECT_IDE": "true",
-    "DISABLE_ERROR_REPORTING": "1",
-    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1"
-  },
-  "permissions": {
-    "allow": [
-      "Bash(cat:*)",
-      "Bash(find:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git status:*)",
-      "Bash(ls:*)",
-      "Bash(npm run typecheck)",
-      "Bash(npm run test)",
-      "Bash(npm run build)",
-      "Bash(rg:*)",
-      "Bash(sed:*)",
-      "Bash(wc:*)",
-      "Bash(node --version)",
-      "Bash(npm --version)",
-      "Bash(npx wrangler --version)",
-      "Edit(.claude/**)",
-      "Edit(CLAUDE.md)",
-      "Edit(config/**)",
-      "Edit(errors/**)",
-      "Edit(interfaces/**)",
-      "Edit(server.ts)",
-      "Edit(package.json)",
-      "Edit(tsconfig.json)",
-      "Edit(wrangler.toml)",
-      "Edit(README.md)",
-      "Edit(test-*.js)",
-      "Edit(*.test.ts)",
-      "Read(.claude/**)",
-      "Read(config/**)",
-      "Read(errors/**)",
-      "Read(interfaces/**)",
-      "Read(server.ts)",
-      "Read(package.json)",
-      "Read(tsconfig.json)",
-      "Read(wrangler.toml)",
-      "Read(README.md)",
-      "Read(test-*.js)",
-      "Read(*.test.ts)",
-      "WebFetch(domain:blog.marcolancini.it)",
-      "WebFetch(domain:developers.cloudflare.com)",
-      "WebFetch(domain:docs.claude.com)",
-      "WebFetch(domain:docs.nvidia.com)",
-      "WebFetch(domain:github.com)",
-      "WebFetch(domain:openai.com)",
-      "WebFetch(domain:platform.openai.com)",
-      "WebSearch"
-    ],
-    "deny": [
-      "Bash(rm -rf *)",
-      "Bash(rm -fr *)",
-      "Bash(sudo *)",
-      "Bash(git push --force*)",
-      "Bash(git push *--force*)",
-      "Bash(git reset --hard*)",
-      "Bash(git clean -fd*)",
-      "Bash(npm run deploy)",
-      "Bash(wrangler deploy*)",
-      "Bash(npm publish)",
-      "Bash(npm unpublish)",
-      "Bash(chmod 777*)",
-      "Bash(chmod -R 777*)",
-      "Edit(.env)",
-      "Edit(.local)",
-      "Edit(~/.ssh/**)",
-      "Edit(~/.aws/**)",
-      "Edit(~/.config/gh/**)",
-      "Edit(~/.git-credentials)",
-      "Read(.env)",
-      "Read(.local)",
-      "Read(~/.ssh/**)",
-      "Read(~/.aws/**)",
-      "Read(~/.config/gh/**)",
-      "Read(~/.git-credentials)"
-    ]
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'rm[[:space:]]+-[^[:space:]]*r[^[:space:]]*f'; then echo 'BLOCKED: destructive rm command' >&2; exit 2; fi"
-          },
-          {
-            "type": "command",
-            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard'; then echo 'BLOCKED: git reset --hard must be explicitly requested by the user' >&2; exit 2; fi"
-          },
-          {
-            "type": "command",
-            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE '(wrangler|npm)[[:space:]].*deploy'; then echo 'BLOCKED: deploy commands must be run by the user intentionally' >&2; exit 2; fi"
-          },
-          {
-            "type": "command",
-            "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'chmod[[:space:]]+777'; then echo 'BLOCKED: chmod 777 is unsafe, use more restrictive permissions' >&2; exit 2; fi"
-          }
+    "autoMemoryEnabled": true,
+    "alwaysThinkingEnabled": true,
+    "showThinkingSummaries": true,
+    "env": {
+        "CLAUDE_CODE_AUTO_CONNECT_IDE": "true",
+        "DISABLE_ERROR_REPORTING": "1",
+        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1"
+    },
+    "permissions": {
+        "allow": [
+            "Bash(cat:*)",
+            "Bash(find:*)",
+            "Bash(git diff:*)",
+            "Bash(git log:*)",
+            "Bash(git status:*)",
+            "Bash(ls:*)",
+            "Bash(npm run typecheck)",
+            "Bash(npm run test)",
+            "Bash(npm run build)",
+            "Bash(rg:*)",
+            "Bash(sed:*)",
+            "Bash(wc:*)",
+            "Bash(node --version)",
+            "Bash(npm --version)",
+            "Bash(npx wrangler --version)",
+            "Edit(.claude/**)",
+            "Edit(CLAUDE.md)",
+            "Edit(config/**)",
+            "Edit(errors/**)",
+            "Edit(interfaces/**)",
+            "Edit(server.ts)",
+            "Edit(package.json)",
+            "Edit(tsconfig.json)",
+            "Edit(wrangler.toml)",
+            "Edit(README.md)",
+            "Edit(test-*.js)",
+            "Edit(*.test.ts)",
+            "Read(.claude/**)",
+            "Read(config/**)",
+            "Read(errors/**)",
+            "Read(interfaces/**)",
+            "Read(server.ts)",
+            "Read(package.json)",
+            "Read(tsconfig.json)",
+            "Read(wrangler.toml)",
+            "Read(README.md)",
+            "Read(test-*.js)",
+            "Read(*.test.ts)",
+            "WebFetch(domain:blog.marcolancini.it)",
+            "WebFetch(domain:developers.cloudflare.com)",
+            "WebFetch(domain:docs.claude.com)",
+            "WebFetch(domain:docs.nvidia.com)",
+            "WebFetch(domain:github.com)",
+            "WebFetch(domain:openai.com)",
+            "WebFetch(domain:platform.openai.com)",
+            "WebSearch"
+        ],
+        "deny": [
+            "Bash(rm -rf *)",
+            "Bash(rm -fr *)",
+            "Bash(sudo *)",
+            "Bash(git push --force*)",
+            "Bash(git push *--force*)",
+            "Bash(git reset --hard*)",
+            "Bash(git clean -fd*)",
+            "Bash(npm run deploy)",
+            "Bash(wrangler deploy*)",
+            "Bash(npm publish)",
+            "Bash(npm unpublish)",
+            "Bash(chmod 777*)",
+            "Bash(chmod -R 777*)",
+            "Edit(.env)",
+            "Edit(.local)",
+            "Edit(~/.ssh/**)",
+            "Edit(~/.aws/**)",
+            "Edit(~/.config/gh/**)",
+            "Edit(~/.git-credentials)",
+            "Read(.env)",
+            "Read(.local)",
+            "Read(~/.ssh/**)",
+            "Read(~/.aws/**)",
+            "Read(~/.config/gh/**)",
+            "Read(~/.git-credentials)"
         ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/warn-sensitive-files.sh"
-          }
+    },
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'rm[[:space:]]+-[^[:space:]]*r[^[:space:]]*f'; then echo 'BLOCKED: destructive rm command' >&2; exit 2; fi"
+                    },
+                    {
+                        "type": "command",
+                        "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'git[[:space:]]+reset[[:space:]]+--hard'; then echo 'BLOCKED: git reset --hard must be explicitly requested by the user' >&2; exit 2; fi"
+                    },
+                    {
+                        "type": "command",
+                        "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE '(wrangler|npm)[[:space:]].*deploy'; then echo 'BLOCKED: deploy commands must be run by the user intentionally' >&2; exit 2; fi"
+                    },
+                    {
+                        "type": "command",
+                        "command": "CMD=$(jq -r '.tool_input.command'); if echo \"$CMD\" | grep -qE 'chmod[[:space:]]+777'; then echo 'BLOCKED: chmod 777 is unsafe, use more restrictive permissions' >&2; exit 2; fi"
+                    }
+                ]
+            },
+            {
+                "matcher": "Edit|Write",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/warn-sensitive-files.sh"
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  "spinnerVerbs": {
-    "mode": "replace",
-    "verbs": [
-      "Resolving model aliases",
-      "Checking Worker routes",
-      "Forwarding tokens",
-      "Reading upstream headers",
-      "Keeping streams warm",
-      "Inspecting provider config",
-      "Typechecking the proxy",
-      "Watching for timeouts",
-      "Validating OpenAI compatibility",
-      "Processing provider requests",
-      "Managing Durable Objects",
-      "Optimizing streaming responses"
-    ]
-  }
+    },
+    "spinnerVerbs": {
+        "mode": "replace",
+        "verbs": [
+            "Resolving model aliases",
+            "Checking Worker routes",
+            "Forwarding tokens",
+            "Reading upstream headers",
+            "Keeping streams warm",
+            "Inspecting provider config",
+            "Typechecking the proxy",
+            "Watching for timeouts",
+            "Validating OpenAI compatibility",
+            "Processing provider requests",
+            "Managing Durable Objects",
+            "Optimizing streaming responses"
+        ]
+    }
 }

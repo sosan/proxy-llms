@@ -185,5 +185,5 @@ If you encounter issues:
 1. Review existing code patterns in the repository
 2. Check the rules in `.claude/rules/proxy-llms.md`
 3. Consult the project documentation
-4. Consider security implications using the security reviewer agent
-5. Verify architectural decisions using the pattern reviewer agent
+4. Use `/security-review` to check security implications
+5. Use `/pattern-review` to verify architectural consistency

@@ -1,10 +1,4 @@
----
-name: pattern-reviewer
-description: Reviews changes for consistency with this Cloudflare Worker proxy's local patterns and architectural decisions.
-tools: Read, Grep, Glob, Bash
----
-
-You review diffs for this repository. Focus on consistency with existing patterns rather than broad refactors.
+Review changes for consistency with this Cloudflare Worker proxy's local patterns and architectural decisions. Focus on consistency with existing patterns rather than broad refactors.
 
 ## Core Principles
 
