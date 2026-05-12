@@ -1,16 +1,16 @@
 name = "proxy-llms"
 main = "server.ts"
-compatibility_date = "2023-12-01"
- 
+compatibility_date = "2026-04-21"
+
 [durable_objects]
 bindings = [
   { name = "PROCESSOR", class_name = "ProcessorDurableObject" }
 ]
- 
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ProcessorDurableObject"]
- 
+
 [observability]
 [observability.logs]
 enabled = true
@@ -20,3 +20,15 @@ invocation_logs = true
 binding = "ANALYTICS"
 dataset = "request_metrics"
 
+[vars]
+NVIDIA_BASE_URL = "dummy"
+
+# Required secrets:
+# - ANALYTICS_ACCOUNT_ID - account ID from cloudflare
+# - ANALYTICS_API_TOKEN - create api token to read analytics_engine_datasets
+# - NVIDIA_API_KEY
+#
+# Set them with:
+# npx wrangler secret put ANALYTICS_ACCOUNT_ID
+# npx wrangler secret put ANALYTICS_API_TOKEN
+# npx wrangler secret put NVIDIA_API_KEY
