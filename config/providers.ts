@@ -24,34 +24,33 @@ export const ProviderConfigs: Record<string, ProviderConfig> = {
   openai: {
     endpoint: '/chat/completions',
     models: {
-      'gpt-oss-120b': 'openai/gpt-oss-120b',
-      'gpt-4o': 'openai/gpt-4o',
-      'gpt-4o-mini': 'openai/gpt-4o-mini',
+      'glm5.1': 'z-ai/glm-5.1',
+      'glm-5.1': 'z-ai/glm-5.1',
+      'kimi-k2.6': 'moonshotai/kimi-k2.6',
       'glm4.7': 'z-ai/glm4.7',
       'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro',
-      'deepseek-r1': 'deepseek-ai/deepseek-r1',
-      'deepseek-v3': 'deepseek-ai/deepseek-v3',
       'minimax-m2.7': 'minimaxai/minimax-m2.7',
       'kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
       'qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
-      'openai/gpt-oss-120b': 'openai/gpt-oss-120b',
-      'openai/gpt-4o': 'openai/gpt-4o',
-      'openai/gpt-4o-mini': 'openai/gpt-4o-mini',
-      'z-ai/glm4.7': 'z-ai/glm4.7',
-      'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
-      'deepseek/deepseek-r1': 'deepseek/deepseek-r1',
-      'deepseek/deepseek-v3': 'deepseek/deepseek-v3',
-      'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7',
-      'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
-      'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
+      'gpt-oss-120b': 'openai/gpt-oss-120b',
+      // Aliases for backward compatibility
+      'z-ai/glm5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
+      'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
+      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6', // 7 ranking GB200x4
+      'z-ai/glm4.7': 'z-ai/glm4.7', // 20 ranking H100x8
+      'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro', // 16 ranking
+      'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7', // 28 ranking
+      'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking', // 56 ranking
+      'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct', // 62 arena ranking
+      'openai/gpt-oss-120b': 'openai/gpt-oss-120b', // no ranking
     },
     format: 'openai',
   },
   google: {
     endpoint: '/chat/completions',
     models: {
-      'google/gemma-3n-e4b-it': 'google/gemma-3n-e4b-it',
-      'gemma-3n-e4b-it': 'google/gemma-3n-e4b-it',
+      'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
+      'gemma-4-31b-it': 'google/gemma-4-31b-it',
     },
     format: 'google',
   },
@@ -70,12 +69,36 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     top_p: 0.95,
     max_tokens: 32768,
     stream: true,
+    extra: {
+      chat_template_kwargs: {
+        enable_thinking: true,
+        clear_thinking: false,
+      },
+    },
   },
   'z-ai/glm5.1': {
     temperature: 0.3,
     top_p: 0.95,
     max_tokens: 131072,
     stream: true,
+    extra: {
+      chat_template_kwargs: {
+        enable_thinking: true,
+        clear_thinking: false,
+      },
+    },
+  },
+  'z-ai/glm-5.1': {
+    temperature: 0.3,
+    top_p: 0.95,
+    max_tokens: 131072,
+    stream: true,
+    extra: {
+      chat_template_kwargs: {
+        enable_thinking: true,
+        clear_thinking: false,
+      },
+    },
   },
   'deepseek-ai/deepseek-v4-pro': {
     temperature: 1,
@@ -87,18 +110,6 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
         thinking: false,
       },
     },
-  },
-  'deepseek-ai/deepseek-r1': {
-    temperature: 0.6,
-    top_p: 0.95,
-    max_tokens: 32768,
-    stream: true,
-  },
-  'deepseek-ai/deepseek-v3': {
-    temperature: 0.2,
-    top_p: 0.95,
-    max_tokens: 32768,
-    stream: true,
   },
   'minimaxai/minimax-m2.7': {
     temperature: 0.2,
@@ -112,12 +123,31 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     max_tokens: 32768,
     stream: true,
   },
-  'qwen/qwen3-coder-480b-a35b-instruct': {
-    temperature: 0.2,
+  'moonshotai/kimi-k2.6': {
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 65536,
+    stream: true,
+    extra: {
+      "chat_template_kwargs": { "thinking": true },
+    }
+  },
+  'qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
+    temperature: 0.7,
+    top_p: 0.8,
+    max_tokens: 262144,
+    stream: true,
+  },
+  'google/gemma-4-31b-it': {
+    temperature: 1,
     top_p: 0.8,
     max_tokens: 32768,
     stream: true,
-  },
+    extra: {
+      chat_template_kwargs: { enable_thinking: true },
+    }
+  }
+  
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
