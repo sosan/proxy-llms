@@ -4,6 +4,8 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Env, ApiResponse, MessageContentPart, ChatMessage, GenericPayload, ProcessState, ProviderConfig } from './interfaces/general'
 import { createModelsList, ModelDefaultsById, ProviderConfigs, resolveModel } from './config/providers'
 import { ProviderError } from './errors/provider-error'
+import { MetricsCollector } from './metrics/metrics-collector'
+import { MetricsQueries } from './metrics/queries'
 
 // Process States Contract
 const ProcessStates = {
@@ -25,7 +27,7 @@ const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'model', 'messages', 'content'
 // =============================================================================
 
 // Standard API Response Contract
-const createResponse = <T>(success: boolean, data: T | null, error: string | null = null): ApiResponse<T> => ({
+export const createResponse = <T>(success: boolean, data: T | null, error: string | null = null): ApiResponse<T> => ({
   success,
   data,
   error,
@@ -35,7 +37,7 @@ const createResponse = <T>(success: boolean, data: T | null, error: string | nul
 // --- Adapted for Durable Objects ---
 // This function takes a Request object and returns a parsed payload or an error.
 // Modified to accept HonoRequest as well, by using request.json() which is available on both.
-const parseRequestBody = async (request: Request | HonoRequest): Promise<{ payload: GenericPayload; error?: undefined; status?: undefined } | { error: string; status: ContentfulStatusCode; payload?: undefined }> => {
+export const parseRequestBody = async (request: Request | HonoRequest): Promise<{ payload: GenericPayload; error?: undefined; status?: undefined } | { error: string; status: ContentfulStatusCode; payload?: undefined }> => {
   let payload: unknown
   try {
     payload = await request.json()
@@ -59,7 +61,7 @@ const parseRequestBody = async (request: Request | HonoRequest): Promise<{ paylo
  * CORE BUSINESS LOGIC MODULES
  */
 
-class RateLimiter {
+export class RateLimiter {
   private maxRequests: number
   private windowMs: number
   private requests: Map<string, number[]>
@@ -91,7 +93,7 @@ class RateLimiter {
   }
 }
 
-class NIMProvider {
+export class NIMProvider {
   private apiKey: string
   private baseUrl: string
   private readonly responseTimeoutMs = 980_000
@@ -145,7 +147,7 @@ class NIMProvider {
         `NVIDIA API rate limited the request: ${JSON.stringify(errorBody)}`,
         429 as ContentfulStatusCode,
         'upstream_rate_limited',
-        `NVIDIA rate limit reached. Wait a bit before retrying or switch to another model.${retryHint}`,
+        `NVIDIA rate limit reached. Wait a bit before retrying.${retryHint}`,
         retryAfter
       )
     }
@@ -570,6 +572,8 @@ app.onError((err, c) => {
 
 const createProviderRoute = (providerName: string) => {
   return async (c: Context<{ Bindings: Env }>) => {
+    let metricsCollector: MetricsCollector | null = null
+    
     try {
       const config = ProviderConfigs[providerName]
       if (!config) {
@@ -584,8 +588,18 @@ const createProviderRoute = (providerName: string) => {
       const nim = getNIMProvider(c.env)
       const transformedPayload = nim.transformRequest(result.payload!, config)
       const isStream = (transformedPayload as Record<string, unknown>).stream === true
+      const model = (transformedPayload as Record<string, unknown>).model as string || 'unknown'
+      const requestId = crypto.randomUUID().slice(0, 8)
+
+      // Initialize metrics collector
+      metricsCollector = new MetricsCollector(c.env, requestId, model, providerName, isStream)
 
       if (!rateLimiter.isAllowed(NVIDIA_RATE_LIMIT_KEY)) {
+        // Record metrics for rate limited request
+        metricsCollector.recordNonStreamingMetrics(429, null, {
+          type: 'proxy_rate_limited',
+          message: 'Proxy rate limit reached before calling NVIDIA'
+        })
         return c.json(
           createResponse(false, { code: 'proxy_rate_limited', status: 429 }, 'Proxy rate limit reached before calling NVIDIA. Wait a bit before retrying.'),
           { status: 429 }
@@ -594,17 +608,35 @@ const createProviderRoute = (providerName: string) => {
 
       if (isStream) {
         const upstream = await nim.makeStreamRequest(config.endpoint, transformedPayload)
-        return new Response(upstream.body, {
+        metricsCollector.setUpstreamStatus(upstream.status)
+
+        const transformStream = metricsCollector.createStreamingTransformStream()
+        const transformedBody = upstream.body?.pipeThrough(transformStream)
+
+        if (!transformedBody) {
+          throw new ProviderError(
+            'NVIDIA returned a streaming response without a body',
+            502 as ContentfulStatusCode,
+            'upstream_empty_stream',
+            'NVIDIA returned an empty stream. Retry the request in a few seconds.'
+          )
+        }
+
+        const headers = new Headers(upstream.headers)
+        headers.set('Content-Type', 'text/event-stream')
+        headers.set('Cache-Control', 'no-cache')
+        headers.set('Connection', 'keep-alive')
+        headers.delete('Content-Length')
+
+        return new Response(transformedBody, {
           status: upstream.status,
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
+          headers,
         })
       }
 
       const response = await nim.makeRequest(config.endpoint, transformedPayload, config.format)
+      metricsCollector.recordNonStreamingMetrics(200, response)
+
       return c.json(createResponse(true, response))
 
     } catch (error) {
@@ -619,22 +651,30 @@ const createProviderRoute = (providerName: string) => {
         ? { 'Retry-After': error.retryAfter }
         : undefined
 
+      // Record error metrics
+      if (metricsCollector) {
+        const errorType = error instanceof ProviderError ? error.code : 'unknown_error'
+        metricsCollector.recordNonStreamingMetrics(status, null, {
+          type: errorType,
+          message: errorMessage
+        })
+      }
+
       return c.json(createResponse(false, errorData, publicMessage), { status, headers })
     }
   }
 }
+
 
 /**
  * ROUTE DEFINITIONS - SYNCHRONOUS PROVIDERS
  */
 
 // Register routes for specific providers
-app.post('/deepseek/v1/chat/completions', createProviderRoute('deepseek'))
 app.post('/claude/v1/messages', createProviderRoute('claude'))
 app.post('/openai/v1/chat/completions', createProviderRoute('openai'))
 app.get('/openai/v1/models', (c) => c.json(createModelsList('openai')))
 app.get('/claude/v1/models', (c) => c.json(createModelsList('claude')));
-app.get('/openai/models', (c) => c.json(createModelsList('openai')))
 
 /**
  * ROUTE DEFINITIONS - ASYNCHRONOUS PROCESSING
