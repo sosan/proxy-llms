@@ -33,6 +33,7 @@ export const ProviderConfigs: Record<string, ProviderConfig> = {
       'kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
       'qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
       'gpt-oss-120b': 'openai/gpt-oss-120b',
+      'step-3.5-flash': 'stepfun-ai/step-3.5-flash',
       // Aliases for backward compatibility
       'z-ai/glm5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
       'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
@@ -43,6 +44,7 @@ export const ProviderConfigs: Record<string, ProviderConfig> = {
       'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking', // 56 ranking
       'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct', // 62 arena ranking
       'openai/gpt-oss-120b': 'openai/gpt-oss-120b', // no ranking
+      'stepfun-ai/step-3.5-flash': 'stepfun-ai/step-3.5-flash', // no ranking
     },
     format: 'openai',
   },
@@ -65,7 +67,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     stream: true,
   },
   'z-ai/glm4.7': {
-    temperature: 0.3,
+    temperature: 0.9,
     top_p: 0.95,
     max_tokens: 32768,
     stream: true,
@@ -77,7 +79,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'z-ai/glm5.1': {
-    temperature: 0.3,
+    temperature: 0.9,
     top_p: 0.95,
     max_tokens: 131072,
     stream: true,
@@ -89,7 +91,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'z-ai/glm-5.1': {
-    temperature: 0.3,
+    temperature: 0.9,
     top_p: 0.95,
     max_tokens: 131072,
     stream: true,
@@ -132,6 +134,12 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       "chat_template_kwargs": { "thinking": true },
     }
   },
+  'stepfun-ai/step-3.5-flash': { // no ranking
+    temperature: 1,
+    top_p: 0.9,
+    max_tokens: 26214,
+    stream: true,
+  },
   'qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
     temperature: 0.7,
     top_p: 0.8,
@@ -147,7 +155,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       chat_template_kwargs: { enable_thinking: true },
     }
   }
-  
+
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
