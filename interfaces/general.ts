@@ -8,11 +8,17 @@
 export interface Env {
   NVIDIA_API_KEY: string
   NVIDIA_BASE_URL: string
+  OPENROUTER_API_KEY?: string
+  OPENROUTER_BASE_URL?: string
+  LMSTUDIO_BASE_URL?: string
+  LLAMACPP_BASE_URL?: string
+  OLLAMA_BASE_URL?: string
   PROCESSOR: DurableObjectNamespace
   ANALYTICS: AnalyticsEngineDataset
   ANALYTICS_ACCOUNT_ID?: string
   ANALYTICS_API_TOKEN?: string
 }
+
 
 /**
  * SYSTEM CONTRACTS & INTERFACES

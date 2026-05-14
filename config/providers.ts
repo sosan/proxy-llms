@@ -8,7 +8,7 @@ export type ModelDefaults = {
   extra?: Record<string, unknown>
 }
 
-export const ProviderConfigs: Record<string, ProviderConfig> = {
+const _ProviderConfigs = {
   claude: {
     endpoint: '/messages',
     models: {
@@ -21,7 +21,7 @@ export const ProviderConfigs: Record<string, ProviderConfig> = {
     },
     format: 'anthropic',
   },
-  openai: {
+  nvidia: {
     endpoint: '/chat/completions',
     models: {
       'glm5.1': 'z-ai/glm-5.1',
@@ -45,19 +45,43 @@ export const ProviderConfigs: Record<string, ProviderConfig> = {
       'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct', // 62 arena ranking
       'openai/gpt-oss-120b': 'openai/gpt-oss-120b', // no ranking
       'stepfun-ai/step-3.5-flash': 'stepfun-ai/step-3.5-flash', // no ranking
+      'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
+      'gemma-4-31b-it': 'google/gemma-4-31b-it',
     },
     format: 'openai',
   },
   google: {
     endpoint: '/chat/completions',
     models: {
-      'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
-      'gemma-4-31b-it': 'google/gemma-4-31b-it',
     },
     format: 'google',
   },
+  openrouter: {
+    endpoint: '/chat/completions',
+    models: {},
+    format: 'openai',
+  },
+  lmstudio: {
+    endpoint: '/chat/completions',
+    models: {},
+    format: 'openai',
+  },
+  llamacpp: {
+    endpoint: '/chat/completions',
+    models: {},
+    format: 'openai',
+  },
+  ollama: {
+    endpoint: '/chat/completions',
+    models: {},
+    format: 'openai',
+  },
+} as const
 
-}
+export const ProviderConfigs: Record<string, ProviderConfig> = _ProviderConfigs
+
+export type ProviderType = keyof typeof _ProviderConfigs
+
 
 export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'openai/gpt-oss-120b': {
@@ -194,3 +218,6 @@ export const createModelsList = (providerName: string) => {
     })),
   }
 }
+
+
+

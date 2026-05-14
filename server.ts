@@ -2,10 +2,16 @@ import { Hono, Context, HonoRequest } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Env, ApiResponse, MessageContentPart, ChatMessage, GenericPayload, ProcessState, ProviderConfig } from './interfaces/general'
+import type { AIProvider } from './interfaces/provider'
 import { createModelsList, ModelDefaultsById, ProviderConfigs, resolveModel } from './config/providers'
+
+
 import { ProviderError } from './errors/provider-error'
 import { MetricsCollector } from './metrics/metrics-collector'
 import { MetricsQueries } from './metrics/queries'
+import { getProviderByName } from './providers/provider-factory'
+
+
 
 // Process States Contract
 const ProcessStates = {
@@ -395,9 +401,10 @@ export class ProcessorDurableObject {
 
       // Ensure model is defined or default it if not specified
       if (!data.model && !data.provider) {
-        data.model = 'openai/gpt-4o'; // Default model
+        data.model = 'nvidia/gpt-oss-120b'; // Default model
       } else if (data.model && !data.provider) {
-        let inferredProvider = 'openai'; // Default provider
+        let inferredProvider = 'nvidia'; // Default provider
+
         for (const pName in ProviderConfigs) {
           if (ProviderConfigs[pName].models[data.model] || Object.values(ProviderConfigs[pName].models).includes(data.model)) {
             inferredProvider = pName;
@@ -432,8 +439,9 @@ export class ProcessorDurableObject {
     try {
       await this.updateProgress(ProcessStates.PROCESSING, 10)
 
-      const providerName = data.provider || 'openai'
-      const config = ProviderConfigs[providerName] || ProviderConfigs.openai
+      const providerName = data.provider || 'nvidia'
+      const config = ProviderConfigs[providerName] || ProviderConfigs.nvidia
+
       const transformedPayload = this.nimProvider.transformRequest(data, config)
 
       // 👇 Si el payload pide stream, cada chunk llega por WebSocket en tiempo real
@@ -570,14 +578,19 @@ app.onError((err, c) => {
   return c.json(createResponse(false, null, `Internal Server Error: ${errorMessage}`), { status: 500 })
 })
 
-const createProviderRoute = (providerName: string) => {
+/**
+ * Creates a route handler for a specific provider + config combination.
+ * Used by both legacy fixed routes and new dynamic routes.
+ */
+const createProviderRoute = (providerName: string, configName?: string, explicitModel?: string) => {
   return async (c: Context<{ Bindings: Env }>) => {
     let metricsCollector: MetricsCollector | null = null
     
     try {
-      const config = ProviderConfigs[providerName]
+      const configKey = configName || providerName
+      const config = ProviderConfigs[configKey]
       if (!config) {
-        return c.json(createResponse(false, null, `Unknown provider: ${providerName}`), { status: 400 })
+        return c.json(createResponse(false, null, `Unknown provider config: ${configKey}`), { status: 400 })
       }
 
       const result = await parseRequestBody(c.req)
@@ -585,8 +598,16 @@ const createProviderRoute = (providerName: string) => {
         return c.json(createResponse(false, null, result.error), { status: result.status })
       }
 
-      const nim = getNIMProvider(c.env)
-      const transformedPayload = nim.transformRequest(result.payload!, config)
+      // Get the provider instance by name from the URL
+      const provider = getProviderByName(c.env, providerName)
+
+      
+      // If explicitModel is provided (from URL), inject it into the payload
+      if (explicitModel && result.payload) {
+        result.payload.model = explicitModel
+      }
+      
+      const transformedPayload = provider.transformRequest(result.payload!, config)
       const isStream = (transformedPayload as Record<string, unknown>).stream === true
       const model = (transformedPayload as Record<string, unknown>).model as string || 'unknown'
       const requestId = crypto.randomUUID().slice(0, 8)
@@ -607,7 +628,7 @@ const createProviderRoute = (providerName: string) => {
       }
 
       if (isStream) {
-        const upstream = await nim.makeStreamRequest(config.endpoint, transformedPayload)
+        const upstream = await provider.makeStreamRequest(config.endpoint, transformedPayload)
         metricsCollector.setUpstreamStatus(upstream.status)
 
         const transformStream = metricsCollector.createStreamingTransformStream()
@@ -634,7 +655,7 @@ const createProviderRoute = (providerName: string) => {
         })
       }
 
-      const response = await nim.makeRequest(config.endpoint, transformedPayload, config.format)
+      const response = await provider.makeRequest(config.endpoint, transformedPayload, config.format)
       metricsCollector.recordNonStreamingMetrics(200, response)
 
       return c.json(createResponse(true, response))
@@ -667,14 +688,82 @@ const createProviderRoute = (providerName: string) => {
 
 
 /**
- * ROUTE DEFINITIONS - SYNCHRONOUS PROVIDERS
+ * ROUTE DEFINITIONS - NEW DYNAMIC URL-BASED ROUTING
+ * 
+ * Pattern: /:provider/:format/v1/:company/:model
+ * 
+ * Examples:
+ *   POST /nvidia/openai/v1/moonshotai/kimi-k2.6
+ *   POST /openrouter/openai/v1/deepseek/deepseek-v4-pro
+ *   POST /nvidia/anthropic/v1/anthropic/claude-3.5-sonnet
  */
+app.post('/:provider/:format/v1/:company/:model', async (c) => {
+  const urlProvider = c.req.param('provider')
+  const apiFormat = c.req.param('format')
+  const urlCompany = c.req.param('company')
+  const urlModel = c.req.param('model')
+  
+  // Build the full model identifier: company/model
+  const fullModel = `${urlCompany}/${urlModel}`
+  
+  // Look up provider config directly by provider key
+  const config = ProviderConfigs[urlProvider]
+  if (!config) {
+    const supportedProviders = Object.keys(ProviderConfigs).join(', ')
+    return c.json(createResponse(false, null, 
+      `Unknown provider: "${urlProvider}". Supported: ${supportedProviders}`), { status: 400 })
+  }
+  
+  // Validate that the URL format matches the provider's supported format
+  if (config.format !== apiFormat) {
+    return c.json(createResponse(false, null, 
+      `Provider "${urlProvider}" uses format "${config.format}", but URL specified "${apiFormat}"`), { status: 400 })
+  }
+  
+  // Create route handler with explicit model
+  const handler = createProviderRoute(urlProvider, urlProvider, fullModel)
+  return handler(c)
 
-// Register routes for specific providers
-app.post('/claude/v1/messages', createProviderRoute('claude'))
-app.post('/openai/v1/chat/completions', createProviderRoute('openai'))
-app.get('/openai/v1/models', (c) => c.json(createModelsList('openai')))
-app.get('/claude/v1/models', (c) => c.json(createModelsList('claude')));
+})
+
+// GET models for dynamic routes
+app.get('/:provider/:format/v1/models', async (c) => {
+  const urlProvider = c.req.param('provider')
+  const urlFormat = c.req.param('format')
+  
+  // Look up provider config directly by provider key
+  const config = ProviderConfigs[urlProvider]
+  if (!config) {
+    const supportedProviders = Object.keys(ProviderConfigs).join(', ')
+    return c.json(createResponse(false, null, 
+      `Unknown provider: "${urlProvider}". Supported: ${supportedProviders}`), { status: 400 })
+  }
+  
+  // Validate that the URL format matches the provider's supported format
+  if (config.format !== urlFormat) {
+    return c.json(createResponse(false, null, 
+      `Provider "${urlProvider}" uses format "${config.format}", but URL specified "${urlFormat}"`), { status: 400 })
+  }
+  
+  return c.json(createModelsList(urlProvider))
+})
+
+
+
+/**
+ * ROUTE DEFINITIONS - LEGACY FIXED ROUTES (backward compatibility)
+ * 
+ * These routes use a default provider (NVIDIA). To use a specific provider,
+ * use the new dynamic URL-based routing instead.
+ * 
+ * Legacy: /openai/v1/chat/completions
+ * New:     /nvidia/openai/v1/:company/:model
+ */
+app.get('/openai/v1/models', (c) => c.json(createModelsList('nvidia')))
+
+app.get('/claude/v1/models', (c) =>  c.json(createModelsList('claude')))
+
+
 
 /**
  * ROUTE DEFINITIONS - ASYNCHRONOUS PROCESSING
