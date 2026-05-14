@@ -18,7 +18,7 @@ This document outlines the standard development workflow for this Cloudflare Wor
 
 ### 3. Code Quality
 - **Type safety**: Run `npm run typecheck` before completion for code changes
-- **Testing**: Test changes thoroughly, especially for provider interactions
+- **Testing**: Run `npm run test` before finishing any non-trivial change. Test both success and error paths
 - **Documentation**: Update relevant documentation when behavior changes
 - **Code review**: Consider security implications and edge cases
 
@@ -36,7 +36,8 @@ This document outlines the standard development workflow for this Cloudflare Wor
 3. **Update configuration**: Add or modify model aliases and provider settings
 4. **Type check**: Run `npm run typecheck` to verify TypeScript correctness
 5. **Test resolution**: Verify model resolution works with both aliases and full IDs
-6. **Document changes**: Update any relevant documentation
+6. **Run tests**: Run `npm run test` to ensure no regressions
+7. **Document changes**: Update any relevant documentation
 
 ### Route Changes
 1. **Review routes**: Inspect `server.ts` for current route registration
@@ -69,6 +70,12 @@ This document outlines the standard development workflow for this Cloudflare Wor
 4. **Verify messages**: Ensure error messages are actionable and safe
 5. **Check logging**: Verify errors are logged with sufficient context
 6. **Client testing**: Test error responses with client applications
+
+### Test Import Gotcha
+- **Critical**: Test imports from `server.ts` **must** use the `.ts` extension: `from '../server.ts'`
+- Without the `.ts` extension, Vitest resolves to `server.js` (legacy) at runtime, which only exports `ProcessorDurableObject` and `default`
+- This causes `TypeError: createResponse is not a function` and similar errors
+- Always verify test imports use `../server.ts` when importing from `server.ts`
 
 ## OpenAI Compatibility Checklist
 
@@ -122,6 +129,7 @@ When modifying request/response handling, verify:
 - Cover both success and error paths
 - Mock external dependencies appropriately
 - Verify edge cases and boundary conditions
+- Use `from '../server.ts'` (not `from '../server'`) for imports from `server.ts`
 
 ### Integration Testing
 - Test interactions between components
@@ -155,12 +163,17 @@ When modifying request/response handling, verify:
 - Don't skip input validation
 - Don't use insecure protocols
 
+### Import Issues
+- Don't use `from '../server'` in tests — always use `from '../server.ts'`
+- Don't forget that `server.js` (legacy) shadows `server.ts` at runtime
+
 ## Completion Checklist
 
 Before considering a task complete, verify:
 
 - [ ] Code changes are minimal and focused
 - [ ] TypeScript type checking passes (`npm run typecheck`)
+- [ ] All tests pass (`npm run test`)
 - [ ] OpenAI API compatibility is maintained
 - [ ] Error handling is robust and tested
 - [ ] Security best practices are followed

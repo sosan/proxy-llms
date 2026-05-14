@@ -1,1 +1,74 @@
-Review changes for secret handling, unsafe commands, and proxy/security risks in this Cloudflare Worker proxy. Focus on preventing security vulnerabilities and ensuring safe operational practices. ## Critical Security Priorities ### Secret Management - Secrets are never logged, committed, or exposed in error messages - `.env` and `.local` files remain untracked and unread unless explicitly requested - API keys, tokens, and credentials are never hardcoded - Secret values are masked in logs and error responses - Environment variables are validated before use ### Authentication & Authorization - Auth headers are only sent to legitimate upstream URLs - No credentials are exposed in client-facing error messages - Token validation happens before any processing - Session management follows security best practices ### Command Safety - Dangerous shell commands are not introduced into scripts or hooks - `rm -rf`, `sudo`, and destructive git operations are blocked - File permissions are restrictive (no chmod 777) - User input is properly sanitized before command execution - Shell injection vulnerabilities are prevented ### Network Security - CORS configurations do not unintentionally expose the proxy - Rate limiting changes do not create security bypasses - Upstream requests use HTTPS only - No unencrypted credential transmission - Proper timeout and retry mechanisms prevent DoS ### Code Security - No eval() or similar dynamic code execution - Input validation on all user-provided data - Proper error handling prevents information leakage - Dependencies are kept up-to-date and secure - No hardcoded credentials or backdoors ## Review Process 1. **Identify Security Impact**: Determine if changes touch authentication, secrets, or security controls 2. **Check for Vulnerabilities**: Look for common security issues (injection, exposure, bypass) 3. **Validate Safe Practices**: Ensure security best practices are followed 4. **Assess Risk Level**: Rate findings by severity (critical/high/medium/low) ## Output Format Lead with findings ordered by severity. For each finding include: 1. **Severity Level**: Critical, High, Medium, or Low 2. **File and Line References**: Exact location of the issue 3. **Vulnerability Description**: What the security issue is 4. **Exploitation Risk**: How it could be abused 5. **Recommended Fix**: Specific remediation steps 6. **Impact Assessment**: What happens if not fixed ## Common Security Patterns to Watch - Hardcoded API keys or tokens - Logging of sensitive data - Unsafe file operations - Missing input validation - Weak authentication mechanisms - Exposed error details - Insecure dependencies - Improper CORS configuration - Missing rate limiting - Unencrypted data transmission If no security issues are found, explicitly state this and mention any security best practices that could be further strengthened.
+Review changes for secret handling, unsafe commands, and proxy/security risks in this Cloudflare Worker proxy. Focus on preventing security vulnerabilities and ensuring safe operational practices.
+
+## Critical Security Priorities
+
+### Secret Management
+- Secrets are never logged, committed, or exposed in error messages
+- `.env` and `.local` files remain untracked and unread unless explicitly requested
+- API keys, tokens, and credentials are never hardcoded
+- Secret values are masked in logs and error responses
+- Environment variables are validated before use
+
+### Authentication & Authorization
+- Auth headers are only sent to legitimate upstream URLs
+- No credentials are exposed in client-facing error messages
+- Token validation happens before any processing
+- Session management follows security best practices
+
+### Command Safety
+- Dangerous shell commands are not introduced into scripts or hooks
+- `rm -rf`, `sudo`, and destructive git operations are blocked
+- File permissions are restrictive (no chmod 777)
+- User input is properly sanitized before command execution
+- Shell injection vulnerabilities are prevented
+
+### Network Security
+- CORS configurations do not unintentionally expose the proxy
+- Rate limiting changes do not create security bypasses
+- Upstream requests use HTTPS only
+- No unencrypted credential transmission
+- Proper timeout and retry mechanisms prevent DoS
+
+### Code Security
+- No eval() or similar dynamic code execution
+- Input validation on all user-provided data
+- Proper error handling prevents information leakage
+- Dependencies are kept up-to-date and secure
+- No hardcoded credentials or backdoors
+
+## Review Process
+
+1. **Identify Security Impact**: Determine if changes touch authentication, secrets, or security controls
+2. **Check for Vulnerabilities**: Look for common security issues (injection, exposure, bypass)
+3. **Validate Safe Practices**: Ensure security best practices are followed
+4. **Assess Risk Level**: Rate findings by severity (critical/high/medium/low)
+
+## Output Format
+
+Lead with findings ordered by severity. For each finding include:
+1. **Severity Level**: Critical, High, Medium, or Low
+2. **File and Line References**: Exact location of the issue
+3. **Vulnerability Description**: What the security issue is
+4. **Exploitation Risk**: How it could be abused
+5. **Recommended Fix**: Specific remediation steps
+6. **Impact Assessment**: What happens if not fixed
+
+## Common Security Patterns to Watch
+
+- Hardcoded API keys or tokens
+- Logging of sensitive data
+- Unsafe file operations
+- Missing input validation
+- Weak authentication mechanisms
+- Exposed error details
+- Insecure dependencies
+- Improper CORS configuration
+- Missing rate limiting
+- Unencrypted data transmission
+
+## Testing Security
+
+- Ensure `npm run test` passes before considering security-related changes complete
+- Test imports from `server.ts` must use `from '../server.ts'` to avoid loading the legacy `server.js` which may have different security boundaries
+
+If no security issues are found, explicitly state this and mention any security best practices that could be further strengthened.

@@ -25,11 +25,19 @@ Use this rule file when working in this Cloudflare Worker proxy repository. Thes
 
 ## Provider Requests
 
+### URL-Based Routing (New)
+- The proxy supports dynamic URL-based routing: `POST /:provider/:format/v1/:company/:model`
+- `provider` maps directly to a backend (nvidia, openrouter, lmstudio, llamacpp, ollama)
+- `format` maps to a `ProviderConfig` key (openai → `ProviderConfigs.openai`, anthropic → `ProviderConfigs.claude`, google → `ProviderConfigs.google`)
+- `company/model` is combined as the full model ID and injected into the payload
+- No provider env flags (e.g., `USE_NVIDIA_PROVIDER`) are checked — all providers are always available
+
 ### Request Processing
 - The proxy should pass through compatible OpenAI/NVIDIA fields unless they are internal routing fields
 - Internal routing fields include: `provider`, unresolved `model`, raw `content`, and raw `messages` after transformation
-- Preserve upstream status codes for NVIDIA errors where practical
+- Preserve upstream status codes for provider errors where practical
 - Transform requests transparently - clients should not notice the proxy layer
+
 
 ### Response Handling
 - Forward upstream responses with minimal modification
@@ -76,6 +84,8 @@ Use this rule file when working in this Cloudflare Worker proxy repository. Thes
 - Test both success and error paths
 - Include integration tests for provider interactions
 - Verify OpenAI API compatibility with test clients
+- **Critical import rule**: Test imports from `server.ts` **must** use the `.ts` extension (`from '../server.ts'`). Without it, Vitest resolves to `server.js` (legacy) at runtime, which only exports `ProcessorDurableObject` and `default`, causing `TypeError: createResponse is not a function` and similar errors.
+- Always run `npm run test` after modifying `server.ts` exports or test files
 
 ### Documentation
 - Document complex logic and architectural decisions
@@ -110,9 +120,10 @@ Use this rule file when working in this Cloudflare Worker proxy repository. Thes
 3. Keep edits scoped to the feature, bug, or cleanup requested
 4. Preserve user changes already present in the worktree
 5. Run `npm run typecheck` before completion for code changes
-6. Test changes thoroughly, especially for provider interactions
-7. Verify OpenAI compatibility when modifying request/response handling
-8. Document any breaking changes or behavioral modifications
+6. Run `npm run test` before finishing any non-trivial change
+7. Test changes thoroughly, especially for provider interactions
+8. Verify OpenAI compatibility when modifying request/response handling
+9. Document any breaking changes or behavioral modifications
 
 ## Common Checks
 
@@ -122,3 +133,13 @@ Use this rule file when working in this Cloudflare Worker proxy repository. Thes
 - **Secrets/config change**: Do not print or commit secret values
 - **Streaming change**: Verify SSE formatting and OpenAI compatibility
 - **Error handling change**: Test error paths and status code preservation
+- **Test import change**: Verify `from '../server.ts'` (not `from '../server'`) in all test files
+
+## Known Issues & Gotchas
+
+### `server.js` vs `server.ts` Import Shadowing
+- `server.js` (legacy) exists alongside `server.ts` in the repo root
+- Vitest's module resolution prefers `.js` over `.ts` for extensionless imports like `from '../server'`
+- `server.js` only exports `ProcessorDurableObject` and `default`, missing `createResponse`, `parseRequestBody`, `RateLimiter`, and `NIMProvider`
+- **Always use `from '../server.ts'` in test files** to ensure the correct TypeScript module is loaded
+- Symptoms of this issue: `TypeError: createResponse is not a function`, `TypeError: RateLimiter is not a constructor`, etc.
