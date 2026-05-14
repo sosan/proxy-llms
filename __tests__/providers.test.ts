@@ -3,7 +3,8 @@ import { ProviderConfigs, resolveModel, createModelsList } from '../config/provi
 
 describe('Provider Configs', () => {
   describe('resolveModel', () => {
-    const openaiConfig = ProviderConfigs.openai
+    const openaiConfig = ProviderConfigs.nvidia
+
 
     it('should resolve an alias to the full model ID', () => {
       const result = resolveModel(openaiConfig, 'glm5.1')
@@ -45,8 +46,9 @@ describe('Provider Configs', () => {
   })
 
   describe('createModelsList', () => {
-    it('should return a list structure for openai', () => {
-      const list = createModelsList('openai')
+    it('should return a list structure for nvidia', () => {
+      const list = createModelsList('nvidia')
+
       expect(list.object).toBe('list')
       expect(Array.isArray(list.data)).toBe(true)
       expect(list.data.length).toBeGreaterThan(0)
@@ -65,7 +67,8 @@ describe('Provider Configs', () => {
     })
 
     it('should filter out aliases that are already the full ID', () => {
-      const list = createModelsList('openai')
+      const list = createModelsList('nvidia')
+
       // The aliases list filters entries where id === resolvedId
       for (const item of list.data) {
         expect(item.id).not.toBe(item.owned_by)
@@ -73,7 +76,8 @@ describe('Provider Configs', () => {
     })
 
     it('should set owned_by from the resolved model prefix', () => {
-      const list = createModelsList('openai')
+      const list = createModelsList('nvidia')
+
       const firstModel = list.data[0]
       expect(typeof firstModel.owned_by).toBe('string')
       expect(firstModel.owned_by.length).toBeGreaterThan(0)
@@ -81,22 +85,18 @@ describe('Provider Configs', () => {
   })
 
   describe('ProviderConfigs structure', () => {
-    it('should have openai config with endpoint and models', () => {
-      expect(ProviderConfigs.openai).toBeDefined()
-      expect(ProviderConfigs.openai.endpoint).toBe('/chat/completions')
-      expect(ProviderConfigs.openai.format).toBe('openai')
-      expect(Object.keys(ProviderConfigs.openai.models).length).toBeGreaterThan(0)
+    it('should have nvidia config with endpoint and models', () => {
+      expect(ProviderConfigs.nvidia).toBeDefined()
+      expect(ProviderConfigs.nvidia.endpoint).toBe('/chat/completions')
+      expect(ProviderConfigs.nvidia.format).toBe('openai')
+      expect(Object.keys(ProviderConfigs.nvidia.models).length).toBeGreaterThan(0)
     })
+
 
     it('should have claude config with endpoint and models', () => {
       expect(ProviderConfigs.claude).toBeDefined()
       expect(ProviderConfigs.claude.endpoint).toBe('/messages')
       expect(ProviderConfigs.claude.format).toBe('anthropic')
-    })
-
-    it('should have deepseek config', () => {
-      expect(ProviderConfigs.deepseek).toBeDefined()
-      expect(ProviderConfigs.deepseek.endpoint).toBe('/chat/completions')
     })
 
     it('should have google config', () => {

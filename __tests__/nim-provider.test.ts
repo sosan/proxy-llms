@@ -16,7 +16,7 @@ describe('NIMProvider', () => {
 
   describe('transformRequest', () => {
     it('should transform a basic payload with messages', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         model: 'glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
@@ -33,7 +33,7 @@ describe('NIMProvider', () => {
     })
 
     it('should transform payload with string content', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         model: 'glm5.1',
         content: 'Simple prompt',
@@ -45,7 +45,7 @@ describe('NIMProvider', () => {
     })
 
     it('should transform payload with content array (MessageContentPart)', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         model: 'glm5.1',
         content: [{ type: 'text' as const, text: 'Hello with parts' }],
@@ -57,7 +57,7 @@ describe('NIMProvider', () => {
     })
 
     it('should apply model defaults for temperature and tokens', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         model: 'deepseek-v4-pro',
         messages: [{ role: 'user' as const, content: 'Hello' }],
@@ -71,7 +71,7 @@ describe('NIMProvider', () => {
     })
 
     it('should override defaults with payload values', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         model: 'glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
@@ -88,7 +88,7 @@ describe('NIMProvider', () => {
     })
 
     it('should forward extra provider-specific params', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         model: 'glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
@@ -103,7 +103,7 @@ describe('NIMProvider', () => {
     })
 
     it('should not forward routing keys as extra params', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         provider: 'openai',
         model: 'glm5.1',
@@ -119,7 +119,7 @@ describe('NIMProvider', () => {
     })
 
     it('should create default message when no messages or content provided', () => {
-      const config = ProviderConfigs.openai
+      const config = ProviderConfigs.nvidia
       const payload = {
         provider: 'openai',
       }

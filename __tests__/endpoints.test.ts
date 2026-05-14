@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+
 import { createResponse, parseRequestBody, RateLimiter, NIMProvider } from '../server.ts'
 import { ProviderConfigs, createModelsList } from '../config/providers'
+import { getProviderByName, isValidProviderType, resetProviderRegistry } from '../providers/provider-factory'
+import type { Env } from '../interfaces/general'
+
 
 describe('API Endpoints', () => {
   describe('createResponse helper', () => {
@@ -44,10 +48,11 @@ describe('API Endpoints', () => {
   })
 
   describe('Provider route configuration', () => {
-    it('should have openai endpoint configured', () => {
-      expect(ProviderConfigs.openai).toBeDefined()
-      expect(ProviderConfigs.openai.endpoint).toBe('/chat/completions')
+    it('should have nvidia endpoint configured', () => {
+      expect(ProviderConfigs.nvidia).toBeDefined()
+      expect(ProviderConfigs.nvidia.endpoint).toBe('/chat/completions')
     })
+
 
     it('should have claude endpoint configured', () => {
       expect(ProviderConfigs.claude).toBeDefined()
@@ -56,8 +61,9 @@ describe('API Endpoints', () => {
   })
 
   describe('Model list endpoints', () => {
-    it('should create models list for openai', () => {
-      const list = createModelsList('openai')
+    it('should create models list for nvidia', () => {
+      const list = createModelsList('nvidia')
+
 
       expect(list.object).toBe('list')
       expect(Array.isArray(list.data)).toBe(true)
@@ -95,7 +101,8 @@ describe('API Endpoints', () => {
         messages: [{ role: 'user' as const, content: 'Hello' }],
       }
 
-      const result = provider.transformRequest(payload, ProviderConfigs.openai) as Record<string, unknown>
+      const result = provider.transformRequest(payload, ProviderConfigs.nvidia) as Record<string, unknown>
+
 
       expect(result.model).toBe('z-ai/glm-5.1')
       expect(result.messages).toEqual([{ role: 'user', content: 'Hello' }])
@@ -116,4 +123,55 @@ describe('API Endpoints', () => {
       expect(response.data).toHaveProperty('version', '1.0.0')
     })
   })
+
+  describe('Provider factory (URL-based routing)', () => {
+    const mockEnv: Env = {
+      NVIDIA_API_KEY: 'test-key',
+      NVIDIA_BASE_URL: 'https://api.nvidia.test',
+      OPENROUTER_API_KEY: 'openrouter-key',
+      OPENROUTER_BASE_URL: 'https://openrouter.test',
+      LMSTUDIO_BASE_URL: 'http://localhost:1234/v1',
+      LLAMACPP_BASE_URL: 'http://localhost:8080/v1',
+      OLLAMA_BASE_URL: 'http://localhost:11434/v1',
+      ANALYTICS: {} as any,
+      PROCESSOR: {} as any,
+    }
+
+    beforeEach(() => {
+      resetProviderRegistry()
+    })
+
+    afterEach(() => {
+      resetProviderRegistry()
+    })
+
+    it('should validate valid provider names', () => {
+      expect(isValidProviderType('nvidia')).toBe(true)
+      expect(isValidProviderType('openrouter')).toBe(true)
+      expect(isValidProviderType('lmstudio')).toBe(true)
+      expect(isValidProviderType('llamacpp')).toBe(true)
+      expect(isValidProviderType('ollama')).toBe(true)
+    })
+
+    it('should reject invalid provider names', () => {
+      expect(isValidProviderType('invalid')).toBe(false)
+      expect(isValidProviderType('')).toBe(false)
+      expect(isValidProviderType('nvidia-openrouter')).toBe(false)
+    })
+
+    it('should get provider by name for nvidia', () => {
+      const provider = getProviderByName(mockEnv, 'nvidia')
+      expect(provider.name).toBe('nvidia')
+    })
+
+    it('should get provider by name for openrouter', () => {
+      const provider = getProviderByName(mockEnv, 'openrouter')
+      expect(provider.name).toBe('openrouter')
+    })
+
+    it('should throw for unknown provider names', () => {
+      expect(() => getProviderByName(mockEnv, 'unknown')).toThrow('Unknown provider type: unknown')
+    })
+  })
 })
+
