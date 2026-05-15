@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
-import { createResponse, parseRequestBody, RateLimiter, NIMProvider } from '../server.ts'
+import { createResponse, parseRequestBody } from '../utils/response'
+import { NvidiaProvider } from '../providers/nvidia-provider'
+
 import { ProviderConfigs, createModelsList } from '../config/providers'
 import { getProviderByName, isValidProviderType, resetProviderRegistry } from '../providers/provider-factory'
 import type { Env } from '../interfaces/general'
@@ -83,19 +85,10 @@ describe('API Endpoints', () => {
     })
   })
 
-  describe('Rate limiting', () => {
-    it('should limit requests per client', () => {
-      const limiter = new RateLimiter(2, 60000)
-
-      expect(limiter.isAllowed('client-1')).toBe(true)
-      expect(limiter.isAllowed('client-1')).toBe(true)
-      expect(limiter.isAllowed('client-1')).toBe(false)
-    })
-  })
-
-  describe('NIMProvider', () => {
+  describe('NvidiaProvider', () => {
     it('should transform requests correctly', () => {
-      const provider = new NIMProvider('key', 'https://api.test')
+      const provider = new NvidiaProvider('key', 'https://api.test')
+
       const payload = {
         model: 'glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],

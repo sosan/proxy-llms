@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { createResponse, parseRequestBody } from '../server.ts'
+import { createResponse, parseRequestBody } from '../utils/response'
 import { HonoRequest } from 'hono'
+
 
 describe('createResponse', () => {
   it('should create a successful response with data', () => {

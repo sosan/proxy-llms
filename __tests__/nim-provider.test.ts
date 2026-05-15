@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { NIMProvider } from '../server.ts'
+import { NvidiaProvider } from '../providers/nvidia-provider'
+
 import { ProviderConfigs } from '../config/providers'
 import { ProviderError } from '../errors/provider-error'
 
-describe('NIMProvider', () => {
-  let provider: NIMProvider
+describe('NvidiaProvider', () => {
+  let provider: NvidiaProvider
 
   beforeEach(() => {
-    provider = new NIMProvider('test-api-key', 'https://api.nvidia.test')
+    provider = new NvidiaProvider('test-api-key', 'https://api.nvidia.test')
+
   })
 
   afterEach(() => {
