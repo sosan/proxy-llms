@@ -7,8 +7,12 @@
     "types": ["@cloudflare/workers-types"],
     "strict": true,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true
   },
+
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]
 }
