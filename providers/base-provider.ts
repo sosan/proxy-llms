@@ -58,6 +58,8 @@ export abstract class BaseProvider implements AIProvider {
 
   protected createUpstreamError(response: Response, errorBody: unknown, providerName: string): ProviderError {
     const retryAfter = response.headers.get('retry-after') ?? undefined
+    const upstreamMessage = this.extractUpstreamMessage(errorBody)
+
     if (response.status === 429) {
       const retryHint = retryAfter ? ` Retry after ${retryAfter} seconds.` : ''
       return new ProviderError(
@@ -68,13 +70,39 @@ export abstract class BaseProvider implements AIProvider {
         retryAfter
       )
     }
+
+    let publicMessage = `${providerName} returned error ${response.status}.`
+    if (upstreamMessage) {
+      if (upstreamMessage.includes("is longer than the model's context length")) {
+        publicMessage = `Request too long: ${upstreamMessage}. Reduce the number of tokens in your request.`
+      } else {
+        publicMessage = `${providerName} returned error ${response.status}: ${upstreamMessage}`
+      }
+    }
+
     return new ProviderError(
       `${providerName} API returned ${response.status}: ${JSON.stringify(errorBody)}`,
       response.status as ContentfulStatusCode,
       'upstream_error',
-      `${providerName} returned error ${response.status}.`,
+      publicMessage,
       retryAfter
     )
+  }
+
+  private extractUpstreamMessage(errorBody: unknown): string | undefined {
+    if (errorBody && typeof errorBody === 'object') {
+      const body = errorBody as Record<string, unknown>
+      if (body.error && typeof body.error === 'object') {
+        const errorObj = body.error as Record<string, unknown>
+        if (typeof errorObj.message === 'string') {
+          return errorObj.message
+        }
+      }
+      if (typeof body.message === 'string') {
+        return body.message
+      }
+    }
+    return undefined
   }
 
   // ─── Abstract methods (must be implemented by subclasses) ───────────────

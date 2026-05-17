@@ -1,8 +1,8 @@
-import { handleChatCompletions } from './chat'
-import { handleModels, handleProviderModels } from './models'
-import { handleOpenAIModels, handleClaudeModels } from './legacy'
-import { handleProcess, handleStatus, handleStream, handleWebSocket } from './process'
-import { handleHealth } from './health'
+import { handleChatCompletions } from '../controllers/chat'
+import { handleModels, handleProviderModels } from '../controllers/models'
+import { handleOpenAIModels, handleClaudeModels } from '../controllers/legacy'
+import { handleProcess, handleStatus, handleStream, handleWebSocket } from '../controllers/process'
+import { handleHealth } from '../controllers/health'
 
 export const registerRoutes = (app: any) => {
   app.post('/:provider/chat/completions', handleChatCompletions)
