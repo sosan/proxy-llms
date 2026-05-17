@@ -1,0 +1,861 @@
+openapi: 3.1.0
+info:
+  title: Proxy LLMs API
+  description: |
+    Cloudflare Worker proxy for OpenAI-compatible clients.
+    Resolves friendly model aliases and forwards requests to upstream LLM providers.
+  version: 1.0.0
+  contact:
+    name: Proxy LLMs
+    url: https://github.com/sosan/proxy-llms
+servers:
+  - url: https://proxy-llms.example.com
+    description: Production server
+
+tags:
+  - name: Chat Completions
+    description: OpenAI-compatible chat completion endpoints
+  - name: Models
+    description: Model discovery endpoints
+  - name: Legacy
+    description: Backward-compatible legacy routes
+  - name: Process
+    description: Asynchronous processing via Durable Objects
+  - name: Health
+    description: Health and monitoring
+
+security:
+  - OAuth2:
+      - read
+
+paths:
+  /{provider}/chat/completions:
+    post:
+      tags:
+        - Chat Completions
+      summary: Chat completions
+      security:
+        - OAuth2:
+            - read
+            - write
+      description: |
+        Forwards an OpenAI-compatible chat completion request to the specified provider.
+        Supports both streaming (SSE) and non-streaming responses.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9-]+$"
+            maxLength: 64
+          description: Provider key (e.g., nvidia, openrouter, claude)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: Successful non-streaming response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_ChatCompletionResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '502':
+          description: Upstream error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /models:
+    get:
+      tags:
+        - Models
+      summary: List all models (placeholder)
+      description: Returns a placeholder response. Not yet implemented.
+      responses:
+        '200':
+          description: Placeholder response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  notcreated:
+                    type: string
+                    pattern: "^[\\w\\s-]+$"
+                    maxLength: 64
+                    example: "notcreated"
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /{provider}/models:
+    get:
+      tags:
+        - Models
+      summary: List models for a provider
+      security:
+        - OAuth2:
+            - read
+      description: Returns a list of available models for the specified provider.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9-]+$"
+            maxLength: 64
+          description: Provider key (e.g., nvidia, openrouter, claude)
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_ModelList'
+        '400':
+          description: Provider not specified or unknown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /openai/v1/models:
+    get:
+      tags:
+        - Legacy
+      summary: Legacy OpenAI models
+      security:
+        - OAuth2:
+            - read
+      description: Backward-compatible route. Returns NVIDIA models.
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_ModelList'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /claude/v1/models:
+    get:
+      tags:
+        - Legacy
+      summary: Legacy Claude models
+      security:
+        - OAuth2:
+            - read
+      description: Backward-compatible route. Returns Claude models.
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_ModelList'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /api/process:
+    post:
+      tags:
+        - Process
+      summary: Start an async process
+      security:
+        - OAuth2:
+            - read
+            - write
+      description: |
+        Creates a Durable Object to process a chat completion asynchronously.
+        Returns a processId and URLs to check status, stream, or connect via WebSocket.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: Process started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_ProcessStart'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '500':
+          description: Failed to start process
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /api/status/{processId}:
+    get:
+      tags:
+        - Process
+      summary: Get process status
+      security:
+        - OAuth2:
+            - read
+      description: Returns the current state of the async process.
+      parameters:
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            maxLength: 36
+          description: UUID of the process
+      responses:
+        '200':
+          description: Process status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_ProcessState'
+        '400':
+          description: Process ID not specified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '500':
+          description: Error checking status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /api/stream/{processId}:
+    get:
+      tags:
+        - Process
+      summary: Stream process updates (SSE)
+      security:
+        - OAuth2:
+            - read
+      description: |
+        Returns a Server-Sent Events stream with the current status of the process.
+        Useful for real-time updates without WebSocket.
+      parameters:
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            maxLength: 36
+          description: UUID of the process
+      responses:
+        '200':
+          description: SSE stream of process updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                maxLength: 1048576
+                example: "data: {\"status\":\"processing\",\"progress\":10}\\n\\n"
+        '400':
+          description: Process ID not specified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '500':
+          description: Stream error
+          content:
+            text/plain:
+              schema:
+                type: string
+                pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+                maxLength: 4096
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /api/websocket/{processId}:
+    get:
+      tags:
+        - Process
+      summary: WebSocket connection for process
+      security:
+        - OAuth2:
+            - read
+            - write
+      description: Upgrades the connection to WebSocket for real-time process updates.
+      parameters:
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            maxLength: 36
+          description: UUID of the process
+      responses:
+        '101':
+          description: WebSocket upgrade successful
+          content: {}
+        '200':
+          description: WebSocket connection established
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    pattern: "^connected$"
+                    maxLength: 16
+                    example: "connected"
+        '400':
+          description: Process ID not specified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '500':
+          description: WebSocket connection error
+          content:
+            text/plain:
+              schema:
+                type: string
+                pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+                maxLength: 4096
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the proxy.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_HealthResponse'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse_Error'
+
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          scopes:
+            read: Read access
+            write: Write access
+          authorizationUrl: https://proxy-llms.example.com/oauth/authorize
+          tokenUrl: https://proxy-llms.example.com/oauth/token
+      description: OAuth 2.0 authorization for API access.
+
+  schemas:
+    # ---------------------------------------------------------------------------
+    # Response wrappers (flat, no allOf)
+    # ---------------------------------------------------------------------------
+    ApiResponse_Error:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              pattern: "^[A-Za-z0-9_-]+$"
+              maxLength: 128
+            status:
+              type: integer
+              format: int32
+            retry_after:
+              type: ["string", "null"]
+              pattern: "^\\d+$"
+              maxLength: 10
+        error:
+          type: ["string", "null"]
+          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+          maxLength: 4096
+        timestamp:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+
+    ApiResponse_ChatCompletionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: false
+        error:
+          type: ["string", "null"]
+          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+          maxLength: 4096
+        timestamp:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+
+    ApiResponse_ModelList:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            object:
+              type: string
+              pattern: "^list$"
+              maxLength: 16
+              example: "list"
+            models:
+              type: array
+              maxItems: 1000
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: "^[A-Za-z0-9_.:/-]+$"
+                    maxLength: 256
+                  object:
+                    type: string
+                    pattern: "^model$"
+                    maxLength: 16
+                    example: "model"
+                  created:
+                    type: integer
+                    format: int32
+                  owned_by:
+                    type: string
+                    pattern: "^[A-Za-z0-9_. -]+$"
+                    maxLength: 128
+        error:
+          type: ["string", "null"]
+          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+          maxLength: 4096
+        timestamp:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+
+    ApiResponse_ProcessStart:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            processId:
+              type: string
+              format: uuid
+              pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              maxLength: 36
+            statusUrl:
+              type: string
+              format: uri
+              pattern: "^https?://[^\\s]+$"
+              maxLength: 2048
+            streamUrl:
+              type: string
+              format: uri
+              pattern: "^https?://[^\\s]+$"
+              maxLength: 2048
+            websocketUrl:
+              type: string
+              format: uri
+              pattern: "^wss?://[^\\s]+$"
+              maxLength: 2048
+        error:
+          type: ["string", "null"]
+          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+          maxLength: 4096
+        timestamp:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+
+    ApiResponse_ProcessState:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ProcessState'
+        error:
+          type: ["string", "null"]
+          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+          maxLength: 4096
+        timestamp:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+
+    ApiResponse_HealthResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              pattern: "^(healthy|unhealthy|degraded)$"
+              maxLength: 16
+              example: "healthy"
+            timestamp:
+              type: string
+              format: date-time
+              pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            version:
+              type: string
+              pattern: "^\\d+\\.\\d+\\.\\d+$"
+              maxLength: 32
+              example: "1.0.0"
+        error:
+          type: ["string", "null"]
+          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
+          maxLength: 4096
+        timestamp:
+          type: string
+          format: date-time
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+
+    # ---------------------------------------------------------------------------
+    # Domain objects
+    # ---------------------------------------------------------------------------
+    ChatCompletionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        provider:
+          type: string
+          description: Optional explicit provider key
+          pattern: "^[a-z0-9-]+$"
+          maxLength: 64
+        model:
+          type: string
+          description: Model alias or full model ID
+          pattern: "^[A-Za-z0-9_.:/-]+$"
+          maxLength: 256
+        messages:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        content:
+          oneOf:
+            - type: string
+              maxLength: 100000
+            - type: array
+              maxItems: 10
+              items:
+                $ref: '#/components/schemas/MessageContentPart'
+        temperature:
+          type: number
+          format: float
+          default: 1
+          minimum: 0
+          maximum: 2
+        top_p:
+          type: number
+          format: float
+          default: 1
+          minimum: 0
+          maximum: 1
+        max_tokens:
+          type: integer
+          format: int32
+          default: 32768
+          maximum: 32768
+        stream:
+          type: boolean
+          default: false
+        stream_options:
+          type: object
+          description: Provider-specific stream options
+      required:
+        - messages
+
+    ChatMessage:
+      type: object
+      additionalProperties: false
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          oneOf:
+            - type: string
+              maxLength: 100000
+            - type: array
+              maxItems: 10
+              items:
+                $ref: '#/components/schemas/MessageContentPart'
+      required:
+        - role
+        - content
+
+    MessageContentPart:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [text, image]
+        text:
+          type: string
+          pattern: "^[ -~\\n\\r\\t]{0,100000}$"
+          maxLength: 100000
+        image_url:
+          type: object
+          additionalProperties: false
+          properties:
+            url:
+              type: string
+              format: uri
+              pattern: "^https?://[^\\s]+$"
+              maxLength: 2048
+      required:
+        - type
+
+    ProcessState:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        request:
+          $ref: '#/components/schemas/ChatCompletionRequest'
+        result:
+          type: ["object", "null"]
+        startTime:
+          type: integer
+          format: int64
+        completedAt:
+          type: integer
+          format: int64
+        failedAt:
+          type: integer
+          format: int64
+        progress:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+      required:
+        - status
+        - progress

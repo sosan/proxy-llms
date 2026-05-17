@@ -1,0 +1,5 @@
+apis:
+  openapi.yaml:
+    alias: proxy-llms-api
+  .42c/openapi.yaml:
+    alias: proxy-llms-api1
