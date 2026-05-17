@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-name --validate-checksum",
+    "preinstall": "npm run lint:lockfile"
   },
   "dependencies": {
     "hono": "^4.12.18"
@@ -20,6 +22,7 @@
     "@cloudflare/workers-types": "^4.20260511.1",
     "@types/node": "25.7.0",
     "@vitest/coverage-v8": "^4.1.6",
+    "lockfile-lint": "^4.14.1",
     "typescript": "6.0.3",
     "vitest": "^4.1.6",
     "wrangler": "^4.90.1"

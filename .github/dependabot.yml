@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Security Best Practice: cooldown before upgrading to new versions
+    # to avoid compromised packages and supply-chain attacks
+    cooldown:
+      default-days: 7
+      semver-major-days: 7
+      semver-minor-days: 7
+      semver-patch-days: 7
+    # Group all dependency updates to reduce noise
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore"
+      include: scope
+    labels:
+      - dependencies
+      - security

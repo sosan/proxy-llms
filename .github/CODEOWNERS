@@ -1,0 +1,11 @@
+# Global fallback
+* @sosan
+
+# Lockfiles and package manager config require explicit review
+package-lock.json @sosan
+.npmrc @sosan
+.pnpm-workspace.yaml @sosan
+package.json @sosan
+
+# Security-critical workflows
+.github/workflows/ @sosan

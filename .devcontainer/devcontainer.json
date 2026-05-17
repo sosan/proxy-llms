@@ -1,0 +1,31 @@
+{
+  "name": "AI Proxy Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "postCreateCommand": "npm ci --ignore-scripts",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  },
+  "runArgs": [
+    "--security-opt=no-new-privileges:true",
+    "--cap-drop=ALL",
+    "--cap-add=CHOWN",
+    "--cap-add=SETUID",
+    "--cap-add=SETGID"
+  ],
+  "containerEnv": {
+    "NODE_OPTIONS": "--disable-proto=delete",
+    "npm_config_ignore_scripts": "true",
+    "npm_config_allow_git": "none"
+  },
+  "remoteUser": "node"
+}
