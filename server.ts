@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { Env } from './interfaces/general'
 import { registerRoutes } from './routes'
+import { ProcessorDurableObject } from './durable-objects/processor'
 
 // Main application assembly
 const app = new Hono<{ Bindings: Env }>()
@@ -18,3 +19,4 @@ app.onError((err, c) => {
 registerRoutes(app)
 
 export default app
+export { ProcessorDurableObject }

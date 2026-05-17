@@ -1,6 +1,6 @@
 # Multi-Provider AI Proxy with Async Processing
 
-Este proxy permite usar múltiples proveedores de AI compatibles con la API de OpenAI a través de NVIDIA NIM, con capacidades de procesamiento asíncrono usando Cloudflare Durable Objects.
+This proxy allows using multiple AI providers compatible with the OpenAI API through NVIDIA NIM, with async processing capabilities using Cloudflare Durable Objects.
 
 ## Security
 
@@ -40,19 +40,11 @@ sfw npm install <package>
 
 ### No plaintext secrets
 
-Do not store plaintext secrets in `.env` or `.env.dev` files. Use a secrets manager (Infisical, 1Password, etc.) and reference secrets by URI:
-
-```bash
-# .env
-DATABASE_PASSWORD=infisical://project/env/database/password
-API_KEY=infisical://project/env/api-key
-```
-
-Inject secrets at runtime with Infisical CLI:
+Do not store plaintext secrets in `.env` or `.env.dev` files. Use a secrets manager (Infisical, 1Password, etc.) and inject secrets at runtime with Infisical CLI, example:
 
 ```bash
 # Basic usage
-infisical run -- npm start
+infisical run -- npm run dev
 
 # Watch for secret changes (development only)
 infisical run --watch -- npm run dev
@@ -68,18 +60,18 @@ Open the project in the provided [Dev Container](.devcontainer/devcontainer.json
 
 ## Endpoints
 
-### Proveedores AI Síncronos
-- `POST /claude/v1/messages` - Compatible con Anthropic API (soon)
-- `POST /nvidia/v1/chat/completions` - Compatible con OpenAI API
+### Synchronous AI Providers
+- `POST /claude/v1/messages` - Compatible with Anthropic API (soon)
+- `POST /nvidia/v1/chat/completions` - Compatible with OpenAI API
 
-### Procesamiento Asíncrono
-- `POST /api/process` - Iniciar procesamiento asíncrono
-- `GET /api/status/:processId` - Obtener estado (polling)
-- `GET /api/stream/:processId` - SSE stream para updates en tiempo real
-- `GET /api/websocket/:processId` - WebSocket para updates en tiempo real
+### Async Processing
+- `POST /api/process` - Start async processing
+- `GET /api/status/:processId` - Get status (polling)
+- `GET /api/stream/:processId` - SSE stream for real-time updates
+- `GET /api/websocket/:processId` - WebSocket for real-time updates
 
-## Uso con Cline/Claude Code
+## Usage with Cline/Claude Code
 
-### Procesamiento Asíncrono
+### Async Processing
 
-1. **Iniciar proceso:**
+1. **Start process:**

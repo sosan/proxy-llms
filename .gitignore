@@ -12,3 +12,4 @@
 .cline/
 node_modules/
 .wrangler/
+.infisical.json

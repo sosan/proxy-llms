@@ -4,9 +4,16 @@ This repository is a Cloudflare Worker proxy for OpenAI-compatible clients such 
 
 ## Project Shape
 
-- `server.ts`: Hono app, routes, request transformation, rate limiter, and Durable Object entrypoint.
+- `server.ts`: Hono app entrypoint, middleware setup, error handler, and Durable Object re-export only.
+- `controllers/`: Business logic controllers — each controller is a pure function that receives a Hono `Context` and returns a `Response`. Controllers are the single place where request processing, provider resolution, and response construction happen.
+  - `controllers/chat.ts`: `handleChatCompletions` — resolves provider, parses body, resolves model aliases, streams or buffers upstream responses, and collects metrics.
+  - `controllers/health.ts`: `handleHealth` — simple health-check endpoint.
+  - `controllers/legacy.ts`: `handleOpenAIModels`, `handleClaudeModels` — backward-compatible model listing endpoints.
+  - `controllers/models.ts`: `handleModelsList` — generic model list handler for any provider.
+  - `controllers/process.ts`: `handleProcess` — initiates the async Durable Object processing flow.
+- `routes/`: Thin route registration. Each file exports individual handler functions that **delegate immediately to controllers**; `routes/index.ts` registers them declaratively. Routes contain zero business logic.
+- `durable-objects/processor.ts`: `ProcessorDurableObject` class for the `/api/process` async flow.
 - `config/providers.ts`: provider endpoints, model aliases, model defaults, model listing, model resolution, and the single source of truth for `ProviderType`.
-
 - `interfaces/general.ts`: Worker bindings and shared request/response interfaces.
 - `errors/provider-error.ts`: provider error type that preserves upstream HTTP status codes.
 - `providers/provider-factory.ts`: factory for creating provider instances by name from the URL.
@@ -60,8 +67,19 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
 - Metrics are collected via Cloudflare Analytics Engine (`ANALYTICS` binding).
 
 
+## Routing Pattern (Declarative)
+
+- **`routes/*.ts` export only thin handler functions** — each handler is an `async (c: Context) => Response` function that delegates immediately to the corresponding controller in `controllers/`. No business logic, no conditionals, no validation.
+- **`routes/index.ts` is 100% declarative** — it imports all handlers and registers routes with `app.post('/', handler)` or `app.get('/', handler)`. No business logic, no conditionals, no validation.
+- **Business logic lives inside `controllers/`** or in modules imported by them (providers, utils).
+- **No `register*Routes(app)` functions** — the declarative registration in `routes/index.ts` replaces that indirection.
+- **Pattern check**: if `routes/index.ts` contains anything other than route registration (conditionals, validation, business logic), the routing pattern is violated.
+- **Pattern check**: if a handler in `routes/*.ts` contains more than a single call to a controller, the separation of concerns is violated.
+
 ## Development Rules
 
+- **Controllers contain all business logic** — `controllers/*.ts` are the single source of truth for request processing, provider resolution, streaming/buffering, error handling, and metrics collection.
+- **Routes are thin wrappers** — `routes/*.ts` handlers should delegate to controllers immediately. If you find yourself adding logic in a route handler, extract it to the corresponding controller.
 - Keep model aliases and defaults in `config/providers.ts`.
 - Keep shared interfaces in `interfaces/general.ts`.
 - Preserve OpenAI-compatible passthrough fields such as `tools`, `tool_choice`, `response_format`, `stream_options`, `stop`, and `chat_template_kwargs`.
@@ -76,12 +94,78 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
   4. `ProviderType` is derived automatically from `ProviderConfigs` keys — no need to edit `interfaces/provider.ts`.
 - URL-based routing: `/:provider/:format/v1/:company/:model` — the route handler looks up `ProviderConfigs[urlProvider]` directly. The `format` param is validated against `config.format` (must match). No hardcoded format-to-config mapping.
 
+## Development Workflow
+
+1. **Review the request, think about it, and brainstorm**
+   - Use `/superpowers:brainstorm` for new features
+   - Use `/superpowers:systematic-debugging` for bug fixes
+2. **Ask clarifying questions** (when needed)
+3. **Think hard and make a plan**
+4. **Only when we agree on a plan, create a detailed to-do list** using the `task_progress` parameter
+5. **If writing code, add these review tasks at the end of the to-do list:**
+   - A. Run `npm run typecheck`
+   - B. Run `npm run test`
+   - C. Review against routing pattern: `routes/index.ts` must be declarative
+   - D. Run the `security-code-reviewer` sub-agent
+6. **Once we agree on the to-do list, start implementation**
+7. **During implementation:**
+   - Keep things simple and stick to the requested scope
+   - Do NOT over-complicate things
+   - Do NOT add unnecessary complexity
+8. **At the end, verify:**
+   - All tests pass (`npm run test`)
+   - TypeScript compiles cleanly (`npm run typecheck`)
+   - Routing pattern is respected (declarative `routes/index.ts`)
 
 ## Security
 
 - Sensitive files: `.env`, `.local`, `wrangler.toml` — never commit or expose
-- Secret handling: Environment variables only, never hardcoded or committed
+- Secret handling: Environment variables only, never hardcoded or committed. Use a secrets manager (Infisical, 1Password) and inject at runtime with `infisical run -- npm start` or `op run -- npm start`
 - Auth scope: Multiple upstream providers (NVIDIA, OpenRouter, LMStudio, etc.)
+- **Never store plaintext secrets in `.env` or `.env.dev` files** — use secret references like `infisical://project/env/api-key`
+
+### Supply-chain hardening controls
+
+| Control | File | Description |
+|---|---|---|
+| Ignore lifecycle scripts | `.npmrc` | `ignore-scripts=true` prevents arbitrary code execution during install |
+| Block git deps | `.npmrc` | `allow-git=none` rejects git-source dependencies |
+| Install cooldown | `.npmrc` | `min-release-age=30` blocks packages newer than 30 days |
+| pnpm trust policy | `.pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
+| Strict dep builds | `.pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
+| Block exotic subdeps | `.pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
+| Lockfile lint | `package.json` | `lockfile-lint` validates integrity, host, HTTPS on every install |
+| Dependabot cooldown | `.github/dependabot.yml` | 7-day cooldown before auto-upgrading dependencies |
+| CODEOWNERS | `.github/CODEOWNERS` | Mandatory review for lockfiles and package manager config |
+| CI hardening | `.github/workflows/ci.yml` | Deterministic install (`npm ci --ignore-scripts`) + lockfile validation |
+| Dev container | `.devcontainer/devcontainer.json` | Isolated environment with `--cap-drop=ALL` and `--no-new-privileges` |
+
+### Pre-install security audit
+
+Before installing new packages, audit them with:
+
+```bash
+# npq — pre-install security auditor
+npm install -g npq
+npq install <package>
+
+# Socket Firewall — real-time malicious package blocker
+npm install -g sfw
+sfw npm install <package>
+```
+
+### Secure local development
+
+- Use the provided [Dev Container](.devcontainer/devcontainer.json) for isolated development
+- The container drops all capabilities, disables proto pollution, and enforces `ignore-scripts` and `allow-git=none`
+- Run `npm ci --ignore-scripts --prefer-offline` instead of `npm install` for deterministic installs
+
+### CI/CD security
+
+- CI uses `npm ci --ignore-scripts --prefer-offline` for deterministic installs
+- Lockfile is validated with `lockfile-lint` before every install
+- Dependabot PRs have a 7-day cooldown to avoid compromised fresh releases
+- CODEOWNERS requires explicit review for lockfiles and package manager config
 
 
 ## Testing

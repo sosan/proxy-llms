@@ -1,207 +1,174 @@
 # SPDD - Structured Prompt-Driven Development
 
-## ¿Qué es SPDD?
+## What is SPDD?
 
-Structured Prompt-Driven Development (SPDD) es un método de ingeniería que trata los prompts como artefactos de primera clase en el desarrollo de software. En lugar de depender de chats ad hoc, SPDD convierte los prompts en activos que pueden ser:
+Structured Prompt-Driven Development (SPDD) is an engineering method that treats prompts as first-class artifacts in software development. Instead of relying on ad-hoc chats, SPDD converts prompts into assets that can be:
 
-- ✅ Versionados y controlados
-- ✅ Revisados por el equipo
-- ✅ Reutilizados entre proyectos
-- ✅ Mejorados iterativamente
+- ✅ Versioned and controlled
+- ✅ Reviewed by the team
+- ✅ Reused across projects
+- ✅ Improved iteratively
 
-## Componentes Principales
+## Main Components
 
 ### 1. REASONS Canvas
-Estructura de 7 partes que guía un prompt desde la intención hasta la ejecución:
+A 7-part structure that guides a prompt from intent to execution:
 
-- **R** - Requirements: ¿Qué problema resolvemos y cuál es la definición de terminado?
-- **E** - Entities: Entidades del dominio y sus relaciones
-- **A** - Approach: Estrategia de cómo cumplir los requisitos
-- **S** - Structure: Dónde encaja el cambio en el sistema
-- **O** - Operations: Descomposición en pasos concretos e implementables
-- **N** - Norms: Normas de ingeniería transversales
-- **S** - Safeguards: Límites no negociables
+- **R** - Requirements: What problem are we solving and what is the definition of done?
+- **E** - Entities: Domain entities and their relationships
+- **A** - Approach: Strategy for how to meet the requirements
+- **S** - Structure: Where the change fits in the system
+- **O** - Operations: Decomposition into concrete, implementable steps
+- **N** - Norms: Cross-cutting engineering norms
+- **S** - Safeguards: Non-negotiable limits
 
-### 2. Workflow SPDD
-El workflow trae los prompts a la misma disciplina que el código:
+### 2. SPDD Workflow
+The workflow brings prompts to the same discipline as code:
 
-1. **Crear historia de usuario** → `spdd-story`
-2. **Análisis estratégico** → `spdd-analysis`
-3. **Generar canvas REASONS** → `spdd-reasons-canvas`
-4. **Generar código** → `spdd-generate`
-5. **Actualizar/sincronizar** → `spdd-prompt-update` / `spdd-sync`
+1. **Create user story** → `spdd-story`
+2. **Strategic analysis** → `spdd-analysis`
+3. **Generate REASONS canvas** → `spdd-reasons-canvas`
+4. **Generate code** → `spdd-generate`
+5. **Update/sync** → `spdd-prompt-update` / `spdd-sync`
 
-## Comandos Disponibles
+## Available Commands
 
 ### CLI
-Crear historias de usuario
+Create user stories
 
 ```bash
-python spdd_cli.py spdd-story "texto del requerimiento"
+python spdd_cli.py spdd-story "requirement text"
 ```
 
-Generar análisis
+Generate analysis
 
-python spdd_cli.py spdd-analysis archivo_historia.md
+```bash
+python spdd_cli.py spdd-analysis story_file.md
+```
 
-Crear canvas REASONS
+Create REASONS canvas
 
-python spdd_cli.py spdd-reasons-canvas archivo_analisis.md
+```bash
+python spdd_cli.py spdd-reasons-canvas analysis_file.md
+```
 
-Generar código
+Generate code
 
-python spdd_cli.py spdd-generate archivo_canvas.md
+```bash
+python spdd_cli.py spdd-generate canvas_file.md
+```
 
-Actualizar canvas
+Update canvas
 
-python spdd_cli.py spdd-prompt-update archivo_canvas.md --update "instrucción"
+```bash
+python spdd_cli.py spdd-prompt-update canvas_file.md --update "instruction"
+```
 
-Sincronizar cambios de código
+Sync code changes
 
-python spdd_cli.py spdd-sync archivo_canvas.md --update "cambios de código"
+```bash
+python spdd_cli.py spdd-sync canvas_file.md --update "code changes"
+```
+
 ### Web Interface
-### Web Interface
-bash
-Lanzar interfaz web
 
+Launch web interface
+
+```bash
 streamlit run spdd_web.py
-## Ejemplo de Uso
+```
 
-### 1. Crear Historia de Usuario
-## Ejemplo de Uso
+## Usage Example
 
-### 1. Crear Historia de Usuario
-bash
-python spdd_cli.py spdd-story "Necesitamos implementar facturación multi-plan con precios basados en modelo para nuestro servicio de IA"
-### 2. Generar Análisis
-### 2. Generar Análisis
-bash
+### 1. Create User Story
+
+```bash
+python spdd_cli.py spdd-story "We need to implement multi-plan billing with model-based pricing for our AI service"
+```
+
+### 2. Generate Analysis
+
+```bash
 python spdd_cli.py spdd-analysis spdd/stories/STORY-20241220120000.md --codebase ./src
-### 3. Crear Canvas REASONS
-### 3. Crear Canvas REASONS
-bash
+```
+
+### 3. Create REASONS Canvas
+
+```bash
 python spdd_cli.py spdd-reasons-canvas spdd/analysis/ANALYSIS-20241220120500.md
-### 4. Generar Código
-### 4. Generar Código
-bash
+```
+
+### 4. Generate Code
+
+```bash
 python spdd_cli.py spdd-generate spdd/canvas/CANVAS-20241220121000.md
-## Beneficios Clave
+```
 
-### Inmediatos
-- ✅ **Determinismo**: Especificación precisa reduce alucinaciones
-- ✅ **Trazabilidad**: Cada cambio rastreable al prompt estructurado
-- ✅ **Revisiones más rápidas**: Código llega más cerca de estándares
+## Key Benefits
 
-### A Corto Plazo
-- ✅ **Explicabilidad**: Intención visible a nivel de lenguaje natural
-- ✅ **Evolución más segura**: Límites bien definidos
+### Immediate
+- ✅ **Determinism**: Precise specification reduces hallucinations
+- ✅ **Traceability**: Every change traceable to the structured prompt
+- ✅ **Faster reviews**: Code arrives closer to standards
 
-### A Largo Plazo
-- ✅ **Activos reutilizables**: Biblioteca de prompts exitosos
-- ✅ **Consistencia del equipo**: Mismo proceso para todos
+### Short Term
+- ✅ **Explainability**: Intent visible at natural language level
+- ✅ **Safer evolution**: Well-defined limits
 
-## Tres Habilidades Clave
+### Long Term
+- ✅ **Reusable assets**: Library of successful prompts
+- ✅ **Team consistency**: Same process for everyone
 
-### 1. Abstraction First
-Diseño antes de generar. Claridad sobre objetos, colaboraciones y límites.
-
-### 2. Alignment
-Bloquear intención antes de escribir código. Hacer explícito "qué haremos/qué no haremos".
-
-### 3. Iterative Review
-Convertir output en un bucle controlado. Proceso de ingeniería, no borrador único.
-
-## Cuándo Usar SPDD
-
-### ⭐⭐⭐⭐⭐ Altamente Recomendado
-- Entrega escalada y estandarizada
-- Alta compliance y restricciones duras
-- Colaboración en equipo y auditabilidad
-
-### ⭐⭐⭐⭐☆ Recomendado
-- Trabajo de consistencia transversal
-- Refactors complejos
-
-### ⭐⭐☆☆☆ Casos Limitados
-- Hotfixes de emergencia
-- Spikes exploratorios
-- Scripts de un solo uso
-
-### ⭐☆☆☆☆ No Recomendado
-- Dominios mal definidos
-- Trabajo puramente creativo/visual
-
-## Estructura de Archivos
-## Beneficios Clave
-
-### Inmediatos
-- ✅ **Determinismo**: Especificación precisa reduce alucinaciones
-- ✅ **Trazabilidad**: Cada cambio rastreable al prompt estructurado
-- ✅ **Revisiones más rápidas**: Código llega más cerca de estándares
-
-### A Corto Plazo
-- ✅ **Explicabilidad**: Intención visible a nivel de lenguaje natural
-- ✅ **Evolución más segura**: Límites bien definidos
-
-### A Largo Plazo
-- ✅ **Activos reutilizables**: Biblioteca de prompts exitosos
-- ✅ **Consistencia del equipo**: Mismo proceso para todos
-
-## Tres Habilidades Clave
+## Three Key Skills
 
 ### 1. Abstraction First
-Diseño antes de generar. Claridad sobre objetos, colaboraciones y límites.
+Design before generating. Clarity about objects, collaborations, and limits.
 
 ### 2. Alignment
-Bloquear intención antes de escribir código. Hacer explícito "qué haremos/qué no haremos".
+Lock intent before writing code. Make explicit "what we will do / what we won't do".
 
 ### 3. Iterative Review
-Convertir output en un bucle controlado. Proceso de ingeniería, no borrador único.
+Convert output into a controlled loop. Engineering process, not a single draft.
 
-## Cuándo Usar SPDD
+## When to Use SPDD
 
-### ⭐⭐⭐⭐⭐ Altamente Recomendado
-- Entrega escalada y estandarizada
-- Alta compliance y restricciones duras
-- Colaboración en equipo y auditabilidad
+### ⭐⭐⭐⭐⭐ Highly Recommended
+- Scaled and standardized delivery
+- High compliance and hard restrictions
+- Team collaboration and auditability
 
-### ⭐⭐⭐⭐☆ Recomendado
-- Trabajo de consistencia transversal
-- Refactors complejos
+### ⭐⭐⭐⭐☆ Recommended
+- Cross-cutting consistency work
+- Complex refactors
 
-### ⭐⭐☆☆☆ Casos Limitados
-- Hotfixes de emergencia
-- Spikes exploratorios
-- Scripts de un solo uso
+### ⭐⭐☆☆☆ Limited Cases
+- Emergency hotfixes
+- Exploratory spikes
+- One-off scripts
 
-### ⭐☆☆☆☆ No Recomendado
-- Dominios mal definidos
-- Trabajo puramente creativo/visual
+### ⭐☆☆☆☆ Not Recommended
+- Poorly defined domains
+- Purely creative/visual work
 
-## Estructura de Archivos
+## File Structure
 
+```
 spdd/
-├── canvas/ # Canvas REASONS generados
-├── stories/ # Historias de usuario
-├── analysis/ # Análisis estratégicos
-└── commands.py # Comandos SPDD
+├── canvas/     # Generated REASONS canvases
+├── stories/    # User stories
+├── analysis/   # Strategic analyses
+└── commands.py # SPDD commands
 
-generated/ # Código generado
-spdd_cli.py # CLI
-spdd_web.py # Interfaz web
-## Próximos Pasos
+generated/      # Generated code
+spdd_cli.py     # CLI
+spdd_web.py     # Web interface
+```
 
-1. **Instalar dependencias**: `pip install litai streamlit`
-2. **Probar CLI**: Ejecutar primer comando `spdd-story`
-3. **Usar interfaz web**: `streamlit run spdd_web.py`
-4. **Iterar y mejorar**: Refinar prompts basado en resultados
+## Next Steps
 
-El objetivo es hacer que los cambios asistidos por IA sean gobernables, revisables y reutilizables, para que los equipos sean más rápidos Y más seguros.
-## Próximos Pasos
+1. **Install dependencies**: `pip install litai streamlit`
+2. **Try CLI**: Run first command `spdd-story`
+3. **Use web interface**: `streamlit run spdd_web.py`
+4. **Iterate and improve**: Refine prompts based on results
 
-1. **Instalar dependencias**: `pip install litai streamlit`
-2. **Probar CLI**: Ejecutar primer comando `spdd-story`
-3. **Usar interfaz web**: `streamlit run spdd_web.py`
-4. **Iterar y mejorar**: Refinar prompts basado en resultados
-
-El objetivo es hacer que los cambios asistidos por IA sean gobernables, revisables y reutilizables, para que los equipos sean más rápidos Y más seguros.
+The goal is to make AI-assisted changes governable, reviewable, and reusable, so teams are faster AND safer.

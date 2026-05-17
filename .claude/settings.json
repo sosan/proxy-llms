@@ -35,7 +35,9 @@
             "Edit(__tests__/**)",
             "Edit(providers/**)",
             "Edit(server.ts)",
-
+            "Edit(.github/**)",
+            "Edit(.devcontainer/**)",
+            "Edit(.editorconfig)",
             "Edit(package.json)",
             "Edit(tsconfig.json)",
             "Edit(vitest.config.ts)",
@@ -49,6 +51,11 @@
             "Read(metrics/**)",
             "Read(__tests__/**)",
             "Read(server.ts)",
+            "Read(.github/**)",
+            "Read(.npmrc)",
+            "Read(.pnpm-workspace.yaml)",
+            "Read(.devcontainer/**)",
+            "Read(.editorconfig)",
             "Read(package.json)",
             "Read(tsconfig.json)",
             "Read(vitest.config.ts)",
@@ -89,7 +96,9 @@
             "Read(~/.ssh/**)",
             "Read(~/.aws/**)",
             "Read(~/.config/gh/**)",
-            "Read(~/.git-credentials)"
+            "Read(~/.git-credentials)",
+            "Edit(.npmrc)",
+            "Edit(.pnpm-workspace.yaml)"
         ]
     },
     "hooks": {

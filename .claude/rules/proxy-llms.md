@@ -26,11 +26,11 @@ Use this rule file when working in this Cloudflare Worker proxy repository. Thes
 ## Provider Requests
 
 ### URL-Based Routing (New)
-- The proxy supports dynamic URL-based routing: `POST /:provider/:format/v1/:company/:model`
+- The proxy supports dynamic URL-based routing: `POST /:provider/chat/completions`
 - `provider` maps directly to a backend (nvidia, openrouter, lmstudio, llamacpp, ollama)
-- `format` maps to a `ProviderConfig` key (openai → `ProviderConfigs.openai`, anthropic → `ProviderConfigs.claude`, google → `ProviderConfigs.google`)
-- `company/model` is combined as the full model ID and injected into the payload
+- The model is resolved from the request body (alias or full upstream model ID)
 - No provider env flags (e.g., `USE_NVIDIA_PROVIDER`) are checked — all providers are always available
+- Legacy routes (backward compatible): `GET /openai/v1/models`, `GET /claude/v1/models` still work for model discovery
 
 ### Request Processing
 - The proxy should pass through compatible OpenAI/NVIDIA fields unless they are internal routing fields
