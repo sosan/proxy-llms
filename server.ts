@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { Env } from './interfaces/general'
 import { registerRoutes } from './routes'
 import { ProcessorDurableObject } from './durable-objects/processor'
+import { logger } from './utils/logger'
 
 // Main application assembly
 const app = new Hono<{ Bindings: Env }>()
@@ -10,7 +11,7 @@ const app = new Hono<{ Bindings: Env }>()
 app.use('*', cors())
 
 app.onError((err, c) => {
-  console.error('Application Error:', err)
+  logger.error('Application Error:', err)
   const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
   return c.json({ success: false, data: null, error: `Internal Server Error: ${errorMessage}` }, { status: 500 })
 })

@@ -1,6 +1,7 @@
 import { Context } from 'hono'
 import { Env, ApiResponse, ProcessState } from '../interfaces/general'
 import { createResponse, parseRequestBody } from '../utils/response'
+import { logger } from '../utils/logger'
 
 const encoder = new TextEncoder()
 
@@ -33,7 +34,7 @@ export const handleProcess = async (c: Context<{ Bindings: Env }>) => {
     }))
 
   } catch (error) {
-    console.error('Process Start Error:', error)
+    logger.error('Process Start Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     return c.json(createResponse(false, null, `Failed to start process: ${errorMessage}`), { status: 500 })
   }
@@ -54,7 +55,7 @@ export const handleStatus = async (c: Context<{ Bindings: Env }>) => {
     return c.json(data as ApiResponse<ProcessState>)
 
   } catch (error) {
-    console.error('Status Check Error:', error)
+    logger.error('Status Check Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     return c.json(createResponse(false, null, `Error checking status: ${errorMessage}`), { status: 500 })
   }
@@ -106,7 +107,7 @@ export const handleStream = async (c: Context<{ Bindings: Env }>) => {
       }
     })
   } catch (error) {
-    console.error('Stream Error:', error)
+    logger.error('Stream Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     return new Response(`Stream Error: ${errorMessage}`, { status: 500 })
   }
@@ -128,7 +129,7 @@ export const handleWebSocket = async (c: Context<{ Bindings: Env }>) => {
     return await durableObject.fetch(wsRequest)
 
   } catch (error) {
-    console.error('WebSocket Error:', error)
+    logger.error('WebSocket Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     return new Response(`WebSocket Connection Error: ${errorMessage}`, { status: 500 })
   }

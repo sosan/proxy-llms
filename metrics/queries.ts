@@ -1,5 +1,6 @@
 import type { AggregatedMetrics } from '../interfaces/metrics'
 import type { Env } from '../interfaces/general'
+import { logger } from '../utils/logger'
 
 type AnalyticsRow = Record<string, unknown>
 
@@ -161,7 +162,7 @@ export class MetricsQueries {
         errors,
       }
     } catch (error) {
-      console.error('[METRICS] Failed to query Analytics Engine:', error)
+      logger.error('[METRICS] Failed to query Analytics Engine:', error)
       // Return empty metrics on error
       return this.emptyMetrics()
     }

@@ -3,6 +3,7 @@ import type { ProviderConfig, GenericPayload, Env } from '../interfaces/general'
 import type { AIProvider } from '../interfaces/provider'
 import { ProviderError } from '../errors/provider-error'
 import { resolveModel, ModelDefaultsById } from '../config/providers'
+import { logger } from '../utils/logger'
 
 const DEFAULT_MAX_TOKENS = 32768
 const DEFAULT_MAX_TEMP = 1
@@ -37,7 +38,7 @@ export abstract class BaseProvider implements AIProvider {
   protected createAbortTimeout(requestId: string): { signal: AbortSignal; clear: () => void } {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => {
-      console.warn(`[${requestId}] Timeout reached — aborting request`)
+      logger.warn(`[${requestId}] Timeout reached — aborting request`)
       controller.abort()
     }, this.responseTimeoutMs)
 
@@ -45,15 +46,6 @@ export abstract class BaseProvider implements AIProvider {
       signal: controller.signal,
       clear: () => clearTimeout(timeoutId),
     }
-  }
-
-  protected logUpstreamConfig(requestId: string, payload: unknown): void {
-    const payloadRecord = payload as Record<string, unknown>
-    const { messages: _messages, ...safePayload } = payloadRecord
-    console.log(`[${requestId}] config`, {
-      ...safePayload,
-      messages_count: Array.isArray(payloadRecord.messages) ? payloadRecord.messages.length : 0,
-    })
   }
 
   protected createUpstreamError(response: Response, errorBody: unknown, providerName: string): ProviderError {

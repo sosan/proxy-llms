@@ -1,5 +1,6 @@
 import type { RequestMetrics } from '../interfaces/metrics'
 import type { Env } from '../interfaces/general'
+import { logger } from '../utils/logger'
 
 export class MetricsCollector {
   private env: Env
@@ -140,7 +141,7 @@ export class MetricsCollector {
 
   private writeMetrics(metrics: RequestMetrics): void {
     // Log to console for immediate debugging
-    console.log('[METRICS]', JSON.stringify(metrics))
+    logger.info('[METRICS]', JSON.stringify(metrics))
 
     // Analytics Engine writes are non-blocking. The runtime flushes them in the background.
     this.env.ANALYTICS.writeDataPoint({

@@ -1,4 +1,5 @@
 import type { ProviderConfig } from '../interfaces/general'
+import { logger } from '../utils/logger'
 
 export type ModelDefaults = {
   temperature?: number
@@ -187,7 +188,7 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
   const fullIds = Object.values(aliases)
 
   if (payloadModel) {
-    console.log(`Resolving model for payload model: "${payloadModel}" with config format: "${config.format}"`)
+    logger.debug(`Resolving model for payload model: "${payloadModel}" with config format: "${config.format}"`)
     if (aliases[payloadModel]) {
       return aliases[payloadModel]
     }

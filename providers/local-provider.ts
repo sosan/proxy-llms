@@ -1,6 +1,7 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { BaseProvider } from './base-provider'
 import { ProviderError } from '../errors/provider-error'
+import { logger } from '../utils/logger'
 
 /**
  * Base class for local AI providers (LMStudio, LlamaCPP, Ollama).
@@ -12,8 +13,8 @@ abstract class LocalProvider extends BaseProvider {
     const uri = `${this.baseUrl}${endpoint}`
     const timeout = this.createAbortTimeout(requestId)
 
-    console.log(`[${requestId}] → ${this.name} stream request`, { uri })
-    this.logUpstreamConfig(requestId, payload)
+    logger.info(`[${requestId}] → ${this.name} stream request`, { uri })
+    logger.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {
@@ -58,8 +59,8 @@ abstract class LocalProvider extends BaseProvider {
     const uri = `${this.baseUrl}${endpoint}`
     const timeout = this.createAbortTimeout(requestId)
 
-    console.log(`[${requestId}] → ${this.name} request`, { uri })
-    this.logUpstreamConfig(requestId, payload)
+    logger.info(`[${requestId}] → ${this.name} request`, { uri })
+    logger.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {

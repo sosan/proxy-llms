@@ -1,6 +1,7 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { BaseProvider } from './base-provider'
 import { ProviderError } from '../errors/provider-error'
+import { logger } from '../utils/logger'
 
 /**
  * NVIDIA NIM Provider
@@ -14,11 +15,11 @@ export class NvidiaProvider extends BaseProvider {
     const uri = `${this.baseUrl}${endpoint}`
     const timeout = this.createAbortTimeout(requestId)
 
-    console.log(`[${requestId}] → Stream request`, {
+    logger.info(`[${requestId}] → Stream request`, {
       uri,
       model: (payload as Record<string, unknown>).model,
     })
-    this.logUpstreamConfig(requestId, payload)
+    logger.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {
@@ -34,7 +35,7 @@ export class NvidiaProvider extends BaseProvider {
     } catch (err) {
       timeout.clear()
       if (err instanceof Error && err.name === 'AbortError') {
-        console.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
+        logger.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
         throw new ProviderError(
           'NVIDIA did not send a response before the proxy timeout',
           504 as ContentfulStatusCode,
@@ -42,7 +43,7 @@ export class NvidiaProvider extends BaseProvider {
           'NVIDIA took too long to respond. Retry the request or try a faster model.'
         )
       }
-      console.error(`[${requestId}] ✘ Error de red`, { error: err instanceof Error ? err.message : err })
+      logger.error(`[${requestId}] ✘ Network error`, { error: err instanceof Error ? err.message : err })
       throw new ProviderError(
         `Network error while contacting NVIDIA: ${err instanceof Error ? err.message : 'unknown'}`,
         502 as ContentfulStatusCode,
@@ -53,14 +54,14 @@ export class NvidiaProvider extends BaseProvider {
 
     timeout.clear()
 
-    console.log(`[${requestId}] ← Respuesta upstream`, {
+    logger.info(`[${requestId}] ← Upstream response`, {
       status: response.status,
       contentType: response.headers.get('content-type'),
     })
 
     if (!response.ok) {
       const errorBody = await this.readErrorBody(response)
-      console.error(`[${requestId}] ✘ Upstream error`, {
+      logger.error(`[${requestId}] ✘ Upstream error`, {
         status: response.status,
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
@@ -76,12 +77,12 @@ export class NvidiaProvider extends BaseProvider {
     const uri = `${this.baseUrl}${endpoint}`
     const timeout = this.createAbortTimeout(requestId)
 
-    console.log(`[${requestId}] → Request`, {
+    logger.info(`[${requestId}] → Request`, {
       uri,
       model: (payload as Record<string, unknown>).model,
       messages: ((payload as Record<string, unknown>).messages as unknown[])?.length ?? 0,
     })
-    this.logUpstreamConfig(requestId, payload)
+    logger.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {
@@ -97,7 +98,7 @@ export class NvidiaProvider extends BaseProvider {
     } catch (err) {
       timeout.clear()
       if (err instanceof Error && err.name === 'AbortError') {
-        console.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
+        logger.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
         throw new ProviderError(
           'NVIDIA did not send a response before the proxy timeout',
           504 as ContentfulStatusCode,
@@ -105,7 +106,7 @@ export class NvidiaProvider extends BaseProvider {
           'NVIDIA took too long to respond. Retry the request or try a faster model.'
         )
       }
-      console.error(`[${requestId}] ✘ Error de red`, { error: err instanceof Error ? err.message : err })
+      logger.error(`[${requestId}] ✘ Network error`, { error: err instanceof Error ? err.message : err })
       throw new ProviderError(
         `Network error while contacting NVIDIA: ${err instanceof Error ? err.message : 'unknown'}`,
         502 as ContentfulStatusCode,
@@ -116,14 +117,14 @@ export class NvidiaProvider extends BaseProvider {
 
     timeout.clear()
 
-    console.log(`[${requestId}] ← Respuesta recibida`, {
+    logger.info(`[${requestId}] ← Response received`, {
       status: response.status,
       contentType: response.headers.get('content-type'),
     })
 
     if (!response.ok) {
       const errorBody = await this.readErrorBody(response)
-      console.error(`[${requestId}] ✘ Error del servidor`, {
+      logger.error(`[${requestId}] ✘ Server error`, {
         status: response.status,
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
@@ -132,7 +133,7 @@ export class NvidiaProvider extends BaseProvider {
     }
 
     const json = await response.json()
-    console.log(`[${requestId}] ✔ Completada`, {
+    logger.info(`[${requestId}] ✔ Completed`, {
       finish_reason: ((json as Record<string, unknown>).choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason,
     })
     return json

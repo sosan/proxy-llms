@@ -1,6 +1,7 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { BaseProvider } from './base-provider'
 import { ProviderError } from '../errors/provider-error'
+import { logger } from '../utils/logger'
 
 /**
  * OpenRouter Provider
@@ -15,8 +16,8 @@ export class OpenRouterProvider extends BaseProvider {
     const uri = `${this.baseUrl}${endpoint}`
     const timeout = this.createAbortTimeout(requestId)
 
-    console.log(`[${requestId}] → OpenRouter stream request`, { uri })
-    this.logUpstreamConfig(requestId, payload)
+    logger.info(`[${requestId}] → OpenRouter stream request`, { uri })
+    logger.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {
@@ -64,8 +65,8 @@ export class OpenRouterProvider extends BaseProvider {
     const uri = `${this.baseUrl}${endpoint}`
     const timeout = this.createAbortTimeout(requestId)
 
-    console.log(`[${requestId}] → OpenRouter request`, { uri })
-    this.logUpstreamConfig(requestId, payload)
+    logger.info(`[${requestId}] → OpenRouter request`, { uri })
+    logger.logUpstreamConfig(requestId, payload)
 
     let response: Response
     try {

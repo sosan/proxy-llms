@@ -6,6 +6,7 @@ import { ProviderError } from '../errors/provider-error'
 import { MetricsCollector } from '../metrics/metrics-collector'
 import { getProviderByName } from '../providers/provider-factory'
 import { createResponse, parseRequestBody } from '../utils/response'
+import { logger } from '../utils/logger'
 
 export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
@@ -24,7 +25,6 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     }
 
     const result = await parseRequestBody(c.req)
-    console.log(`[${providerDC}] Received request:`, JSON.stringify(result))
     if (result.error) {
       return c.json(createResponse(false, null, result.error), { status: result.status })
     }
@@ -72,7 +72,7 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     return c.json(createResponse(true, response))
 
   } catch (error) {
-    console.error(`Provider Error:`, error)
+    logger.error(`Provider Error:`, error)
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
     const status = error instanceof ProviderError ? error.status : 500
     const publicMessage = error instanceof ProviderError ? error.publicMessage : `Provider error: ${errorMessage}`
