@@ -15,17 +15,17 @@
     "preinstall": "npm run lint:lockfile"
   },
   "dependencies": {
-    "hono": "^4.12.18"
+    "hono": "^4.12.19"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.4",
-    "@cloudflare/workers-types": "^4.20260511.1",
-    "@types/node": "25.7.0",
+    "@cloudflare/vitest-pool-workers": "^0.16.6",
+    "@cloudflare/workers-types": "^4.20260517.1",
+    "@types/node": "25.8.0",
     "@vitest/coverage-v8": "^4.1.6",
-    "lockfile-lint": "^4.14.1",
+    "lockfile-lint": "5.0.0",
     "typescript": "6.0.3",
     "vitest": "^4.1.6",
-    "wrangler": "^4.90.1"
+    "wrangler": "^4.92.0"
   },
   "volta": {
     "node": "24.15.0"
