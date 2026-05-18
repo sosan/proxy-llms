@@ -3,8 +3,20 @@
  * - debug / info / warn: only emitted when DEBUG=true
  * - error: always emitted (critical for production)
  */
-const isDebug = () => (globalThis as any).ENV?.DEBUG === 'true'
-const isLogPayload = () => (globalThis as any).ENV?.LOG_PAYLOAD === 'true'
+const isDebug = () => {
+  const envDebug = (globalThis as any).ENV?.DEBUG
+  if (envDebug === 'true') return true
+  // Fallback for Node.js test environment
+  if (typeof process !== 'undefined' && process.env?.DEBUG === 'true') return true
+  return false
+}
+const isLogPayload = () => {
+  const envLogPayload = (globalThis as any).ENV?.LOG_PAYLOAD
+  if (envLogPayload === 'true') return true
+  // Fallback for Node.js test environment
+  if (typeof process !== 'undefined' && process.env?.LOG_PAYLOAD === 'true') return true
+  return false
+}
 
 export const logger = {
   debug: (...args: unknown[]) => {
