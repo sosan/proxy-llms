@@ -40,8 +40,6 @@ describe('MetricsCollector', () => {
 
   describe('recordNonStreamingMetrics', () => {
     it('should record metrics for a successful response', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       const responseJson = {
         usage: {
           prompt_tokens: 10,
@@ -53,40 +51,29 @@ describe('MetricsCollector', () => {
 
       metricsCollector.recordNonStreamingMetrics(200, responseJson)
 
-      expect(consoleSpy).toHaveBeenCalled()
       expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
-      consoleSpy.mockRestore()
     })
 
     it('should record error metrics', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       metricsCollector.recordNonStreamingMetrics(500, null, {
         type: 'upstream_error',
         message: 'Internal server error',
       })
 
-      expect(consoleSpy).toHaveBeenCalled()
       expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
-      consoleSpy.mockRestore()
     })
 
     it('should handle response without usage data', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       const responseJson = {
         choices: [{ finish_reason: 'length' }],
       }
 
       metricsCollector.recordNonStreamingMetrics(200, responseJson)
 
-      expect(consoleSpy).toHaveBeenCalled()
-      consoleSpy.mockRestore()
+      expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
     })
 
     it('should calculate tokens per second when usage data is available', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       vi.advanceTimersByTime(1000)
 
       const responseJson = {
@@ -100,43 +87,32 @@ describe('MetricsCollector', () => {
 
       metricsCollector.recordNonStreamingMetrics(200, responseJson)
 
-      expect(consoleSpy).toHaveBeenCalled()
-      consoleSpy.mockRestore()
+      expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
     })
   })
 
   describe('recordStreamingMetrics', () => {
     it('should record streaming metrics', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       metricsCollector.addChunk(100)
       metricsCollector.addChunk(50)
       metricsCollector.recordStreamingMetrics(200)
 
-      expect(consoleSpy).toHaveBeenCalled()
       expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
-      consoleSpy.mockRestore()
     })
 
     it('should record streaming error metrics', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       metricsCollector.recordStreamingMetrics(500, {
         type: 'stream_error',
         message: 'Stream interrupted',
       })
 
-      expect(consoleSpy).toHaveBeenCalled()
-      consoleSpy.mockRestore()
+      expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
     })
 
     it('should handle zero chunks in streaming', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
       metricsCollector.recordStreamingMetrics(200)
 
-      expect(consoleSpy).toHaveBeenCalled()
-      consoleSpy.mockRestore()
+      expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
     })
   })
 
