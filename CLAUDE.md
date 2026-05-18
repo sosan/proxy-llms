@@ -23,6 +23,7 @@ This repository is a Cloudflare Worker proxy for OpenAI-compatible clients such 
 - `providers/local-provider.ts`: LMStudio, LlamaCPP, and Ollama local providers.
 - `metrics/metrics-collector.ts`: request/response metrics collection for Analytics Engine.
 - `metrics/queries.ts`: Analytics Engine query helpers.
+- `utils/logger.ts`: Conditional logging utility. All debug/info/warn logs are gated by `DEBUG=true`; errors are always emitted. Used everywhere instead of raw `console.*`.
 - `__tests__/setup.ts`: Vitest setup file — mocks `crypto.randomUUID` for the Node.js test environment.
 - `wrangler.toml`: Cloudflare Worker and Durable Object configuration.
 
@@ -84,6 +85,7 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
 - Keep shared interfaces in `interfaces/general.ts`.
 - Preserve OpenAI-compatible passthrough fields such as `tools`, `tool_choice`, `response_format`, `stream_options`, `stop`, and `chat_template_kwargs`.
 - Do not log API keys, request bodies with secrets, or `.env` values.
+- Use the `logger` from `utils/logger.ts` for all logging. It respects the `DEBUG` environment variable so debug noise is controlled centrally. Never use raw `console.log` or `console.error`.
 - Do not commit `.env` or `.local`.
 - Avoid broad refactors in `server.ts`; extract focused modules when a block becomes mostly configuration or reusable utility logic.
 - If changing model resolution, verify both alias and full upstream model ID inputs still work.
@@ -167,6 +169,26 @@ sfw npm install <package>
 - Dependabot PRs have a 7-day cooldown to avoid compromised fresh releases
 - CODEOWNERS requires explicit review for lockfiles and package manager config
 
+
+## Logging
+
+All code must use the `logger` from `utils/logger.ts` instead of raw `console.*` calls. The logger respects the `DEBUG` environment variable:
+
+```typescript
+import { logger } from '../utils/logger'
+
+logger.debug('Detailed debug output', details)        // only when DEBUG=true
+logger.info('General info', context)                  // only when DEBUG=true
+logger.warn('Warning condition', details)             // only when DEBUG=true
+logger.error('Something broke', error)                  // always visible
+logger.logUpstreamConfig(requestId, payload)          // sanitized, only when DEBUG=true
+```
+
+- `debug()`, `info()`, `warn()` — suppressed when `DEBUG=false` (default in production)
+- `error()` — always visible, never suppressed
+- `logUpstreamConfig()` — strips `messages` from payload, logs count only; only when `DEBUG=true`
+
+Set `DEBUG=true` in your `.env` or environment to enable debug output.
 
 ## Testing
 

@@ -75,3 +75,19 @@ Open the project in the provided [Dev Container](.devcontainer/devcontainer.json
 ### Async Processing
 
 1. **Start process:**
+
+## Logging
+
+The project uses a centralized `logger` from `utils/logger.ts` that respects the `DEBUG` environment variable. When `DEBUG=true`, debug/info/warn logs are emitted; when `DEBUG=false` (default in production), only `error` logs are visible.
+
+```typescript
+import { logger } from './utils/logger'
+
+logger.info('General info', context)          // only when DEBUG=true
+logger.warn('Warning condition', details)     // only when DEBUG=true
+logger.error('Something broke', error)        // always visible
+logger.logUpstreamConfig(id, payload)         // sanitized, only when LOG_PAYLOAD=true
+```
+
+- Set `DEBUG=true` in `.env` to enable debug output during development.
+- Never use raw `console.log` / `console.error` directly.
