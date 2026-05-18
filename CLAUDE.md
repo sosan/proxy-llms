@@ -50,13 +50,11 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
 
 ## Runtime Behavior
 
-- **New URL-based routing**: Clients can now route to any provider by URL pattern: `POST /:provider/:format/v1/:company/:model`
-  - Example: `POST /nvidia/openai/v1/moonshotai/kimi-k2.6`
-  - Example: `POST /openrouter/openai/v1/deepseek/deepseek-v4-pro`
-  - Example: `POST /nvidia/anthropic/v1/anthropic/claude-3.5-sonnet`
+- **URL-based routing**: Clients route to any provider by URL pattern: `POST /:provider/chat/completions`
+  - Example: `POST /nvidia/chat/completions`
+  - Example: `POST /openrouter/chat/completions`
   - `provider` is the key in `ProviderConfigs` (nvidia, claude, google, openrouter, lmstudio, llamacpp, ollama). This selects the provider backend and its configuration (models, endpoint, format).
-  - `format` is the API format exposed by the proxy (openai, anthropic, google). It must match the selected provider's `config.format`; otherwise the request returns 400.
-  - `company/model` is combined into the full model ID forwarded upstream.
+  - The model is specified in the request body (alias like `"glm4.7"` or full upstream ID like `"z-ai/glm4.7"`).
   - The route handler looks up `ProviderConfigs[urlProvider]` directly — no indirection or hardcoded format-to-config mapping.
 - **Legacy routes** (backward compatible): `GET /openai/v1/models`, `GET /claude/v1/models` still work for model discovery
 
@@ -94,7 +92,7 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
   2. Add `case` in `createProvider()` in `providers/provider-factory.ts`.
   3. Add credentials to `Env` in `interfaces/general.ts`.
   4. `ProviderType` is derived automatically from `ProviderConfigs` keys — no need to edit `interfaces/provider.ts`.
-- URL-based routing: `/:provider/:format/v1/:company/:model` — the route handler looks up `ProviderConfigs[urlProvider]` directly. The `format` param is validated against `config.format` (must match). No hardcoded format-to-config mapping.
+- URL-based routing: `/:provider/chat/completions` — the route handler looks up `ProviderConfigs[urlProvider]` directly. The model is resolved from the request body. No hardcoded format-to-config mapping.
 
 ## Development Workflow
 
