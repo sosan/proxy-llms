@@ -11,7 +11,7 @@ describe('registerRoutes', () => {
     registerRoutes(app)
 
     // POST routes
-    expect(app.post).toHaveBeenCalledWith('/:provider/chat/completions', expect.any(Function))
+    expect(app.post).toHaveBeenCalledWith('/chat/completions', expect.any(Function))
     expect(app.post).toHaveBeenCalledWith('/api/process', expect.any(Function))
 
     // GET routes
@@ -40,7 +40,7 @@ describe('registerRoutes', () => {
     const postPaths = app.post.mock.calls.map((call: any[]) => call[0])
     const getPaths = app.get.mock.calls.map((call: any[]) => call[0])
 
-    expect(postPaths).toContain('/:provider/chat/completions')
+    expect(postPaths).toContain('/chat/completions')
     expect(postPaths).toContain('/api/process')
     expect(getPaths).toContain('/models')
     expect(getPaths).toContain('/health')

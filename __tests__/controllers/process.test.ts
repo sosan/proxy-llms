@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { handleProcess, handleStatus, handleStream, handleWebSocket } from '../../controllers/process'
 
 const createMockDurableObject = (responseData?: any) => ({
-  fetch: vi.fn().mockImplementation((req: Request) => {
+  fetch: vi.fn().mockImplementation((_: Request) => {
     if (responseData !== undefined) {
       return Promise.resolve(new Response(JSON.stringify(responseData)))
     }

@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { handleModels, handleProviderModels } from '../../controllers/models'
-import { ProviderConfigs } from '../../config/providers'
 
 describe('handleModels', () => {
   it('should return notcreated placeholder', async () => {

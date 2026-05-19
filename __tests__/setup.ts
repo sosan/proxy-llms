@@ -1,5 +1,3 @@
-import { vi } from 'vitest'
-
 interface GlobalWithCrypto {
   crypto?: {
     randomUUID?: () => string
