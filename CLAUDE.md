@@ -50,12 +50,12 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
 
 ## Runtime Behavior
 
-- **URL-based routing**: Clients route to any provider by URL pattern: `POST /:provider/chat/completions`
-  - Example: `POST /nvidia/chat/completions`
-  - Example: `POST /openrouter/chat/completions`
-  - `provider` is the key in `ProviderConfigs` (nvidia, claude, google, openrouter, lmstudio, llamacpp, ollama). This selects the provider backend and its configuration (models, endpoint, format).
-  - The model is specified in the request body (alias like `"glm4.7"` or full upstream ID like `"z-ai/glm4.7"`).
-  - The route handler looks up `ProviderConfigs[urlProvider]` directly — no indirection or hardcoded format-to-config mapping.
+- **Body-based routing**: The provider is extracted from the first segment of the `model` field in the request body
+  - Example: `POST /chat/completions` with body `{ "model": "nvidia/moonshotai/kimi-k2.6", ... }` routes to the `nvidia` provider
+  - Example: `POST /chat/completions` with body `{ "model": "claude/claude-3.5-sonnet", ... }` routes to the `claude` provider
+  - `provider` is the first segment of the `model` field before the first `/`. It must match a key in `ProviderConfigs` (nvidia, claude, google, openrouter, lmstudio, llamacpp, ollama).
+  - The remaining segments are the model name (alias or full upstream ID), which is resolved in `config/providers.ts`.
+  - The route handler looks up `ProviderConfigs[provider]` directly — no indirection or hardcoded format-to-config mapping.
 - **Legacy routes** (backward compatible): `GET /openai/v1/models`, `GET /claude/v1/models` still work for model discovery
 
 - Friendly model IDs such as `glm4.7` or `kimi-k2-thinking` are accepted by the proxy and resolved to upstream IDs such as `z-ai/glm4.7` and `moonshotai/kimi-k2-thinking`.
@@ -92,7 +92,7 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
   2. Add `case` in `createProvider()` in `providers/provider-factory.ts`.
   3. Add credentials to `Env` in `interfaces/general.ts`.
   4. `ProviderType` is derived automatically from `ProviderConfigs` keys — no need to edit `interfaces/provider.ts`.
-- URL-based routing: `/:provider/chat/completions` — the route handler looks up `ProviderConfigs[urlProvider]` directly. The model is resolved from the request body. No hardcoded format-to-config mapping.
+- Body-based routing: `POST /chat/completions` — the provider is extracted from the first segment of the `model` field in the request body (e.g., `"nvidia/moonshotai/kimi-k2.6"` → provider = `nvidia`). The route handler looks up `ProviderConfigs[provider]` directly. No hardcoded format-to-config mapping.
 
 ## Development Workflow
 

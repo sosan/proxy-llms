@@ -61,8 +61,14 @@ Open the project in the provided [Dev Container](.devcontainer/devcontainer.json
 ## Endpoints
 
 ### Synchronous AI Providers
-- `POST /claude/v1/messages` - Compatible with Anthropic API (soon)
-- `POST /nvidia/v1/chat/completions` - Compatible with OpenAI API
+- `POST /chat/completions` - Compatible with OpenAI API (provider extracted from the `model` field in the request body, e.g. `"model": "nvidia/moonshotai/kimi-k2.6"`)
+
+> **Note:** The provider is extracted from the first segment of the `model` field in the request body. For example, `"model": "nvidia/moonshotai/kimi-k2.6"` routes to the `nvidia` provider, and `"model": "claude/claude-3.5-sonnet"` routes to the `claude` provider.
+
+### Legacy routes (backward compatible)
+- `GET /openai/v1/models` - OpenAI-compatible model discovery
+- `GET /claude/v1/models` - Claude-compatible model discovery
+- `GET /:provider/models` - Provider-specific model listing
 
 ### Async Processing
 - `POST /api/process` - Start async processing

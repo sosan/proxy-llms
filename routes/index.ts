@@ -5,7 +5,7 @@ import { handleProcess, handleStatus, handleStream, handleWebSocket } from '../c
 import { handleHealth } from '../controllers/health'
 
 export const registerRoutes = (app: any) => {
-  app.post('/:provider/chat/completions', handleChatCompletions)
+  app.post('/chat/completions', handleChatCompletions)
 
   app.get('/models', handleModels)
   app.get('/:provider/models', handleProviderModels)

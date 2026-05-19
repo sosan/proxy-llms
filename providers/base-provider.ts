@@ -1,5 +1,5 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import type { ProviderConfig, GenericPayload, Env } from '../interfaces/general'
+import type { ProviderConfig, GenericPayload } from '../interfaces/general'
 import type { AIProvider } from '../interfaces/provider'
 import { ProviderError } from '../errors/provider-error'
 import { resolveModel, ModelDefaultsById } from '../config/providers'

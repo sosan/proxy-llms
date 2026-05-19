@@ -12,9 +12,19 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
 
   try {
-    const providerDC = c.req.param('provider')
+    const result = await parseRequestBody(c.req)
+    if (result.error) {
+      return c.json(createResponse(false, null, result.error), { status: result.status })
+    }
+
+    const payloadModel = result.payload?.model as string | undefined
+    if (!payloadModel) {
+      return c.json(createResponse(false, null, 'Model not specified in request body'), { status: 400 })
+    }
+
+    const providerDC = payloadModel.split('/')[0]
     if (!providerDC) {
-      return c.json(createResponse(false, null, 'Provider not specified in URL'), { status: 400 })
+      return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
 
     const config = ProviderConfigs[providerDC]
@@ -22,11 +32,6 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
       const supportedProviders = Object.keys(ProviderConfigs).join(', ')
       return c.json(createResponse(false, null,
         `Unknown provider: "${providerDC}". Supported: ${supportedProviders}`), { status: 400 })
-    }
-
-    const result = await parseRequestBody(c.req)
-    if (result.error) {
-      return c.json(createResponse(false, null, result.error), { status: result.status })
     }
 
     const provider = getProviderByName(c.env, providerDC)
