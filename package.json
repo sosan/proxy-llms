@@ -6,13 +6,15 @@
   "main": "server.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run validate && wrangler deploy",
+    "validate": "npm run lint:lockfile && npm run lint && npm run typecheck && npm test",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-name --validate-checksum",
-    "preinstall": "npm run lint:lockfile"
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "lint:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-name --validate-checksum"
   },
   "dependencies": {
     "hono": "^4.12.19"
@@ -23,6 +25,7 @@
     "@types/node": "25.8.0",
     "@vitest/coverage-v8": "^4.1.6",
     "lockfile-lint": "5.0.0",
+    "oxlint": "^1.66.0",
     "typescript": "6.0.3",
     "vitest": "^4.1.6",
     "wrangler": "^4.92.0"
