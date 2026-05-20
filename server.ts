@@ -3,10 +3,18 @@ import { cors } from 'hono/cors'
 import { Env } from './interfaces/general'
 import { registerRoutes } from './routes'
 import { ProcessorDurableObject } from './durable-objects/processor'
-import { logger } from './utils/logger'
+import { logger, setLoggerEnv } from './utils/logger'
 
 // Main application assembly
 const app = new Hono<{ Bindings: Env }>()
+
+// middleware to set logger environment for each request,
+// ensuring that logs have access to env vars like
+// DEBUG, LOG_PAYLOAD, LOG_METRICS
+app.use('*', async (c, next) => {
+  setLoggerEnv(c.env)
+  await next()
+})
 
 app.use('*', cors())
 

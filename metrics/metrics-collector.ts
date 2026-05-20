@@ -140,8 +140,12 @@ export class MetricsCollector {
   }
 
   private writeMetrics(metrics: RequestMetrics): void {
-    // Log to console for immediate debugging
-    logger.info('[METRICS]', JSON.stringify(metrics))
+    // Emit a debug copy when DEBUG=true; LOG_METRICS only controls Analytics persistence.
+    logger.withEnv(this.env).debug('[METRICS]', metrics)
+
+    if (this.env.LOG_METRICS !== 'true') {
+      return
+    }
 
     // Analytics Engine writes are non-blocking. The runtime flushes them in the background.
     this.env.ANALYTICS.writeDataPoint({

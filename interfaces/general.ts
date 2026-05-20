@@ -13,6 +13,13 @@ export interface Env {
   LMSTUDIO_BASE_URL?: string
   LLAMACPP_BASE_URL?: string
   OLLAMA_BASE_URL?: string
+  ANTHROPIC_OPUS_MODEL?: string
+  ANTHROPIC_SONNET_MODEL?: string
+  ANTHROPIC_HAIKU_MODEL?: string
+  ANTHROPIC_DEFAULT_MODEL?: string
+  DEBUG?: string
+  LOG_PAYLOAD?: string
+  LOG_METRICS?: string
   PROCESSOR: DurableObjectNamespace
   ANALYTICS: AnalyticsEngineDataset
   ANALYTICS_ACCOUNT_ID?: string

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { logger } from '../../utils/logger'
+import { logger, resetLoggerEnv, setLoggerEnv } from '../../utils/logger'
 
 describe('logger', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>
@@ -14,6 +14,7 @@ describe('logger', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    resetLoggerEnv()
     delete process.env.DEBUG
     delete process.env.LOG_PAYLOAD
   })
@@ -66,6 +67,25 @@ describe('logger', () => {
     })
   })
 
+  describe('withEnv', () => {
+    it('should log when DEBUG=true is passed explicitly', () => {
+      const envLogger = logger.withEnv({ DEBUG: 'true' })
+
+      envLogger.info('test info')
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('[INFO]', 'test info')
+    })
+
+    it('should prefer explicit env over the default logger env', () => {
+      setLoggerEnv({ DEBUG: 'true' })
+      const envLogger = logger.withEnv({ DEBUG: 'false' })
+
+      envLogger.info('test info')
+
+      expect(consoleLogSpy).not.toHaveBeenCalled()
+    })
+  })
+
   describe('logUpstreamConfig', () => {
     it('should suppress when DEBUG is not set', () => {
       logger.logUpstreamConfig('req-123', { model: 'test', messages: [{ role: 'user', content: 'hello' }] })
@@ -76,6 +96,17 @@ describe('logger', () => {
       process.env.LOG_PAYLOAD = 'true'
       logger.logUpstreamConfig('req-123', { model: 'test', messages: [{ role: 'user', content: 'hello' }] })
       expect(consoleLogSpy).toHaveBeenCalled()
+    })
+
+    it('should log sanitized payload when LOG_PAYLOAD=true is passed explicitly', () => {
+      const envLogger = logger.withEnv({ LOG_PAYLOAD: 'true' })
+
+      envLogger.logUpstreamConfig('req-123', { model: 'test', messages: [{ role: 'user', content: 'hello' }] })
+
+      expect(consoleLogSpy).toHaveBeenCalledWith('[req-123] config', {
+        model: 'test',
+        messages_count: 1,
+      })
     })
   })
 })
