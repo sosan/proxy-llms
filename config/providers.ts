@@ -220,5 +220,27 @@ export const createModelsList = (providerName: string) => {
   }
 }
 
+export const createAllModelsList = () => {
+  const created = 0
+  const allModels: Array<{ id: string; object: string; created: number; owned_by: string }> = []
+
+  for (const [providerName, config] of Object.entries(ProviderConfigs)) {
+    const aliases = Object.entries(config.models).filter(([id, resolvedId]) => id !== resolvedId)
+    for (const [id, resolvedId] of aliases) {
+      allModels.push({
+        id,
+        object: 'model',
+        created,
+        owned_by: resolvedId.split('/')[0] || providerName,
+      })
+    }
+  }
+
+  return {
+    object: 'list',
+    data: allModels,
+  }
+}
+
 
 

@@ -1,9 +1,10 @@
 import { Context } from 'hono'
-import { ProviderConfigs, createModelsList } from '../config/providers'
+import { ProviderConfigs, createModelsList, createAllModelsList } from '../config/providers'
 import { createResponse } from '../utils/response'
 
 export const handleModels = async (c: Context) => {
-  return c.json({"notcreated": "notcreated"})
+  const modelsList = createAllModelsList()
+  return c.json(createResponse(true, modelsList))
 }
 
 export const handleProviderModels = async (c: Context) => {
