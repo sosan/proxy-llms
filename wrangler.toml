@@ -22,6 +22,14 @@ dataset = "request_metrics"
 
 [vars]
 NVIDIA_BASE_URL = "dummy"
+LOG_METRICS = "true"
+DEBUG = "true"
+LOG_PAYLOAD = "false"
+LOG_METRICS = "false"
+ANTHROPIC_OPUS_MODEL =
+ANTHROPIC_SONNET_MODEL =
+ANTHROPIC_HAIKU_MODEL =
+ANTHROPIC_DEFAULT_MODEL =
 
 # Required secrets:
 # - ANALYTICS_ACCOUNT_ID - account ID from cloudflare

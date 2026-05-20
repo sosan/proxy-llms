@@ -62,8 +62,50 @@ Open the project in the provided [Dev Container](.devcontainer/devcontainer.json
 
 ### Synchronous AI Providers
 - `POST /chat/completions` - Compatible with OpenAI API (provider extracted from the `model` field in the request body, e.g. `"model": "nvidia/moonshotai/kimi-k2.6"`)
+- `POST /v1/messages` - Compatible with Anthropic Claude API (automatically transforms request/response between Claude and OpenAI formats)
 
 > **Note:** The provider is extracted from the first segment of the `model` field in the request body. For example, `"model": "nvidia/moonshotai/kimi-k2.6"` routes to the `nvidia` provider, and `"model": "claude/claude-3.5-sonnet"` routes to the `claude` provider.
+
+#### Claude API Compatibility (`/v1/messages`)
+
+The proxy supports the Anthropic Claude API format on the `/v1/messages` endpoint. When a client sends a request in Claude format, the proxy:
+
+1. **Maps the model** to a gateway model based on environment variables (case-insensitive):
+   - Model name contains "opus" → `ANTHROPIC_OPUS_MODEL`
+   - Model name contains "sonnet" → `ANTHROPIC_SONNET_MODEL`
+   - Model name contains "haiku" → `ANTHROPIC_HAIKU_MODEL`
+   - Any other model name → `ANTHROPIC_DEFAULT_MODEL`
+   - If the env var is not set, the original model name is used
+
+2. **Transforms the request** from Claude format to OpenAI format:
+   - Claude `messages` with `role: system/user/assistant/tool` → OpenAI format
+   - Claude `system` field → OpenAI system message
+   - Claude `tools` → OpenAI `tools`
+   - Claude `tool_choice` → OpenAI `tool_choice`
+   - Supports image blocks (`type: image`, base64 source) → OpenAI `image_url`
+   - Supports tool use/result blocks → OpenAI `tool_calls` / `tool` messages
+
+3. **Routes to the provider** based on the model field (e.g., `nvidia/moonshotai/kimi-k2.6`)
+
+4. **Transforms the response** from OpenAI format back to Claude format:
+   - OpenAI `choices[].message.content` → Claude `content` text blocks
+   - OpenAI `choices[].message.tool_calls` → Claude `tool_use` blocks
+   - OpenAI `finish_reason` → Claude `stop_reason`
+
+This allows clients that expect a Claude-compatible API (e.g. Claude Code) to use any OpenAI-compatible provider transparently, with per-tier model routing.
+
+### Claude Code Configuration
+
+To route Claude Code tiers to specific gateway models, set these environment variables in `wrangler.toml` or `.env`:
+
+```toml
+ANTHROPIC_OPUS_MODEL = "nvidia/..."
+ANTHROPIC_SONNET_MODEL = "openrouter/..."
+ANTHROPIC_HAIKU_MODEL = "lmstudio/..."
+ANTHROPIC_DEFAULT_MODEL = "nvidia/..."
+```
+
+Example: When Claude Code sends `claude-4.7-opus`, the proxy routes to `nvidia/moonshotai/kimi-k2.6` (if set).
 
 ### Legacy routes (backward compatible)
 - `GET /openai/v1/models` - OpenAI-compatible model discovery
@@ -81,6 +123,37 @@ Open the project in the provided [Dev Container](.devcontainer/devcontainer.json
 ### Async Processing
 
 1. **Start process:**
+
+## Metrics
+
+The proxy collects per-request metrics using Cloudflare Analytics Engine. Metrics are only recorded when `LOG_METRICS=true` is set.
+
+### Enabling metrics
+
+Set `LOG_METRICS = "true"` in `wrangler.toml` or via environment variable. When disabled (default), no metrics are collected or written.
+
+### Collected metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `requestId` | string | Unique request identifier |
+| `model` | string | Resolved model ID |
+| `provider` | string | Provider name (nvidia, openrouter, etc.) |
+| `isStream` | boolean | Whether the request was streaming |
+| `upstreamLatencyMs` | number | Time to first byte from upstream |
+| `totalProxyMs` | number | Total time spent in the proxy |
+| `ttftMs` | number | Time to first token (streaming only) |
+| `generationTimeMs` | number | Generation time in ms (streaming only) |
+| `tokensPerSecond` | number | Estimated tokens per second |
+| `promptTokens` | number | Prompt tokens (non-streaming only) |
+| `completionTokens` | number | Completion tokens (non-streaming only) |
+| `totalTokens` | number | Total tokens (non-streaming only) |
+| `finishReason` | string | Finish reason from upstream |
+| `upstreamStatus` | number | HTTP status from upstream |
+| `errorType` | string | Error type if the request failed |
+| `errorMessage` | string | Error message if the request failed |
+
+Metrics are written as data points to the Cloudflare Analytics Engine dataset bound as `ANALYTICS` in `wrangler.toml`.
 
 ## Logging
 

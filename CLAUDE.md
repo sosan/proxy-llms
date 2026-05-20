@@ -9,7 +9,7 @@ This repository is a Cloudflare Worker proxy for OpenAI-compatible clients such 
   - `controllers/chat.ts`: `handleChatCompletions` — resolves provider, parses body, resolves model aliases, streams or buffers upstream responses, and collects metrics.
   - `controllers/health.ts`: `handleHealth` — simple health-check endpoint.
   - `controllers/legacy.ts`: `handleOpenAIModels`, `handleClaudeModels` — backward-compatible model listing endpoints.
-  - `controllers/models.ts`: `handleModelsList` — generic model list handler for any provider.
+  - `controllers/models.ts`: `handleModels` — returns all models from all providers.
   - `controllers/process.ts`: `handleProcess` — initiates the async Durable Object processing flow.
 - `routes/`: Thin route registration. Each file exports individual handler functions that **delegate immediately to controllers**; `routes/index.ts` registers them declaratively. Routes contain zero business logic.
 - `durable-objects/processor.ts`: `ProcessorDurableObject` class for the `/api/process` async flow.
@@ -56,6 +56,12 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
   - `provider` is the first segment of the `model` field before the first `/`. It must match a key in `ProviderConfigs` (nvidia, claude, google, openrouter, lmstudio, llamacpp, ollama).
   - The remaining segments are the model name (alias or full upstream ID), which is resolved in `config/providers.ts`.
   - The route handler looks up `ProviderConfigs[provider]` directly — no indirection or hardcoded format-to-config mapping.
+- **Claude API model mapping**: The `/messages` endpoint maps Claude model tiers (Opus, Sonnet, Haiku) to gateway models via environment variables:
+  - `ANTHROPIC_OPUS_MODEL` — model used when Claude Code sends an model with "opus"
+  - `ANTHROPIC_SONNET_MODEL` — model used when Claude Code sends a model with "sonnet"
+  - `ANTHROPIC_HAIKU_MODEL` — model used when Claude Code sends a model with "haiku"
+  - `ANTHROPIC_DEFAULT_MODEL` — fallback for any other model name
+  - Matching is case-insensitive (e.g. `claude-3-opus`, `CLAUDE-3-OPUS`, `claude-opus` all map to Opus)
 - **Legacy routes** (backward compatible): `GET /openai/v1/models`, `GET /claude/v1/models` still work for model discovery
 
 - Friendly model IDs such as `glm4.7` or `kimi-k2-thinking` are accepted by the proxy and resolved to upstream IDs such as `z-ai/glm4.7` and `moonshotai/kimi-k2-thinking`.
@@ -87,6 +93,7 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
 - Do not commit `.env` or `.local`.
 - Avoid broad refactors in `server.ts`; extract focused modules when a block becomes mostly configuration or reusable utility logic.
 - If changing model resolution, verify both alias and full upstream model ID inputs still work.
+- If adding Claude model mapping, add the env var to `Env` in `interfaces/general.ts` and test in `__tests__/providers.test.ts`.
 - When adding a new provider:
   1. Add the provider entry to `ProviderConfigs` in `config/providers.ts` (key, models, endpoint, format).
   2. Add `case` in `createProvider()` in `providers/provider-factory.ts`.
