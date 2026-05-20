@@ -40,7 +40,7 @@ import { handleModels, handleProviderModels } from './models'
 
 export const registerRoutes = (app: any) => {
   app.post('/:provider/chat/completions', handleChatCompletions)
-  app.get('/models', handleModels)
+  app.get('/:version/models', handleModels)
   app.get('/:provider/models', handleProviderModels)
 }
 ```

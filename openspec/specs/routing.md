@@ -70,6 +70,13 @@ Or with a full upstream model ID:
 }
 ```
 
+## Model Discovery Routes
+
+```
+GET /:version/models        → handleModels         (all providers)
+GET /:provider/models       → handleProviderModels (single provider)
+```
+
 ## Legacy Routes (Backward Compatible)
 
 ```

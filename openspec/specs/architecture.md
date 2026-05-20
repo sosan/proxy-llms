@@ -26,7 +26,7 @@ Business logic lives here. Each controller is a pure function receiving a Hono `
 - **`chat.ts`**: `handleChatCompletions` — resolves provider, parses body, resolves model aliases, streams or buffers upstream responses, collects metrics.
 - **`health.ts`**: `handleHealth` — simple health-check endpoint.
 - **`legacy.ts`**: `handleOpenAIModels`, `handleClaudeModels` — backward-compatible model listing.
-- **`models.ts`**: `handleModelsList` — generic model list for any provider.
+- **`models.ts`**: `handleModels` — returns all models from all providers; `handleProviderModels` — returns models for a single provider.
 - **`process.ts`**: `handleProcess` — initiates async Durable Object flow.
 
 ### Routes (`routes/`)

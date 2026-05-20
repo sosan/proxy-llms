@@ -91,6 +91,41 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
 
 Defaults are merged with the client-provided payload. Client-provided values always override defaults.
 
+## Claude API Model Mapping
+
+When using the `/v1/messages` endpoint (Claude API), the proxy maps Claude model tiers to gateway models via environment variables. This enables routing Claude Code's model tiers to specific upstream providers.
+
+### Mapping Logic
+
+`resolveAnthropicModel(env, modelInput)` in `config/providers.ts` performs case-insensitive substring matching:
+
+| Model Name Contains | Env Variable | Example | Maps To |
+|---|---|---|---|
+| `opus` (case-insensitive) | `ANTHROPIC_OPUS_MODEL` | `claude-3-opus-20240229` → `nvidia/moonshotai/kimi-k2.6` |
+| `sonnet` (case-insensitive) | `ANTHROPIC_SONNET_MODEL` | `claude-3-sonnet-20240229` → `openrouter/deepseek/deepseek-r1-0528:free` |
+| `haiku` (case-insensitive) | `ANTHROPIC_HAIKU_MODEL` | `claude-3-haiku-20240307` → `lmstudio/unsloth/GLM-4.7-Flash-GGUF` |
+| (anything else) | `ANTHROPIC_DEFAULT_MODEL` | `claude-3.5-sonnet` → `nvidia/z-ai/glm-5.1` |
+
+### Configuration
+
+```toml
+# wrangler.toml
+ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
+ANTHROPIC_SONNET_MODEL = "openrouter/deepseek/deepseek-r1-0528:free"
+ANTHROPIC_HAIKU_MODEL = "lmstudio/unsloth/GLM-4.7-Flash-GGUF"
+ANTHROPIC_DEFAULT_MODEL = "nvidia/z-ai/glm-5.1"
+```
+
+If an env var is not set, the original model name is used as a fallback.
+
+### Adding New Tier Mappings
+
+To add a new model tier (e.g. "thinking"):
+1. Add the env var to `Env` in `interfaces/general.ts`
+2. Add the condition in `resolveAnthropicModel()` in `config/providers.ts`
+3. Add tests in `__tests__/providers.test.ts`
+4. Document in `CLAUDE.md` and `README.md`
+
 ## Provider Factory
 
 `providers/provider-factory.ts` creates provider instances by name:
