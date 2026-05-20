@@ -13,6 +13,7 @@ describe('MetricsCollector', () => {
     mockEnv = {
       NVIDIA_API_KEY: 'test-key',
       NVIDIA_BASE_URL: 'https://api.test',
+      LOG_METRICS: 'true',
       ANALYTICS: {
         writeDataPoint: vi.fn().mockResolvedValue(undefined),
       } as any,
@@ -111,6 +112,41 @@ describe('MetricsCollector', () => {
 
     it('should handle zero chunks in streaming', () => {
       metricsCollector.recordStreamingMetrics(200)
+
+      expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
+    })
+  })
+
+  describe('LOG_METRICS flag', () => {
+    it('should NOT write metrics when LOG_METRICS is not set', () => {
+      mockEnv.LOG_METRICS = undefined
+      const responseJson = {
+        choices: [{ finish_reason: 'stop' }],
+      }
+
+      metricsCollector.recordNonStreamingMetrics(200, responseJson)
+
+      expect(mockEnv.ANALYTICS.writeDataPoint).not.toHaveBeenCalled()
+    })
+
+    it('should NOT write metrics when LOG_METRICS is false', () => {
+      mockEnv.LOG_METRICS = 'false'
+      const responseJson = {
+        choices: [{ finish_reason: 'stop' }],
+      }
+
+      metricsCollector.recordNonStreamingMetrics(200, responseJson)
+
+      expect(mockEnv.ANALYTICS.writeDataPoint).not.toHaveBeenCalled()
+    })
+
+    it('should write metrics when LOG_METRICS is true', () => {
+      mockEnv.LOG_METRICS = 'true'
+      const responseJson = {
+        choices: [{ finish_reason: 'stop' }],
+      }
+
+      metricsCollector.recordNonStreamingMetrics(200, responseJson)
 
       expect(mockEnv.ANALYTICS.writeDataPoint).toHaveBeenCalled()
     })
