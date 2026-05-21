@@ -17,7 +17,6 @@ describe('registerRoutes', () => {
 
     // GET routes
     expect(app.get).toHaveBeenCalledWith('/:version/models', expect.any(Function))
-    expect(app.get).toHaveBeenCalledWith('/claude/v1/models', expect.any(Function))
     expect(app.get).toHaveBeenCalledWith('/api/status/:processId', expect.any(Function))
     expect(app.get).toHaveBeenCalledWith('/api/stream/:processId', expect.any(Function))
     expect(app.get).toHaveBeenCalledWith('/api/websocket/:processId', expect.any(Function))
@@ -25,7 +24,7 @@ describe('registerRoutes', () => {
 
     // Verify total calls
     expect(app.post).toHaveBeenCalledTimes(3)
-    expect(app.get).toHaveBeenCalledTimes(6)
+    expect(app.get).toHaveBeenCalledTimes(5)
   })
 
   it('should not register any unexpected routes', () => {
@@ -42,7 +41,7 @@ describe('registerRoutes', () => {
     expect(postPaths).toContain('/:version/chat/completions')
     expect(postPaths).toContain('/api/process')
     expect(getPaths).toContain('/:version/models')
-    expect(getPaths).toContain('/claude/v1/models')
+    expect(getPaths).toContain('/api/status/:processId')
     expect(getPaths).toContain('/health')
   })
 })

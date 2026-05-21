@@ -213,4 +213,51 @@ describe('transformClaudeToOpenAI', () => {
     expect(result.custom_field).toBe('custom_value')
     expect(result.another_field).toBe(42)
   })
+
+  it('should transform tool_choice any to required', () => {
+    const claudeBody = {
+      model: 'nvidia/glm5.1',
+      messages: [{ role: 'user', content: 'Hello' }],
+      tool_choice: { type: 'any' },
+    }
+
+    const result = transformClaudeToOpenAI(claudeBody)
+
+    expect(result.tool_choice).toBe('required')
+  })
+
+  it('should transform tool_choice tool to function object', () => {
+    const claudeBody = {
+      model: 'nvidia/glm5.1',
+      messages: [{ role: 'user', content: 'Hello' }],
+      tool_choice: { type: 'tool', name: 'get_weather' },
+    }
+
+    const result = transformClaudeToOpenAI(claudeBody)
+
+    expect(result.tool_choice).toEqual({ type: 'function', function: { name: 'get_weather' } })
+  })
+
+  it('should transform tool_choice auto string', () => {
+    const claudeBody = {
+      model: 'nvidia/glm5.1',
+      messages: [{ role: 'user', content: 'Hello' }],
+      tool_choice: 'auto',
+    }
+
+    const result = transformClaudeToOpenAI(claudeBody)
+
+    expect(result.tool_choice).toBe('auto')
+  })
+
+  it('should handle empty message array', () => {
+    const claudeBody = {
+      model: 'nvidia/glm5.1',
+      messages: [],
+    }
+
+    const result = transformClaudeToOpenAI(claudeBody)
+
+    expect(result.messages).toEqual([])
+  })
 })

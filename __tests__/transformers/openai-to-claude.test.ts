@@ -208,4 +208,71 @@ describe('transformOpenAIStreamChunkToClaude', () => {
 
     expect(result.content).toEqual([])
   })
+
+  it('should handle tool_calls with empty arguments string', () => {
+    const chunk = {
+      id: 'chatcmpl-tool',
+      model: 'nvidia/glm5.1',
+      delta: {
+        tool_calls: [
+          {
+            id: 'call_789',
+            function: {
+              name: 'search',
+              arguments: '',
+            },
+          },
+        ],
+      },
+    }
+
+    const result = transformOpenAIStreamChunkToClaude(chunk) as { content: Array<Record<string, unknown>> }
+
+    expect(result.content).toHaveLength(1)
+    expect(result.content[0]).toEqual({
+      type: 'tool_use',
+      id: 'call_789',
+      name: 'search',
+      input: {},
+    })
+  })
+
+  it('should handle multiple tool_calls in single chunk', () => {
+    const chunk = {
+      id: 'chatcmpl-multi',
+      model: 'nvidia/glm5.1',
+      delta: {
+        tool_calls: [
+          {
+            id: 'call_1',
+            function: { name: 'func1', arguments: '{}' },
+          },
+          {
+            id: 'call_2',
+            function: { name: 'func2', arguments: '{}' },
+          },
+        ],
+      },
+    }
+
+    const result = transformOpenAIStreamChunkToClaude(chunk) as { content: Array<Record<string, unknown>> }
+
+    expect(result.content).toHaveLength(2)
+    expect(result.content[0].type).toBe('tool_use')
+    expect(result.content[1].type).toBe('tool_use')
+  })
+})
+
+import { transformOpenAIToolResultToClaude } from '../../transformers/openai-to-claude'
+
+describe('transformOpenAIToolResultToClaude', () => {
+  it('should transform tool result to Claude format', () => {
+    const result = transformOpenAIToolResultToClaude('call_123', 'The weather is sunny')
+
+    expect(result).toEqual({
+      type: 'tool_result',
+      tool_use_id: 'call_123',
+      content: 'The weather is sunny',
+    })
+  })
 })
