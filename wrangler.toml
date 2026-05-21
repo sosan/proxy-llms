@@ -1,5 +1,5 @@
 name = "proxy-llms"
-main = "server.ts"
+main = "src/server.ts"
 compatibility_date = "2026-04-21"
 
 [durable_objects]

@@ -1,6 +1,5 @@
-import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { ProviderConfigs } from '../config/providers'
-import { Env, GenericPayload } from '../interfaces/general'
+import { GenericPayload } from '../interfaces/general'
 import { createResponse } from './response'
 
 export interface ParsedClaudeRequest {

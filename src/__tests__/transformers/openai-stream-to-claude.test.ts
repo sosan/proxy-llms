@@ -12,20 +12,6 @@ vi.mock('../../utils/logger', () => ({
   },
 }))
 
-async function* streamToGenerator(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const reader = stream.getReader()
-  const decoder = new TextDecoder()
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      yield decoder.decode(value, { stream: true })
-    }
-  } finally {
-    reader.releaseLock()
-  }
-}
-
 describe('createOpenAIStreamToClaudeTransformStream', () => {
   it('transforms OpenAI SSE stream to Claude SSE format', async () => {
     const log = logger.withEnv({} as any)

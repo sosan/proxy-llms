@@ -43,7 +43,7 @@ export abstract class BaseProvider implements AIProvider {
     this.baseUrl = baseUrl
   }
 
-  // ─── Shared helpers ───────────────────────────────────────────────────────
+  // --- Shared helpers -------------------------------------------------------
 
   protected async readErrorBody(response: Response): Promise<unknown> {
     const text = await response.text().catch(() => '')
@@ -114,12 +114,12 @@ export abstract class BaseProvider implements AIProvider {
     return undefined
   }
 
-  // ─── Abstract methods (must be implemented by subclasses) ───────────────
+  // --- Abstract methods (must be implemented by subclasses) ---------------
 
   abstract makeRequest(endpoint: string, payload: unknown, configFormat: string): Promise<unknown>
   abstract makeStreamRequest(endpoint: string, payload: unknown): Promise<Response>
 
-  // ─── Shared transformRequest (can be overridden) ──────────────────────────
+  // --- Shared transformRequest (can be overridden) --------------------------
 
   transformRequest(payload: GenericPayload, config: ProviderConfig): unknown {
     const model = resolveModel(config, payload.model)

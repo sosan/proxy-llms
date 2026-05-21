@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger'
 
+/** Local type: only used within this transformer */
 interface OpenAIStreamChunk {
   id?: string
   choices?: Array<{
@@ -18,6 +19,7 @@ interface OpenAIStreamChunk {
   model?: string
 }
 
+/** Local type: only used within this transformer */
 interface ClaudeSSEEvent {
   event: string
   data: Record<string, unknown>
@@ -27,7 +29,7 @@ interface ClaudeSSEEvent {
  * Transform an OpenAI SSE stream into a Claude SSE stream.
  */
 export function createOpenAIStreamToClaudeTransformStream(
-  logContext: ReturnType<typeof logger.withEnv>
+  _: ReturnType<typeof logger.withEnv>
 ): TransformStream<Uint8Array, Uint8Array> {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()

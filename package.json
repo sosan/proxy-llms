@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Multi-Provider AI Proxy following Structured-Prompt-Driven Development pattern",
   "type": "module",
-  "main": "server.ts",
+  "main": "src/server.ts",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "npm run validate && wrangler deploy",
@@ -17,18 +17,18 @@
     "lint:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-name --validate-checksum"
   },
   "dependencies": {
-    "hono": "^4.12.19"
+    "hono": "^4.12.21"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.6",
-    "@cloudflare/workers-types": "^4.20260517.1",
-    "@types/node": "25.8.0",
-    "@vitest/coverage-v8": "^4.1.6",
+    "@cloudflare/vitest-pool-workers": "^0.16.8",
+    "@cloudflare/workers-types": "^4.20260521.1",
+    "@types/node": "25.9.1",
+    "@vitest/coverage-v8": "^4.1.7",
     "lockfile-lint": "5.0.0",
     "oxlint": "^1.66.0",
     "typescript": "6.0.3",
-    "vitest": "^4.1.6",
-    "wrangler": "^4.92.0"
+    "vitest": "^4.1.7",
+    "wrangler": "^4.93.1"
   },
   "volta": {
     "node": "24.15.0"

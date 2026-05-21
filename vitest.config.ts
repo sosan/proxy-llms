@@ -4,13 +4,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['__tests__/**/*.test.ts'],
+    include: ['src/__tests__/**/*.test.ts'],
     testTimeout: 10000,
-    setupFiles: ['./__tests__/setup.ts'],
+    setupFiles: ['./src/__tests__/setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', '__tests__/', 'vitest.config.ts'],
+      exclude: ['node_modules/', 'src/__tests__/', 'vitest.config.ts'],
     },
   },
 })

@@ -4,6 +4,7 @@ import { logger } from '../utils/logger'
 
 type AnalyticsRow = Record<string, unknown>
 
+/** Local type: only used within this module */
 interface AnalyticsSqlResponse {
   data?: AnalyticsRow[]
 }

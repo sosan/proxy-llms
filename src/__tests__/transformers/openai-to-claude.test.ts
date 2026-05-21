@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { transformOpenAIToClaude, transformOpenAIStreamChunkToClaude } from '../../transformers/openai-to-claude'
 
+/** Local type: only used within this test */
 interface ClaudeContentBlock {
   type: 'text' | 'tool_use'
   text?: string
@@ -9,6 +10,7 @@ interface ClaudeContentBlock {
   input?: Record<string, unknown>
 }
 
+/** Local type: only used within this test */
 interface ClaudeResponse {
   id: string
   type: 'message'

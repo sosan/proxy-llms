@@ -1,3 +1,4 @@
+/** Local type: only used within this test setup */
 interface GlobalWithCrypto {
   crypto?: {
     randomUUID?: () => string

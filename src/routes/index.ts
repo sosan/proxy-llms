@@ -1,21 +1,13 @@
 import { handleChatCompletions } from '../controllers/chat'
 import { handleClaudeMessages } from '../controllers/claude-messages'
-import { handleModels, handleProviderModels } from '../controllers/models'
-import { handleOpenAIModels, handleClaudeModels } from '../controllers/legacy'
+import { handleModels } from '../controllers/models'
 import { handleProcess, handleStatus, handleStream, handleWebSocket } from '../controllers/process'
 import { handleHealth } from '../controllers/health'
 
 export const registerRoutes = (app: any) => {
   app.post('/:version/chat/completions', handleChatCompletions)
   app.post('/:version/messages', handleClaudeMessages)
-
   app.get('/:version/models', handleModels)
-  // app.get('/claude/v1/models', handleModels)
-  // app.get('/:provider/models', handleProviderModels)
-
-  // app.get('/openai/v1/models', handleOpenAIModels)
-  // app.get('/claude/v1/models', handleClaudeModels)
-
   app.post('/api/process', handleProcess)
   app.get('/api/status/:processId', handleStatus)
   app.get('/api/stream/:processId', handleStream)
