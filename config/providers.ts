@@ -13,29 +13,15 @@ const _ProviderConfigs = {
   claude: {
     endpoint: '/messages',
     models: {
-      'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet-20240620',
-      'claude-3-opus': 'anthropic/claude-3-opus-20240229',
-      'claude-3-haiku': 'anthropic/claude-3-haiku-20240307',
-      'anthropic/claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet-20240620',
-      'anthropic/claude-3-opus': 'anthropic/claude-3-opus-20240229',
-      'anthropic/claude-3-haiku': 'anthropic/claude-3-haiku-20240307',
+      'claude-opus-4-7': 'claude-opus-4-7',
+      'claude-sonnet-4-6': 'claude-sonnet-4-6',
+      'claude-haiku-4-6': 'claude-haiku-4-6',
     },
     format: 'anthropic',
   },
   nvidia: {
     endpoint: '/chat/completions',
     models: {
-      'glm5.1': 'z-ai/glm-5.1',
-      'glm-5.1': 'z-ai/glm-5.1',
-      'kimi-k2.6': 'moonshotai/kimi-k2.6',
-      'glm4.7': 'z-ai/glm4.7',
-      'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro',
-      'minimax-m2.7': 'minimaxai/minimax-m2.7',
-      'kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
-      'qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
-      'gpt-oss-120b': 'openai/gpt-oss-120b',
-      'step-3.5-flash': 'stepfun-ai/step-3.5-flash',
-      // Aliases for backward compatibility
       'z-ai/glm5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
       'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
       'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6', // 7 ranking GB200x4
@@ -47,7 +33,6 @@ const _ProviderConfigs = {
       'openai/gpt-oss-120b': 'openai/gpt-oss-120b', // no ranking
       'stepfun-ai/step-3.5-flash': 'stepfun-ai/step-3.5-flash', // no ranking
       'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
-      'gemma-4-31b-it': 'google/gemma-4-31b-it',
     },
     format: 'openai',
   },
@@ -184,6 +169,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
+  console.log("---> resolvemoodel:  " + JSON.stringify(config.models) + " " + payloadModel );
   const aliases = config.models
   const fullIds = Object.values(aliases)
 
@@ -202,6 +188,20 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
 
   const defaultAlias = Object.keys(aliases)[0]
   return aliases[defaultAlias]
+}
+
+export const resolveAnthropicModel = (env: Record<string, string | undefined>, modelInput: string): string => {
+  const lowerModel = modelInput.toLowerCase()
+  if (lowerModel.includes('opus')) {
+    return env.ANTHROPIC_OPUS_MODEL || modelInput
+  }
+  if (lowerModel.includes('sonnet')) {
+    return env.ANTHROPIC_SONNET_MODEL || modelInput
+  }
+  if (lowerModel.includes('haiku')) {
+    return env.ANTHROPIC_HAIKU_MODEL || modelInput
+  }
+  return env.ANTHROPIC_DEFAULT_MODEL || modelInput
 }
 
 export const createModelsList = (providerName: string) => {

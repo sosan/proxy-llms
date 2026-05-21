@@ -175,6 +175,7 @@ export class MetricsCollector {
 
   createStreamingTransformStream(): TransformStream<Uint8Array, Uint8Array> {
     const decoder = new TextDecoder()
+    const encoder = new TextEncoder()
     let pendingLine = ''
 
     return new TransformStream({
@@ -217,7 +218,7 @@ export class MetricsCollector {
 
         controller.enqueue(chunk)
       },
-      flush: () => {
+      flush: (controller) => {
         const line = pendingLine.trim()
         if (line.startsWith('data: ')) {
           const data = line.slice(6).trim()
@@ -237,6 +238,11 @@ export class MetricsCollector {
               // Ignore parse errors
             }
           }
+        }
+
+        // Re-emit the pending line so downstream consumers receive it
+        if (pendingLine) {
+          controller.enqueue(encoder.encode(pendingLine + '\n\n'))
         }
 
         // Stream ended, record metrics

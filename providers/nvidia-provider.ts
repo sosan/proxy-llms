@@ -1,5 +1,5 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import { BaseProvider } from './base-provider'
+import { BaseProvider, sleep, getRetryDelay, RETRY_MAX_ATTEMPTS } from './base-provider'
 import { ProviderError } from '../errors/provider-error'
 import { logger } from '../utils/logger'
 
@@ -10,10 +10,40 @@ import { logger } from '../utils/logger'
 export class NvidiaProvider extends BaseProvider {
   readonly name = 'nvidia'
 
+  // Shared retry logic with exponential backoff and jitter
+  private async executeWithRetry<T>(
+    requestId: string,
+    operation: () => Promise<T>,
+    isRetryable: (err: ProviderError) => boolean
+  ): Promise<T> {
+    let lastError: ProviderError | null = null
+
+    for (let attempt = 1; attempt <= RETRY_MAX_ATTEMPTS; attempt++) {
+      try {
+        return await operation()
+      } catch (err) {
+        lastError = err instanceof ProviderError ? err : null
+        if (!lastError || !isRetryable(lastError)) {
+          throw err
+        }
+
+        if (attempt === RETRY_MAX_ATTEMPTS) {
+          logger.warn(`[${requestId}] Max retry attempts reached, propagating error`)
+          throw err
+        }
+
+        const delay = getRetryDelay(attempt)
+        logger.info(`[${requestId}] Retrying after ${Math.round(delay)}ms (attempt ${attempt}/${RETRY_MAX_ATTEMPTS})`)
+        await sleep(delay)
+      }
+    }
+
+    throw lastError ?? new Error('Unknown error during retry')
+  }
+
   async makeStreamRequest(endpoint: string, payload: unknown): Promise<Response> {
     const requestId = crypto.randomUUID().slice(0, 8)
     const uri = `${this.baseUrl}${endpoint}`
-    const timeout = this.createAbortTimeout(requestId)
 
     logger.info(`[${requestId}] → Stream request`, {
       uri,
@@ -21,6 +51,15 @@ export class NvidiaProvider extends BaseProvider {
     })
     logger.logUpstreamConfig(requestId, payload)
 
+    return this.executeWithRetry(
+      requestId,
+      async () => this._doStreamRequest(requestId, uri, payload),
+      (err) => err.status === 429
+    )
+  }
+
+  private async _doStreamRequest(requestId: string, uri: string, payload: unknown): Promise<Response> {
+    const timeout = this.createAbortTimeout(requestId)
     let response: Response
     try {
       response = await fetch(uri, {
@@ -75,7 +114,6 @@ export class NvidiaProvider extends BaseProvider {
   async makeRequest(endpoint: string, payload: unknown, _configFormat: string): Promise<unknown> {
     const requestId = crypto.randomUUID().slice(0, 8)
     const uri = `${this.baseUrl}${endpoint}`
-    const timeout = this.createAbortTimeout(requestId)
 
     logger.info(`[${requestId}] → Request`, {
       uri,
@@ -84,6 +122,15 @@ export class NvidiaProvider extends BaseProvider {
     })
     logger.logUpstreamConfig(requestId, payload)
 
+    return this.executeWithRetry(
+      requestId,
+      async () => this._doRequest(requestId, uri, payload),
+      (err) => err.status === 429
+    )
+  }
+
+  private async _doRequest(requestId: string, uri: string, payload: unknown): Promise<unknown> {
+    const timeout = this.createAbortTimeout(requestId)
     let response: Response
     try {
       response = await fetch(uri, {

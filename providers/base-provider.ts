@@ -11,6 +11,23 @@ const DEFAULT_MAX_TOP_P = 1
 const DEFAULT_IS_STREAMING = false
 const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'model', 'messages', 'content'])
 
+// Retry configuration for transient upstream failures
+const RETRY_MAX_ATTEMPTS = 3
+const RETRY_BASE_DELAY_MS = 1000
+const JITTER_MAX_MS = 500
+
+export async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function getRetryDelay(attempt: number): number {
+  const base = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+  const jitter = Math.random() * JITTER_MAX_MS
+  return base + jitter
+}
+
+export { RETRY_MAX_ATTEMPTS }
+
 /**
  * Base provider class with shared logic for all AI providers.
  * Specific providers extend this and override provider-specific methods.

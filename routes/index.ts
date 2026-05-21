@@ -6,14 +6,15 @@ import { handleProcess, handleStatus, handleStream, handleWebSocket } from '../c
 import { handleHealth } from '../controllers/health'
 
 export const registerRoutes = (app: any) => {
-  app.post('/chat/completions', handleChatCompletions)
-  app.post('/v1/messages', handleClaudeMessages)
+  app.post('/:version/chat/completions', handleChatCompletions)
+  app.post('/:version/messages', handleClaudeMessages)
 
   app.get('/:version/models', handleModels)
-  app.get('/:provider/models', handleProviderModels)
+  // app.get('/claude/v1/models', handleModels)
+  // app.get('/:provider/models', handleProviderModels)
 
-  app.get('/openai/v1/models', handleOpenAIModels)
-  app.get('/claude/v1/models', handleClaudeModels)
+  // app.get('/openai/v1/models', handleOpenAIModels)
+  // app.get('/claude/v1/models', handleClaudeModels)
 
   app.post('/api/process', handleProcess)
   app.get('/api/status/:processId', handleStatus)
