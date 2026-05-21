@@ -6,7 +6,8 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "npm run validate && wrangler deploy",
+    "deploy": "npm run validate && echo 'fake deploying comand, replace with actual deploy command'",
+    "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh",
     "validate": "npm run lint:lockfile && npm run lint && npm run typecheck && npm test",
     "test": "vitest run",
     "test:watch": "vitest",

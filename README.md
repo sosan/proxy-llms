@@ -58,6 +58,40 @@ infisical run --watch -- npm run dev
 
 Open the project in the provided [Dev Container](.devcontainer/devcontainer.json) to keep dependency execution isolated from your host system.
 
+## Deployment
+
+### Automatic deployment via GitHub Actions
+
+The repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically deploys the Worker to Cloudflare on every push to `main`.
+
+**Prerequisites (one-time setup):**
+
+1. Go to **Cloudflare Dashboard** → **My Profile** → **API Tokens**.
+2. Create an API Token with **Edit** permission on **Cloudflare Workers**.
+3. Get your **Cloudflare Account ID** (visible in the dashboard sidebar).
+4. Go to your **GitHub repository** → **Settings** → **Secrets and variables** → **Actions**.
+5. Add the following **Repository secrets**:
+   - `CLOUDFLARE_API_TOKEN` — the token created in step 2.
+   - `CLOUDFLARE_ACCOUNT_ID` — your Account ID from step 3.
+
+**What the workflow does:**
+
+1. Runs lockfile validation, linting, type check, and tests.
+2. Deploys the Worker using `wrangler deploy` if all checks pass.
+
+### Local deployment
+
+To deploy manually from your local machine, use the provided convenience script:
+
+```bash
+npm run deploy:cloudflare
+```
+
+This script runs the full validation suite and then executes `wrangler deploy`. It expects the following environment variables to be set (via your shell or a secrets manager):
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
 ## Endpoints
 
 ### Synchronous AI Providers
