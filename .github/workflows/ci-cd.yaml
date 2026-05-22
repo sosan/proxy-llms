@@ -21,7 +21,10 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
+  security-events: write
   contents: read
+  actions: read
+  pull-requests: write
 
 jobs:
   analyze:
