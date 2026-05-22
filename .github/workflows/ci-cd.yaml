@@ -27,8 +27,12 @@ permissions:
   pull-requests: write
 
 jobs:
+  # If Code Scanning is not enabled in the repository, the analyze job will fail
+  # with "Resource not accessible by integration". continue-on-error allows
+  # the workflow to proceed so that other jobs (test, deploy) still run.
   analyze:
     name: Analyze
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
