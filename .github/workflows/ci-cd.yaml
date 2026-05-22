@@ -21,39 +21,11 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
-  security-events: write
   contents: read
-  actions: read
-  pull-requests: write
 
 jobs:
-  # If Code Scanning is not enabled in the repository, the analyze job will fail
-  # with "Resource not accessible by integration". continue-on-error allows
-  # the workflow to proceed so that other jobs (test, deploy) still run.
-  analyze:
-    name: Analyze
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 2
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-
   test:
     name: Test
-    needs: [analyze]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

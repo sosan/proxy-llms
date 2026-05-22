@@ -93,18 +93,6 @@ This script runs the full validation suite and then executes `wrangler deploy`. 
 - `CLOUDFLARE_ACCOUNT_ID`
 
 ## Endpoints
-### GitHub Actions Code Scanning setup
-
-The CI/CD workflow includes CodeQL analysis. If Code Scanning is not enabled in your repository, the `analyze` job will fail with `Resource not accessible by integration`.
-
-To enable it:
-
-1. Go to your **GitHub repository** → **Settings** → **Security** → **Code scanning**
-2. Click on **"Set up"** → **"Default"**
-3. This creates a default configuration; you can remove the default workflow file that GitHub creates, as this repository already provides its own in `.github/workflows/ci-cd.yaml`
-
-> **Note:** If the repository is **private** and part of an organization, the organization owner must enable **"GitHub Advanced Security"** for private repositories. This feature is free for public repositories.
-
 
 ### Synchronous AI Providers
 - `POST /chat/completions` - Compatible with OpenAI API (provider extracted from the `model` field in the request body, e.g. `"model": "nvidia/moonshotai/kimi-k2.6"`)
