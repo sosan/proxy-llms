@@ -90,7 +90,7 @@ describe('API Endpoints', () => {
       const provider = new NvidiaProvider('key', 'https://api.test')
 
       const payload = {
-        model: 'glm5.1',
+        model: 'z-ai/glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
       }
 
@@ -167,4 +167,3 @@ describe('API Endpoints', () => {
     })
   })
 })
-

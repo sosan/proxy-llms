@@ -112,7 +112,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     },
   },
-  'deepseek-ai/deepseek-v4-pro': {
+  'deepseek/deepseek-v4-pro': {
     temperature: 1,
     top_p: 0.95,
     max_tokens: 16384,
@@ -207,11 +207,11 @@ export const resolveAnthropicModel = (env: Record<string, string | undefined>, m
 export const createModelsList = (providerName: string) => {
   const config = ProviderConfigs[providerName]
   const created = 0
-  const aliases = Object.entries(config.models).filter(([id, resolvedId]) => id !== resolvedId)
+  const models = Object.entries(config.models)
 
   return {
     object: 'list',
-    data: aliases.map(([id, resolvedId]) => ({
+    data: models.map(([id, resolvedId]) => ({
       id,
       object: 'model',
       created,
@@ -225,8 +225,8 @@ export const createAllModelsList = () => {
   const allModels: Array<{ id: string; object: string; created: number; owned_by: string }> = []
 
   for (const [providerName, config] of Object.entries(ProviderConfigs)) {
-    const aliases = Object.entries(config.models).filter(([id, resolvedId]) => id !== resolvedId)
-    for (const [id, resolvedId] of aliases) {
+    const models = Object.entries(config.models)
+    for (const [id, resolvedId] of models) {
       allModels.push({
         id,
         object: 'model',
@@ -241,6 +241,3 @@ export const createAllModelsList = () => {
     data: allModels,
   }
 }
-
-
-

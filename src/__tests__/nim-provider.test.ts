@@ -20,7 +20,7 @@ describe('NvidiaProvider', () => {
     it('should transform a basic payload with messages', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
-        model: 'glm5.1',
+        model: 'z-ai/glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
       }
 
@@ -37,7 +37,7 @@ describe('NvidiaProvider', () => {
     it('should transform payload with string content', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
-        model: 'glm5.1',
+        model: 'z-ai/glm5.1',
         content: 'Simple prompt',
       }
 
@@ -49,7 +49,7 @@ describe('NvidiaProvider', () => {
     it('should transform payload with content array (MessageContentPart)', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
-        model: 'glm5.1',
+        model: 'z-ai/glm5.1',
         content: [{ type: 'text' as const, text: 'Hello with parts' }],
       }
 
@@ -61,7 +61,7 @@ describe('NvidiaProvider', () => {
     it('should apply model defaults for temperature and tokens', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
-        model: 'deepseek-v4-pro',
+        model: 'deepseek/deepseek-v4-pro',
         messages: [{ role: 'user' as const, content: 'Hello' }],
       }
 
@@ -75,7 +75,7 @@ describe('NvidiaProvider', () => {
     it('should override defaults with payload values', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
-        model: 'glm5.1',
+        model: 'z-ai/glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
         temperature: 0.5,
         max_tokens: 100,
@@ -92,7 +92,7 @@ describe('NvidiaProvider', () => {
     it('should forward extra provider-specific params', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
-        model: 'glm5.1',
+        model: 'z-ai/glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
         tools: [{ name: 'calculator' }],
         response_format: { type: 'json_object' },
@@ -108,7 +108,7 @@ describe('NvidiaProvider', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
         provider: 'openai',
-        model: 'glm5.1',
+        model: 'z-ai/glm5.1',
         messages: [{ role: 'user' as const, content: 'Hello' }],
         content: 'should be ignored',
       }

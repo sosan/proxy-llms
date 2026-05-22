@@ -6,16 +6,16 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "npm run validate && echo 'fake deploying comand, replace with actual deploy command'",
+    "deploy": "pnpm run validate && echo 'fake deploying comand, replace with actual deploy command'",
     "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh",
-    "validate": "npm run lint:lockfile && npm run lint && npm run typecheck && npm test",
+    "validate": "pnpm run lint:lockfile && pnpm run lint && pnpm run typecheck && pnpm test",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "lint:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-name --validate-checksum"
+    "lint:lockfile": "lockfile-lint --path pnpm-lock.yaml --type pnpm --allowed-hosts pnpm --validate-https --validate-integrity --validate-package-name --validate-checksum"
   },
   "dependencies": {
     "hono": "^4.12.21"

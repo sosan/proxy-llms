@@ -5,9 +5,8 @@ describe('Provider Configs', () => {
   describe('resolveModel', () => {
     const openaiConfig = ProviderConfigs.nvidia
 
-
     it('should resolve an alias to the full model ID', () => {
-      const result = resolveModel(openaiConfig, 'glm5.1')
+      const result = resolveModel(openaiConfig, 'z-ai/glm5.1')
       expect(result).toBe('z-ai/glm-5.1')
     })
 
@@ -36,12 +35,12 @@ describe('Provider Configs', () => {
 
     it('should resolve claude aliases correctly', () => {
       const claudeConfig = ProviderConfigs.claude
-      expect(resolveModel(claudeConfig, 'claude-3.5-sonnet')).toBe('anthropic/claude-3.5-sonnet-20240620')
+      expect(resolveModel(claudeConfig, 'claude-opus-4-7')).toBe('claude-opus-4-7')
     })
 
     it('should handle full IDs that are present in values', () => {
       const claudeConfig = ProviderConfigs.claude
-      expect(resolveModel(claudeConfig, 'anthropic/claude-3.5-sonnet-20240620')).toBe('anthropic/claude-3.5-sonnet-20240620')
+      expect(resolveModel(claudeConfig, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
     })
   })
 
@@ -91,7 +90,6 @@ describe('Provider Configs', () => {
       expect(ProviderConfigs.nvidia.format).toBe('openai')
       expect(Object.keys(ProviderConfigs.nvidia.models).length).toBeGreaterThan(0)
     })
-
 
     it('should have claude config with endpoint and models', () => {
       expect(ProviderConfigs.claude).toBeDefined()
