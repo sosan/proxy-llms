@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "lint:lockfile": "pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install --lockfile-integrity"
+    "lint:lockfile": "pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install"
   },
   "dependencies": {
     "hono": "^4.12.22"
