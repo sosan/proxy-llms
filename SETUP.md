@@ -95,6 +95,37 @@ For `production`, add protection rules such as required reviewers before deploys
 
 Do not commit `.env` files with real values. Keep only an `.env.example` with variable names and placeholders.
 
+## Releasing with release-it and Infisical
+
+This repository uses [`release-it`](https://github.com/release-it/release-it) to automate versioning, changelogs, and GitHub Releases. To keep secrets out of local `.env` files, **Infisical** is the recommended way to inject the `GITHUB_TOKEN` required for creating GitHub Releases.
+
+### Prerequisites
+
+- Infisical CLI installed and authenticated (`infisical login`)
+- A GitHub Personal Access Token with `repo` scope
+
+### 1. Store `GITHUB_TOKEN` in Infisical
+
+1. In your Infisical project (e.g., `proxy-llms`), create an environment for releases (e.g., `release` or reuse `production`).
+2. Add the secret:
+   - `GITHUB_TOKEN` — your GitHub Personal Access Token (must have `repo` scope).
+
+### 2. Run the release through Infisical
+
+```bash
+infisical run --env=release -- pnpm run release
+```
+
+This injects `GITHUB_TOKEN` into the environment so `release-it` can create the GitHub Release automatically.
+
+### Why Infisical for `GITHUB_TOKEN`?
+
+- **No plaintext secrets** in `.env` or shell history.
+- **Centralized rotation** — rotate the token in Infisical without touching local files.
+- **Audit trail** — Infisical logs who accessed the secret and when.
+
+---
+
 ## Infisical Setup (Optional)
 
 If you choose the hybrid model, follow these steps to configure Infisical for this repository.
