@@ -95,65 +95,74 @@ For `production`, add protection rules such as required reviewers before deploys
 
 Do not commit `.env` files with real values. Keep only an `.env.example` with variable names and placeholders.
 
-## Releasing with release-it and Infisical
+## Releasing with semantic-release
 
-This repository uses [`release-it`](https://github.com/release-it/release-it) to automate versioning, changelogs, and GitHub Releases. To keep secrets out of local `.env` files, **Infisical** is the recommended way to inject the `GITHUB_TOKEN` required for creating GitHub Releases.
+This repository uses [`semantic-release`](https://github.com/semantic-release/semantic-release) to automate versioning, changelogs, and GitHub Releases. Releases are triggered manually from GitHub Actions, so no local secrets or tokens are required.
 
-### Prerequisites
+### How it works
 
-- Infisical CLI installed and authenticated (`infisical login`)
-- A GitHub Personal Access Token
+1. Commits are analyzed using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.).
+2. When you trigger the **Release** workflow from GitHub Actions, `semantic-release` runs on the `main` branch.
+3. It calculates the next version, updates `package.json`, generates a `CHANGELOG.md`, commits both files, creates a Git tag (e.g., `v1.2.3`), and publishes a GitHub Release.
+4. The new tag triggers the existing **Deploy** workflow, which deploys to Cloudflare automatically.
 
-### 1. Create a GitHub Personal Access Token
+### Triggering a release
 
-`release-it` needs a GitHub token to create releases automatically. The required permissions depend on the token type.
+1. Ensure all changes are merged into `main` and CI passes.
+2. Go to **Actions** → **Release** in your GitHub repository.
+3. Click **Run workflow** → select the `main` branch → **Run workflow**.
+4. The workflow will create a release if there are relevant commits since the last tag.
 
-#### Option A: Fine-grained Personal Access Token (recommended)
+### Requirements
 
-1. Go to **GitHub Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
-2. Under **Repository access**, select **Only select repositories** and choose `sosan/proxy-llms`.
-3. Under **Permissions**, select the following **Repository permissions**:
+- No personal tokens needed — the workflow uses the automatically provided `GITHUB_TOKEN` from GitHub Actions.
+- Branch `main` must allow GitHub Actions to push commits (disable "Restrict pushes that create files" or use a bypass rule if needed).
 
-   | Permission    | Access       | Reason                                         |
-   |---------------|-------------|------------------------------------------------|
-   | `Contents`    | Read/write  | Required for the GitHub Releases API           |
-   | `Metadata`    | Read        | Required by GitHub (enabled by default)        |
+> ⚠️ **Note**: `semantic-release` will **not** create a new version if there are no commits that trigger a version bump (e.g., only `chore:` or `docs:` commits). Ensure you have at least one `feat:` or `fix:` commit since the last release.
 
-   Optional but recommended:
-   | Permission    | Access      | Reason                                         |
-   |---------------|-------------|------------------------------------------------|
-   | `Actions`     | Read/write  | Access workflow runs and artifacts             |
-   | `Deployments` | Read/write  | Create and manage deployments                  |
+### Why semantic-release?
 
-4. Generate the token and copy it immediately.
+- **No local setup** — everything runs in CI, no need to install tools locally.
+- **No manual tokens** — uses `GITHUB_TOKEN` provided automatically by GitHub Actions.
+- **Consistent versioning** — follows [Conventional Commits](https://www.conventionalcommits.org/) strictly.
+- **Automatic changelog** — generates a `CHANGELOG.md` from commit messages.
 
-#### Option B: Classic Personal Access Token
+---
 
-1. Go to **GitHub Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)** → **Generate new token (classic)**.
-2. Select the **`repo`** scope (includes full control of private repositories and releases).
-3. Generate the token and copy it immediately.
+## Committing with Conventional Commits
 
-> ⚠️ **Important**: If `Contents` is set to **Read-only** (Fine-grained) or the token lacks the `repo` scope (Classic), `release-it` cannot create the release via API and will fall back to a web-based release.
+To get the most out of `semantic-release`, write your commits following the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
-### 2. Store `GITHUB_TOKEN` in Infisical
+```
+<type>[optional scope]: <description>
 
-1. In your Infisical project (e.g., `proxy-llms`), create an environment for releases (e.g., `release` or reuse `production`).
-2. Add the secret:
-   - `GITHUB_TOKEN` — the token generated in the previous step.
+[optional body]
 
-### 3. Run the release through Infisical
-
-```bash
-infisical run --env=release -- pnpm run release
+[optional footer(s)]
 ```
 
-This injects `GITHUB_TOKEN` into the environment so `release-it` can create the GitHub Release automatically.
+Common types:
 
-### 4. Why Infisical for `GITHUB_TOKEN`?
+| Type     | Effect on version | Description                          |
+|----------|------------------|--------------------------------------|
+| `feat`   | Minor (`x.Y.z`)  | New feature                          |
+| `fix`    | Patch (`x.y.Z`)  | Bug fix                              |
+| `chore`  | None             | Maintenance, no user-facing change   |
+| `docs`   | None             | Documentation changes                |
+| `style`  | None             | Code style changes (formatting)      |
+| `refactor`| None            | Code refactoring                     |
+| `test`   | None             | Adding or updating tests           |
+| `perf`   | Patch (`x.y.Z`)  | Performance improvements             |
+| `ci`     | None             | CI/CD changes                        |
+| `build`  | None             | Build system changes                 |
 
-- **No plaintext secrets** in `.env` or shell history.
-- **Centralized rotation** — rotate the token in Infisical without touching local files.
-- **Audit trail** — Infisical logs who accessed the secret and when.
+To trigger a **major** version bump, include `BREAKING CHANGE:` in the commit body or use the `!` notation:
+
+```
+feat!: remove support for legacy API
+
+BREAKING CHANGE: The legacy API endpoint has been removed.
+```
 
 ---
 
