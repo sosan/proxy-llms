@@ -102,15 +102,46 @@ This repository uses [`release-it`](https://github.com/release-it/release-it) to
 ### Prerequisites
 
 - Infisical CLI installed and authenticated (`infisical login`)
-- A GitHub Personal Access Token with `repo` scope
+- A GitHub Personal Access Token
 
-### 1. Store `GITHUB_TOKEN` in Infisical
+### 1. Create a GitHub Personal Access Token
+
+`release-it` needs a GitHub token to create releases automatically. The required permissions depend on the token type.
+
+#### Option A: Fine-grained Personal Access Token (recommended)
+
+1. Go to **GitHub Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+2. Under **Repository access**, select **Only select repositories** and choose `sosan/proxy-llms`.
+3. Under **Permissions**, select the following **Repository permissions**:
+
+   | Permission    | Access       | Reason                                         |
+   |---------------|-------------|------------------------------------------------|
+   | `Contents`    | Read/write  | Required for the GitHub Releases API           |
+   | `Metadata`    | Read        | Required by GitHub (enabled by default)        |
+
+   Optional but recommended:
+   | Permission    | Access      | Reason                                         |
+   |---------------|-------------|------------------------------------------------|
+   | `Actions`     | Read/write  | Access workflow runs and artifacts             |
+   | `Deployments` | Read/write  | Create and manage deployments                  |
+
+4. Generate the token and copy it immediately.
+
+#### Option B: Classic Personal Access Token
+
+1. Go to **GitHub Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)** → **Generate new token (classic)**.
+2. Select the **`repo`** scope (includes full control of private repositories and releases).
+3. Generate the token and copy it immediately.
+
+> ⚠️ **Important**: If `Contents` is set to **Read-only** (Fine-grained) or the token lacks the `repo` scope (Classic), `release-it` cannot create the release via API and will fall back to a web-based release.
+
+### 2. Store `GITHUB_TOKEN` in Infisical
 
 1. In your Infisical project (e.g., `proxy-llms`), create an environment for releases (e.g., `release` or reuse `production`).
 2. Add the secret:
-   - `GITHUB_TOKEN` — your GitHub Personal Access Token (must have `repo` scope).
+   - `GITHUB_TOKEN` — the token generated in the previous step.
 
-### 2. Run the release through Infisical
+### 3. Run the release through Infisical
 
 ```bash
 infisical run --env=release -- pnpm run release
@@ -118,7 +149,7 @@ infisical run --env=release -- pnpm run release
 
 This injects `GITHUB_TOKEN` into the environment so `release-it` can create the GitHub Release automatically.
 
-### Why Infisical for `GITHUB_TOKEN`?
+### 4. Why Infisical for `GITHUB_TOKEN`?
 
 - **No plaintext secrets** in `.env` or shell history.
 - **Centralized rotation** — rotate the token in Infisical without touching local files.
