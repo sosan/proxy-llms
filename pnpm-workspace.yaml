@@ -1,5 +1,8 @@
-# npm security best practices
+# pnpm security best practices
 # Source: https://github.com/lirantal/npm-security-best-practices
+
+packages:
+  - .
 
 # SECURITY: block packages newer than 30 days (43200 minutes)
 minimumReleaseAge: 43200
@@ -16,7 +19,9 @@ trustPolicy: no-downgrade
 allowBuilds:
   esbuild: true
   rolldown: true
+  sharp: true
   unrs-resolver: true
+  workerd: true
 
 # SECURITY: fail the install if a dependency wants to run a build
 # script that isn't in the allow-list above
@@ -24,3 +29,49 @@ strictDepBuilds: true
 
 # SECURITY: reject dependencies sourced from git URLs
 blockExoticSubdeps: true
+
+minimumReleaseAgeExclude:
+  - '@cloudflare/kv-asset-handler@0.5.0'
+  - '@cloudflare/unenv-preset@2.16.1'
+  - '@cloudflare/vitest-pool-workers@0.16.8'
+  - '@cloudflare/workerd-darwin-64@1.20260520.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20260520.1'
+  - '@cloudflare/workerd-linux-64@1.20260520.1'
+  - '@cloudflare/workerd-linux-arm64@1.20260520.1'
+  - '@cloudflare/workerd-windows-64@1.20260520.1'
+  - '@cloudflare/workers-types@4.20260521.1'
+  - '@oxlint/binding-android-arm-eabi@1.66.0'
+  - '@oxlint/binding-android-arm64@1.66.0'
+  - '@oxlint/binding-darwin-arm64@1.66.0'
+  - '@oxlint/binding-darwin-x64@1.66.0'
+  - '@oxlint/binding-freebsd-x64@1.66.0'
+  - '@oxlint/binding-linux-arm-gnueabihf@1.66.0'
+  - '@oxlint/binding-linux-arm-musleabihf@1.66.0'
+  - '@oxlint/binding-linux-arm64-gnu@1.66.0'
+  - '@oxlint/binding-linux-arm64-musl@1.66.0'
+  - '@oxlint/binding-linux-ppc64-gnu@1.66.0'
+  - '@oxlint/binding-linux-riscv64-gnu@1.66.0'
+  - '@oxlint/binding-linux-riscv64-musl@1.66.0'
+  - '@oxlint/binding-linux-s390x-gnu@1.66.0'
+  - '@oxlint/binding-linux-x64-gnu@1.66.0'
+  - '@oxlint/binding-linux-x64-musl@1.66.0'
+  - '@oxlint/binding-openharmony-arm64@1.66.0'
+  - '@oxlint/binding-win32-arm64-msvc@1.66.0'
+  - '@oxlint/binding-win32-ia32-msvc@1.66.0'
+  - '@oxlint/binding-win32-x64-msvc@1.66.0'
+  - '@types/node@25.9.1'
+  - '@vitest/coverage-v8@4.1.7'
+  - '@vitest/expect@4.1.7'
+  - '@vitest/mocker@4.1.7'
+  - '@vitest/pretty-format@4.1.7'
+  - '@vitest/runner@4.1.7'
+  - '@vitest/snapshot@4.1.7'
+  - '@vitest/spy@4.1.7'
+  - '@vitest/utils@4.1.7'
+  - hono@4.12.21
+  - miniflare@4.20260520.0
+  - oxlint@1.66.0
+  - vitest@4.1.7
+  - workerd@1.20260520.1
+  - wrangler@4.93.1
+  - ws@8.20.1
