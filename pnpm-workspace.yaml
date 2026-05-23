@@ -32,25 +32,18 @@ strictDepBuilds: true
 # SECURITY: reject dependencies sourced from git URLs
 blockExoticSubdeps: true
 
+minimumReleaseAgeExclude:
+  - '@cloudflare/vitest-pool-workers@0.16.9'
+  - '@cloudflare/workerd-darwin-64@1.20260521.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20260521.1'
+  - '@cloudflare/workerd-linux-64@1.20260521.1'
+  - '@cloudflare/workerd-linux-arm64@1.20260521.1'
+  - '@cloudflare/workerd-windows-64@1.20260521.1'
+  - '@cloudflare/workers-types@4.20260522.1'
+  - hono@4.12.22
+  - miniflare@4.20260521.0
+  - workerd@1.20260521.1
+  - wrangler@4.94.0
+
 # SECURITY: allow recent versions for dev dependencies that update frequently
 # This list must be kept in sync with devDependencies in package.json
-minimumReleaseAgeExclude:
-  - '@cloudflare/vitest-pool-workers@0.16.8'
-  - '@cloudflare/workers-types@4.20260520.1'
-  - '@types/node@25.9.1'
-  - '@vitest/coverage-v8@4.1.7'
-  - '@vitest/expect@4.1.7'
-  - '@vitest/mocker@4.1.7'
-  - '@vitest/pretty-format@4.1.7'
-  - '@vitest/runner@4.1.7'
-  - '@vitest/snapshot@4.1.7'
-  - '@vitest/spy@4.1.7'
-  - '@vitest/utils@4.1.7'
-  - hono@4.12.22
-  - miniflare@4.20260520.0
-  - oxlint@1.66.0
-  - typescript@6.0.3
-  - vitest@4.1.7
-  - workerd@1.20260520.1
-  - wrangler@4.93.1
-  - ws@8.20.1
