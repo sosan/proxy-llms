@@ -78,13 +78,67 @@ jobs:
       - name: Install dependencies (deterministic)
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      # ------------------------------------------------------------------
+      # OPTIONAL: Use Infisical to fetch runtime secrets (reference only)
+      # ------------------------------------------------------------------
+      # If you prefer to manage Worker runtime secrets via Infisical instead
+      # of GitHub secrets, uncomment the steps below and remove the static
+      # "Create Worker secrets file" step above.
+      #
+      # Prerequisites:
+      # 1. Create an Infisical project with `staging` and `production` environments.
+      # 2. Add `NVIDIA_API_KEY`, `OPENCODE_API_KEY`, `ANALYTICS_ACCOUNT_ID`,
+      #    `ANALYTICS_API_TOKEN` to each environment in Infisical.
+      # 3. Create a Machine Identity in Infisical and generate a token.
+      # 4. Store the token as `INFISICAL_TOKEN` in the GitHub environment.
+      #
+      # - name: Install Infisical CLI
+      #   run: |
+      #     curl -1sLf 'https://cli.infisical.com/install.sh' | bash
+      #
+      # - name: Fetch secrets from Infisical
+      #   env:
+      #     INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+      #   run: |
+      #     infisical export --env=${{ github.event.inputs.environment || 'staging' }} --format=dotenv > .infisical-env
+      #
+      # - name: Create Worker secrets file from Infisical
+      #   run: |
+      #     umask 077
+      #     {
+      #       # Pipeline credentials remain from GitHub secrets
+      #       printf 'CLOUDFLARE_API_TOKEN=%s\n' '${{ secrets.CLOUDFLARE_API_TOKEN }}'
+      #       printf 'CLOUDFLARE_ACCOUNT_ID=%s\n' '${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+      #       # Runtime credentials fetched from Infisical
+      #       cat .infisical-env
+      #     } > .worker-secrets
+      #     rm -f .infisical-env
+      # ------------------------------------------------------------------
+
+      - name: Create Worker secrets file
+        shell: bash
+        run: |
+          umask 077
+          {
+            printf 'CLOUDFLARE_API_TOKEN=%s\n' '${{ secrets.CLOUDFLARE_API_TOKEN }}'
+            printf 'CLOUDFLARE_ACCOUNT_ID=%s\n' '${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+            printf 'NVIDIA_API_KEY=%s\n' '${{ secrets.NVIDIA_API_KEY }}'
+            printf 'OPENCODE_API_KEY=%s\n' '${{ secrets.OPENCODE_API_KEY }}'
+            printf 'ANALYTICS_ACCOUNT_ID=%s\n' '${{ secrets.ANALYTICS_ACCOUNT_ID }}'
+            printf 'ANALYTICS_API_TOKEN=%s\n' '${{ secrets.ANALYTICS_API_TOKEN }}'
+          } > .worker-secrets
+
       - name: Deploy to Cloudflare
         id: deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --env ${{ github.event.inputs.environment || 'staging' }}
+          command: deploy --env ${{ github.event.inputs.environment || 'staging' }} --secrets-file .worker-secrets
+
+      - name: Remove Worker secrets file
+        if: always()
+        run: rm -f .worker-secrets
 
       - name: Health check
         if: ${{ vars.WORKER_URL != '' }}

@@ -60,37 +60,17 @@ Open the project in the provided [Dev Container](.devcontainer/devcontainer.json
 
 ## Deployment
 
-### Automatic deployment via GitHub Actions
-
-The repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically deploys the Worker to Cloudflare on every push to `main`.
-
-**Prerequisites (one-time setup):**
-
-1. Go to **Cloudflare Dashboard** → **My Profile** → **API Tokens**.
-2. Create an API Token with **Edit** permission on **Cloudflare Workers**.
-3. Get your **Cloudflare Account ID** (visible in the dashboard sidebar).
-4. Go to your **GitHub repository** → **Settings** → **Secrets and variables** → **Actions**.
-5. Add the following **Repository secrets**:
-   - `CLOUDFLARE_API_TOKEN` — the token created in step 2.
-   - `CLOUDFLARE_ACCOUNT_ID` — your Account ID from step 3.
-
-**What the workflow does:**
-
-1. Runs lockfile validation, linting, type check, and tests.
-2. Deploys the Worker using `wrangler deploy` if all checks pass.
-
-### Local deployment
-
-To deploy manually from your local machine, use the provided convenience script:
+Detailed setup, Cloudflare secrets, GitHub Environment secrets, and troubleshooting live in [SETUP.md](SETUP.md).
 
 ```bash
+# Deploy to staging (default)
 pnpm run deploy:cloudflare
+
+# Deploy to production
+pnpm run deploy:cloudflare -- production
 ```
 
-This script runs the full validation suite and then executes `wrangler deploy`. It expects the following environment variables to be set (via your shell or a secrets manager):
-
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
+GitHub Actions deploys via `.github/workflows/ci-cd.yaml`; local deploys use `scripts/deploy-cloudflare.sh`.
 
 ## Endpoints
 
@@ -139,7 +119,15 @@ ANTHROPIC_HAIKU_MODEL = "lmstudio/..."
 ANTHROPIC_DEFAULT_MODEL = "nvidia/..."
 ```
 
-Example: When Claude Code sends `claude-4.7-opus`, the proxy routes to `nvidia/moonshotai/kimi-k2.6` (if set).
+Example: When Claude Code sends `claude-4.7-opus`, the proxy routes to `nvidia/moonshotai/kimi-k2.6` (if set). These `ANTHROPIC_*_MODEL` variables configure proxy-side model routing.
+
+For local development, point Claude Code at the local Anthropic-compatible Worker endpoint with `ANTHROPIC_BASE_URL`.Wrangler uses port `8787` by default, so the usual local command is:
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:8787 claude
+```
+
+`ANTHROPIC_BASE_URL` is a Claude Code client setting, not a Worker runtime variable for `wrangler.toml`.
 
 ### Legacy routes (backward compatible)
 - `GET /openai/v1/models` - OpenAI-compatible model discovery

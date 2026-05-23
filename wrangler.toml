@@ -34,6 +34,15 @@ ANTHROPIC_DEFAULT_MODEL = ""
 [env.staging]
 name = "proxy-llms-staging"
 
+[env.staging.durable_objects]
+bindings = [
+  { name = "PROCESSOR", class_name = "ProcessorDurableObject" }
+]
+
+[[env.staging.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "request_metrics"
+
 [env.staging.vars]
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 LOG_METRICS = "false"
@@ -46,6 +55,15 @@ ANTHROPIC_DEFAULT_MODEL = ""
 
 [env.production]
 name = "proxy-llms"
+
+[env.production.durable_objects]
+bindings = [
+  { name = "PROCESSOR", class_name = "ProcessorDurableObject" }
+]
+
+[[env.production.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "request_metrics"
 
 [env.production.vars]
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
@@ -63,6 +81,6 @@ ANTHROPIC_DEFAULT_MODEL = ""
 # - NVIDIA_API_KEY
 #
 # Set them with:
-# npx wrangler secret put ANALYTICS_ACCOUNT_ID
-# npx wrangler secret put ANALYTICS_API_TOKEN
-# npx wrangler secret put NVIDIA_API_KEY
+# pnpm exec wrangler secret put ANALYTICS_ACCOUNT_ID --env staging
+# pnpm exec wrangler secret put ANALYTICS_API_TOKEN --env staging
+# pnpm exec wrangler secret put NVIDIA_API_KEY --env staging
