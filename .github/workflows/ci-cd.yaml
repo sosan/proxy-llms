@@ -141,8 +141,8 @@ jobs:
         run: rm -f .worker-secrets
 
       - name: Health check
-        if: ${{ vars.WORKER_URL != '' }}
+        if: ${{ steps.deploy.outputs.deployment-url != '' }}
         run: |
-          HEALTH_URL="${{ vars.WORKER_URL }}/health"
+          HEALTH_URL="${{ steps.deploy.outputs.deployment-url }}/health"
           echo "Checking health at ${HEALTH_URL}..."
           curl -sf "${HEALTH_URL}" || (echo "Health check failed!" && exit 1)

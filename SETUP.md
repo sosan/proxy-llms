@@ -22,12 +22,19 @@ Create `CLOUDFLARE_API_TOKEN` in Cloudflare:
 1. Go to **Cloudflare Dashboard** -> **My Profile** -> **API Tokens**.
 2. Select **Create Token**.
 3. Select **Custom token**.
-4. Add an account-level permission: **Workers Scripts: Edit**.
-5. Scope the token to the Cloudflare account that owns this Worker.
+4. Add the following permissions **exactly** (Wrangler needs all of them to deploy):
+
+   | Resource | Level | Permission |
+   |---|---|---|
+   | `Account` | `Cloudflare Workers` | **Edit** |
+   | `User` | `User Details` | **Read** |
+   | `User` | `Memberships` | **Read** |
+
+5. Under **Account Resources**, select **Include** and choose the Cloudflare account that owns this Worker.
 6. Select **Continue to summary**, review the permissions, then select **Create Token**.
 7. Copy the token immediately; Cloudflare only shows it once.
 
-`CLOUDFLARE_API_TOKEN` is an API token, not the Global API Key. Do not commit it to the repository.
+**Important**: `CLOUDFLARE_API_TOKEN` must be an **API Token**, not the **Global API Key**. Wrangler does not accept the Global API Key for deployment. Do not commit it to the repository.
 
 ## Cloudflare Account ID
 
@@ -50,7 +57,7 @@ This repository supports a **hybrid model** for secret management. You can choos
 | `OPENCODE_API_KEY` | Infisical | Worker runtime secret; easier rotation and audit |
 | `ANALYTICS_ACCOUNT_ID` | Infisical | Worker runtime secret; easier rotation and audit |
 | `ANALYTICS_API_TOKEN` | Infisical | Worker runtime secret; easier rotation and audit |
-| `WORKER_URL`, `LOG_METRICS` | GitHub Variables | Non-sensitive environment config |
+| `LOG_METRICS` | GitHub Variables | Non-sensitive environment config |
 
 ### Why Infisical for runtime secrets?
 
@@ -245,6 +252,23 @@ Pushes to `main` deploy to `staging` by default.
 For local deploys, export `CLOUDFLARE_API_TOKEN` before running the script or inject it through a secrets manager.
 
 For GitHub Actions, confirm the selected environment (`staging` or `production`) has an Environment secret named `CLOUDFLARE_API_TOKEN`.
+
+### `Authentication error [code: 10000]` or `Invalid access token [code: 9109]`
+
+Wrangler rejected the API token during deploy. This usually means the token exists but lacks the required permissions.
+
+**Checklist:**
+
+1. Verify the token is an **API Token** (created in **My Profile > API Tokens**), not the **Global API Key**.
+2. Confirm the token has these exact permissions:
+   | Resource | Level | Permission |
+   |---|---|---|
+   | `Account` | `Cloudflare Workers` | **Edit** |
+   | `User` | `User Details` | **Read** |
+   | `User` | `Memberships` | **Read** |
+3. Ensure the token is scoped to the correct **Account** (not just a zone).
+4. Regenerate the token in Cloudflare and update the value in the GitHub Environment secret.
+5. Re-run the workflow.
 
 ### `CLOUDFLARE_ACCOUNT_ID is not set`
 
