@@ -4,8 +4,10 @@
 packages:
   - .
 
-# SECURITY: block packages newer than 30 days (43200 minutes)
-minimumReleaseAge: 43200
+enableGlobalVirtualStore: true
+
+# SECURITY: block packages newer than 3 days (4320 minutes)
+minimumReleaseAge: 4320
 
 # SECURITY: reject a version whose publishing trust signals regressed
 trustPolicy: no-downgrade
@@ -30,35 +32,11 @@ strictDepBuilds: true
 # SECURITY: reject dependencies sourced from git URLs
 blockExoticSubdeps: true
 
+# SECURITY: allow recent versions for dev dependencies that update frequently
+# This list must be kept in sync with devDependencies in package.json
 minimumReleaseAgeExclude:
-  - '@cloudflare/kv-asset-handler@0.5.0'
-  - '@cloudflare/unenv-preset@2.16.1'
   - '@cloudflare/vitest-pool-workers@0.16.8'
-  - '@cloudflare/workerd-darwin-64@1.20260520.1'
-  - '@cloudflare/workerd-darwin-arm64@1.20260520.1'
-  - '@cloudflare/workerd-linux-64@1.20260520.1'
-  - '@cloudflare/workerd-linux-arm64@1.20260520.1'
-  - '@cloudflare/workerd-windows-64@1.20260520.1'
-  - '@cloudflare/workers-types@4.20260521.1'
-  - '@oxlint/binding-android-arm-eabi@1.66.0'
-  - '@oxlint/binding-android-arm64@1.66.0'
-  - '@oxlint/binding-darwin-arm64@1.66.0'
-  - '@oxlint/binding-darwin-x64@1.66.0'
-  - '@oxlint/binding-freebsd-x64@1.66.0'
-  - '@oxlint/binding-linux-arm-gnueabihf@1.66.0'
-  - '@oxlint/binding-linux-arm-musleabihf@1.66.0'
-  - '@oxlint/binding-linux-arm64-gnu@1.66.0'
-  - '@oxlint/binding-linux-arm64-musl@1.66.0'
-  - '@oxlint/binding-linux-ppc64-gnu@1.66.0'
-  - '@oxlint/binding-linux-riscv64-gnu@1.66.0'
-  - '@oxlint/binding-linux-riscv64-musl@1.66.0'
-  - '@oxlint/binding-linux-s390x-gnu@1.66.0'
-  - '@oxlint/binding-linux-x64-gnu@1.66.0'
-  - '@oxlint/binding-linux-x64-musl@1.66.0'
-  - '@oxlint/binding-openharmony-arm64@1.66.0'
-  - '@oxlint/binding-win32-arm64-msvc@1.66.0'
-  - '@oxlint/binding-win32-ia32-msvc@1.66.0'
-  - '@oxlint/binding-win32-x64-msvc@1.66.0'
+  - '@cloudflare/workers-types@4.20260520.1'
   - '@types/node@25.9.1'
   - '@vitest/coverage-v8@4.1.7'
   - '@vitest/expect@4.1.7'
@@ -68,9 +46,10 @@ minimumReleaseAgeExclude:
   - '@vitest/snapshot@4.1.7'
   - '@vitest/spy@4.1.7'
   - '@vitest/utils@4.1.7'
-  - hono@4.12.21
+  - hono@4.12.22
   - miniflare@4.20260520.0
   - oxlint@1.66.0
+  - typescript@6.0.3
   - vitest@4.1.7
   - workerd@1.20260520.1
   - wrangler@4.93.1

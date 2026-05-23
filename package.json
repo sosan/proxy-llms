@@ -16,19 +16,19 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "lint:lockfile": "pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install"
+    "lint:lockfile": "pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install --lockfile-integrity"
   },
   "dependencies": {
     "hono": "^4.12.22"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.9",
-    "@cloudflare/workers-types": "^4.20260522.1",
+    "@cloudflare/vitest-pool-workers": "^0.16.8",
+    "@cloudflare/workers-types": "^4.20260520.1",
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "^4.1.7",
     "oxlint": "^1.66.0",
     "typescript": "6.0.3",
     "vitest": "^4.1.7",
-    "wrangler": "^4.94.0"
+    "wrangler": "^4.93.1"
   }
 }
