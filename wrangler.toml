@@ -44,14 +44,14 @@ binding = "ANALYTICS"
 dataset = "request_metrics"
 
 [env.staging.vars]
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-LOG_METRICS = "false"
-DEBUG = "true"
-LOG_PAYLOAD = "true"
 ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
 ANTHROPIC_SONNET_MODEL = ""
 ANTHROPIC_HAIKU_MODEL = ""
 ANTHROPIC_DEFAULT_MODEL = ""
+DEBUG = "true"
+LOG_PAYLOAD = "true"
+LOG_METRICS = "false"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 [env.production]
 name = "proxy-llms"
@@ -66,21 +66,17 @@ binding = "ANALYTICS"
 dataset = "request_metrics"
 
 [env.production.vars]
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-LOG_METRICS = "true"
-DEBUG = "false"
-LOG_PAYLOAD = "false"
 ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
 ANTHROPIC_SONNET_MODEL = ""
 ANTHROPIC_HAIKU_MODEL = ""
 ANTHROPIC_DEFAULT_MODEL = ""
+DEBUG = "false"
+LOG_PAYLOAD = "false"
+LOG_METRICS = "true"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 # Required secrets:
 # - ANALYTICS_ACCOUNT_ID - account ID from cloudflare
 # - ANALYTICS_API_TOKEN - create api token to read analytics_engine_datasets
-# - NVIDIA_API_KEY
-#
-# Set them with:
-# pnpm exec wrangler secret put ANALYTICS_ACCOUNT_ID --env staging
-# pnpm exec wrangler secret put ANALYTICS_API_TOKEN --env staging
-# pnpm exec wrangler secret put NVIDIA_API_KEY --env staging
+# - CLOUDFLARE_API_TOKEN -
+# - CLOUDFLARE_ACCOUNT_ID -

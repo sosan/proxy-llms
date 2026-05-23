@@ -7,8 +7,9 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "pnpm run validate && echo 'fake deploying comand, replace with actual deploy command'",
-    "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh",
+    "release": "release-it",
+    "release:minor": "release-it minor",
+    "release:major": "release-it major",
     "validate": "pnpm run lint:lockfile && pnpm run lint && pnpm run typecheck && pnpm test",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -16,7 +17,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "lint:lockfile": "pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install"
+    "lint:lockfile": "pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install",
+    "deploy": "pnpm run validate && echo 'fake deploying comand, replace with actual deploy command'",
+    "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh"
   },
   "dependencies": {
     "hono": "^4.12.22"
@@ -24,9 +27,12 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.9",
     "@cloudflare/workers-types": "^4.20260522.1",
+    "@release-it/bumper": "^7.0.5",
+    "@release-it/conventional-changelog": "^11.0.0",
     "@types/node": "25.9.1",
     "@vitest/coverage-v8": "^4.1.7",
     "oxlint": "^1.66.0",
+    "release-it": "^20.0.1",
     "typescript": "6.0.3",
     "vitest": "^4.1.7",
     "wrangler": "^4.94.0"
