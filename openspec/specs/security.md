@@ -11,13 +11,13 @@ This repository follows [npm Security Best Practices](https://github.com/liranta
 | Ignore lifecycle scripts | `.npmrc` | `ignore-scripts=true` prevents arbitrary code execution during install |
 | Block git deps | `.npmrc` | `allow-git=none` rejects git-source dependencies |
 | Install cooldown | `.npmrc` | `min-release-age=30` blocks packages newer than 30 days |
-| pnpm trust policy | `.pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
-| Strict dep builds | `.pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
-| Block exotic subdeps | `.pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
-| Lockfile lint | `package.json` | `lockfile-lint` validates integrity, host, HTTPS on every install |
+| pnpm trust policy | `pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
+| Strict dep builds | `pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
+| Block exotic subdeps | `pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
+| Frozen lockfile check | `package.json` | `corepack pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install` validates lockfile consistency |
 | Dependabot cooldown | `.github/dependabot.yml` | 7-day cooldown before auto-upgrading dependencies |
 | CODEOWNERS | `.github/CODEOWNERS` | Mandatory review for lockfiles and package manager config |
-| CI hardening | `.github/workflows/ci.yml` | Deterministic install (`npm ci --ignore-scripts`) + lockfile validation |
+| CI hardening | `.github/workflows/ci-cd.yaml` | Deterministic install (`pnpm install --frozen-lockfile --prefer-offline`) + lockfile validation |
 | Dev container | `.devcontainer/devcontainer.json` | Isolated environment with `--cap-drop=ALL` and `--no-new-privileges` |
 
 ### Pre-Install Security Audit
@@ -38,12 +38,12 @@ sfw npm install <package>
 
 - Use the provided [Dev Container](.devcontainer/devcontainer.json) for isolated development.
 - The container drops all capabilities, disables proto pollution, and enforces `ignore-scripts` and `allow-git=none`.
-- Run `npm ci --ignore-scripts --prefer-offline` instead of `npm install` for deterministic installs.
+- Run `pnpm install --frozen-lockfile --prefer-offline` instead of `pnpm install` for deterministic installs.
 
 ### CI/CD Security
 
-- CI uses `npm ci --ignore-scripts --prefer-offline` for deterministic installs.
-- Lockfile is validated with `lockfile-lint` before every install.
+- CI uses `pnpm install --frozen-lockfile --prefer-offline` for deterministic installs.
+- Lockfile consistency is validated with pnpm before the rest of `validate`.
 - Dependabot PRs have a 7-day cooldown to avoid compromised fresh releases.
 - CODEOWNERS requires explicit review for lockfiles and package manager config.
 
@@ -52,8 +52,8 @@ sfw npm install <package>
 - **Never store plaintext secrets in `.env` or `.env.dev` files** — use secret references like `infisical://project/env/api-key`.
 - Use a secrets manager (Infisical, 1Password) and inject at runtime:
   ```bash
-  infisical run -- npm run dev
-  op run -- npm start
+  infisical run -- pnpm run dev
+  op run -- pnpm run dev
   ```
 - Sensitive files (`.env`, `.local`, `wrangler.toml`) must never be committed or exposed.
 - Environment variables only, never hardcoded.

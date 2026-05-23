@@ -38,15 +38,15 @@ This repository is a Cloudflare Worker proxy for OpenAI-compatible clients such 
 
 ## Local Commands
 
-- Install dependencies: `npm install`
-- Run locally: `npm run dev`
-- Typecheck: `npm run typecheck`
-- Run tests: `npm run test`
-- Run tests in watch mode: `npm run test:watch`
-- Run tests with coverage: `npm run test:coverage`
-- Deploy: `npm run deploy`
+- Install dependencies: `pnpm install`
+- Run locally: `pnpm run dev`
+- Typecheck: `pnpm run typecheck`
+- Run tests: `pnpm run test`
+- Run tests in watch mode: `pnpm run test:watch`
+- Run tests with coverage: `pnpm run test:coverage`
+- Deploy: `pnpm run deploy`
 
-Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before finishing any non-trivial change. Do not run deploy commands unless the user explicitly asks.
+Prefer `pnpm run typecheck` after TypeScript changes. Run `pnpm run test` before finishing any non-trivial change. Do not run deploy commands unless the user explicitly asks.
 
 ## Runtime Behavior
 
@@ -110,8 +110,8 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
 3. **Think hard and make a plan**
 4. **Only when we agree on a plan, create a detailed to-do list** using the `task_progress` parameter
 5. **If writing code, add these review tasks at the end of the to-do list:**
-   - A. Run `npm run typecheck`
-   - B. Run `npm run test`
+   - A. Run `pnpm run typecheck`
+   - B. Run `pnpm run test`
    - C. Review against routing pattern: `routes/index.ts` must be declarative
    - D. Run the `security-code-reviewer` sub-agent
 6. **Once we agree on the to-do list, start implementation**
@@ -120,14 +120,14 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
    - Do NOT over-complicate things
    - Do NOT add unnecessary complexity
 8. **At the end, verify:**
-   - All tests pass (`npm run test`)
-   - TypeScript compiles cleanly (`npm run typecheck`)
+   - All tests pass (`pnpm run test`)
+   - TypeScript compiles cleanly (`pnpm run typecheck`)
    - Routing pattern is respected (declarative `routes/index.ts`)
 
 ## Security
 
 - Sensitive files: `.env`, `.local`, `wrangler.toml` — never commit or expose
-- Secret handling: Environment variables only, never hardcoded or committed. Use a secrets manager (Infisical, 1Password) and inject at runtime with `infisical run -- npm start` or `op run -- npm start`
+- Secret handling: Environment variables only, never hardcoded or committed. Use a secrets manager (Infisical, 1Password) and inject at runtime with `infisical run -- pnpm run dev` or `op run -- pnpm run dev`
 - Auth scope: Multiple upstream providers (NVIDIA, OpenRouter, LMStudio, etc.)
 - **Never store plaintext secrets in `.env` or `.env.dev` files** — use secret references like `infisical://project/env/api-key`
 
@@ -138,13 +138,13 @@ Prefer `npm run typecheck` after TypeScript changes. Run `npm run test` before f
 | Ignore lifecycle scripts | `.npmrc` | `ignore-scripts=true` prevents arbitrary code execution during install |
 | Block git deps | `.npmrc` | `allow-git=none` rejects git-source dependencies |
 | Install cooldown | `.npmrc` | `min-release-age=30` blocks packages newer than 30 days |
-| pnpm trust policy | `.pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
-| Strict dep builds | `.pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
-| Block exotic subdeps | `.pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
-| Lockfile lint | `package.json` | `lockfile-lint` validates integrity, host, HTTPS on every install |
+| pnpm trust policy | `pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
+| Strict dep builds | `pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
+| Block exotic subdeps | `pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
+| Frozen lockfile check | `package.json` | `corepack pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install` validates lockfile consistency |
 | Dependabot cooldown | `.github/dependabot.yml` | 7-day cooldown before auto-upgrading dependencies |
 | CODEOWNERS | `.github/CODEOWNERS` | Mandatory review for lockfiles and package manager config |
-| CI hardening | `.github/workflows/ci.yml` | Deterministic install (`npm ci --ignore-scripts`) + lockfile validation |
+| CI hardening | `.github/workflows/ci-cd.yaml` | Deterministic install (`pnpm install --frozen-lockfile --prefer-offline`) + lockfile validation |
 | Dev container | `.devcontainer/devcontainer.json` | Isolated environment with `--cap-drop=ALL` and `--no-new-privileges` |
 
 ### Pre-install security audit
@@ -165,12 +165,12 @@ sfw npm install <package>
 
 - Use the provided [Dev Container](.devcontainer/devcontainer.json) for isolated development
 - The container drops all capabilities, disables proto pollution, and enforces `ignore-scripts` and `allow-git=none`
-- Run `npm ci --ignore-scripts --prefer-offline` instead of `npm install` for deterministic installs
+- Run `pnpm install --frozen-lockfile --prefer-offline` instead of `pnpm install` for deterministic installs
 
 ### CI/CD security
 
-- CI uses `npm ci --ignore-scripts --prefer-offline` for deterministic installs
-- Lockfile is validated with `lockfile-lint` before every install
+- CI uses `pnpm install --frozen-lockfile --prefer-offline` for deterministic installs
+- Lockfile consistency is validated with pnpm before the rest of `validate`
 - Dependabot PRs have a 7-day cooldown to avoid compromised fresh releases
 - CODEOWNERS requires explicit review for lockfiles and package manager config
 
@@ -200,7 +200,7 @@ Set `DEBUG=true` in your `.env` or environment to enable debug output.
 - Tests live in `__tests__/*.test.ts` and run with Vitest.
 - The setup file `__tests__/setup.ts` mocks `globalThis.crypto.randomUUID` for Node.js compatibility.
 - **Critical import gotcha**: Because `server.js` (legacy) exists alongside `server.ts`, test imports **must** use the `.ts` extension (e.g., `from '../server.ts'`). Without it, Vitest resolves to `server.js` at runtime, which only exports `ProcessorDurableObject` and `default`, causing `TypeError: createResponse is not a function` and similar errors.
-- Always run `npm run test` after modifying `server.ts`, `config/providers.ts`, or any test file.
+- Always run `pnpm run test` after modifying `server.ts`, `config/providers.ts`, or any test file.
 
 ## Custom Slash Commands
 

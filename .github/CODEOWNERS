@@ -2,9 +2,9 @@
 * @sosan
 
 # Lockfiles and package manager config require explicit review
-package-lock.json @sosan
+pnpm-lock.yaml @sosan
 .npmrc @sosan
-.pnpm-workspace.yaml @sosan
+pnpm-workspace.yaml @sosan
 package.json @sosan
 
 # Security-critical workflows

@@ -56,10 +56,10 @@ This repository implements several supply-chain and runtime hardening controls. 
 | Ignore lifecycle scripts | `.npmrc` | Prevents arbitrary code execution during install |
 | Block git deps | `.npmrc` | Rejects git-source dependencies |
 | Install cooldown | `.npmrc` | Blocks packages newer than 30 days |
-| pnpm trust policy | `.pnpm-workspace.yaml` | Refuses versions with weaker trust signals |
-| Strict dep builds | `.pnpm-workspace.yaml` | Fails install on unapproved build scripts |
-| Block exotic subdeps | `.pnpm-workspace.yaml` | Blocks git/tarball in transitive deps |
-| Lockfile lint | `package.json` | Validates integrity, host, HTTPS on every install |
+| pnpm trust policy | `pnpm-workspace.yaml` | Refuses versions with weaker trust signals |
+| Strict dep builds | `pnpm-workspace.yaml` | Fails install on unapproved build scripts |
+| Block exotic subdeps | `pnpm-workspace.yaml` | Blocks git/tarball in transitive deps |
+| Frozen lockfile check | `package.json` | Validates lockfile consistency with pnpm |
 | Dependabot cooldown | `.github/dependabot.yml` | 7-day cooldown before auto-upgrading dependencies |
 | CODEOWNERS | `.github/CODEOWNERS` | Mandatory review for lockfiles and package manager config |
 | CI hardening | `.github/workflows/ci-cd.yaml` | Deterministic install + lockfile validation |

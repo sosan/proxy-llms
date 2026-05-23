@@ -16,9 +16,9 @@ if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
 fi
 
 echo "📦 Running validations..."
-npm run validate
+pnpm run validate
 
 echo "☁️  Deploying to Cloudflare..."
-npx wrangler deploy
+pnpm exec wrangler deploy
 
 echo "✅ Deployment complete!"

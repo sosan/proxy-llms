@@ -67,7 +67,7 @@ export const ProviderConfigs = {
 ### Adding a New Alias
 
 1. Add the alias → full ID mapping in `ProviderConfigs[<provider>].models`.
-2. Run `npm run typecheck` to verify TypeScript.
+2. Run `pnpm run typecheck` to verify TypeScript.
 3. Test resolution with both alias and full ID.
 4. Document the alias in comments.
 
@@ -189,4 +189,4 @@ Shared logic for all providers:
 
 5. **`ProviderType`** is derived automatically from `ProviderConfigs` keys — no need to edit `interfaces/provider.ts`.
 
-6. Run `npm run typecheck` and `npm run test`.
+6. Run `pnpm run typecheck` and `pnpm run test`.

@@ -13,13 +13,13 @@ This repository follows [npm Security Best Practices](https://github.com/liranta
 | Ignore lifecycle scripts | `.npmrc` | `ignore-scripts=true` prevents arbitrary code execution during install |
 | Block git deps | `.npmrc` | `allow-git=none` rejects git-source dependencies |
 | Install cooldown | `.npmrc` | `min-release-age=30` blocks packages newer than 30 days |
-| pnpm trust policy | `.pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
-| Strict dep builds | `.pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
-| Block exotic subdeps | `.pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
-| Lockfile lint | `package.json` | `lockfile-lint` validates integrity, host, HTTPS on every install |
+| pnpm trust policy | `pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
+| Strict dep builds | `pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
+| Block exotic subdeps | `pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
+| Frozen lockfile check | `package.json` | `corepack pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install` validates lockfile consistency |
 | Dependabot cooldown | `.github/dependabot.yml` | 7-day cooldown before auto-upgrading dependencies |
 | CODEOWNERS | `.github/CODEOWNERS` | Mandatory review for lockfiles and package manager config |
-| CI hardening | `.github/workflows/ci.yml` | Deterministic install (`npm ci --ignore-scripts`) + lockfile validation |
+| CI hardening | `.github/workflows/ci-cd.yaml` | Deterministic install (`pnpm install --frozen-lockfile --prefer-offline`) + lockfile validation |
 | Dev container | `.devcontainer/devcontainer.json` | Isolated environment with `--cap-drop=ALL` and `--no-new-privileges` |
 
 ### Pre-install audit tools (recommended)
@@ -44,15 +44,15 @@ Do not store plaintext secrets in `.env` or `.env.dev` files. Use a secrets mana
 
 ```bash
 # Basic usage
-infisical run -- npm run dev
+infisical run -- pnpm run dev
 
 # Watch for secret changes (development only)
-infisical run --watch -- npm run dev
+infisical run --watch -- pnpm run dev
 ```
 
 > **Tip:** Use `infisical login` to authenticate once, then `infisical run` injects secrets without plaintext files.
 
-**Alternatives:** If you use 1Password, you can do the same with `op run -- npm start`.
+**Alternatives:** If you use 1Password, you can do the same with `op run -- pnpm run dev`.
 
 ### Local development
 
@@ -84,7 +84,7 @@ The repository includes a GitHub Actions workflow (`.github/workflows/deploy.yml
 To deploy manually from your local machine, use the provided convenience script:
 
 ```bash
-npm run deploy:cloudflare
+pnpm run deploy:cloudflare
 ```
 
 This script runs the full validation suite and then executes `wrangler deploy`. It expects the following environment variables to be set (via your shell or a secrets manager):
