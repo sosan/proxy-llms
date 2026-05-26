@@ -26,12 +26,12 @@ Before installing new packages, audit them with:
 
 ```bash
 # npq — pre-install security auditor
-npm install -g npq
-npq install <package>
+pnpm install -g npq
+pnpq install <package>
 
 # Socket Firewall — real-time malicious package blocker
-npm install -g sfw
-sfw npm install <package>
+pnpm install -g sfw
+sfw pnpm install <package>
 ```
 
 ### Secure Local Development

@@ -27,15 +27,15 @@ This repository follows [npm Security Best Practices](https://github.com/liranta
 Install [npq](https://github.com/lirantal/npq) to audit packages before installation:
 
 ```bash
-npm install -g npq
-npq install <package>
+pnpm install -g npq
+pnpq install <package>
 ```
 
 Or use [Socket Firewall](https://socket.dev/blog/introducing-socket-firewall) (`sfw`) to block malicious packages in real time:
 
 ```bash
-npm install -g sfw
-sfw npm install <package>
+pnpm install -g sfw
+sfw pnpm install <package>
 ```
 
 ### No plaintext secrets

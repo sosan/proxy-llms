@@ -68,7 +68,6 @@ Lead with findings ordered by severity. For each finding include:
 
 ## Testing Security
 
-- Ensure `npm run test` passes before considering security-related changes complete
-- Test imports from `server.ts` must use `from '../server.ts'` to avoid loading the legacy `server.js` which may have different security boundaries
+- Ensure `pnpm run test` passes before considering security-related changes complete
 
 If no security issues are found, explicitly state this and mention any security best practices that could be further strengthened.

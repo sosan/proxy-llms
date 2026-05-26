@@ -35,9 +35,8 @@ Review changes for consistency with this Cloudflare Worker proxy's local pattern
 - Memory and CPU limits are respected
 
 ### Testing & Imports
-- Test imports from `server.ts` **must** use the `.ts` extension (`from '../server.ts'`) because `server.js` (legacy) exists and shadows the TypeScript file at runtime
-- Tests are in `__tests__/*.test.ts` and run with `npm run test`
-- Run `npm run test` after modifying `server.ts` exports or test files
+- Tests are in `./src/__tests__/*.test.ts` and run with `pnpm run test`
+- Run `pnpm run test` after modifying `./src/server.ts` exports or test files
 - Mock external dependencies appropriately in tests
 
 ## Output Format

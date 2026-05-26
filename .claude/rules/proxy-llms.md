@@ -85,7 +85,7 @@ Use this rule file when working in this Cloudflare Worker proxy repository. Thes
 - Include integration tests for provider interactions
 - Verify OpenAI API compatibility with test clients
 - **Critical import rule**: Test imports from `server.ts` **must** use the `.ts` extension (`from '../server.ts'`). Without it, Vitest resolves to `server.js` (legacy) at runtime, which only exports `ProcessorDurableObject` and `default`, causing `TypeError: createResponse is not a function` and similar errors.
-- Always run `npm run test` after modifying `server.ts` exports or test files
+- Always run `pnpm run test` after modifying `server.ts` exports or test files
 
 ### Documentation
 - Document complex logic and architectural decisions
@@ -119,16 +119,16 @@ Use this rule file when working in this Cloudflare Worker proxy repository. Thes
 2. For ambiguous changes, explain the tradeoff briefly before editing
 3. Keep edits scoped to the feature, bug, or cleanup requested
 4. Preserve user changes already present in the worktree
-5. Run `npm run typecheck` before completion for code changes
-6. Run `npm run test` before finishing any non-trivial change
+5. Run `pnpm run typecheck` before completion for code changes
+6. Run `pnpm run test` before finishing any non-trivial change
 7. Test changes thoroughly, especially for provider interactions
 8. Verify OpenAI compatibility when modifying request/response handling
 9. Document any breaking changes or behavioral modifications
 
 ## Common Checks
 
-- **Model config change**: Inspect `config/providers.ts` and run `npm run typecheck`
-- **Route change**: Inspect `server.ts` route registration and run `npm run typecheck`
+- **Model config change**: Inspect `config/providers.ts` and run `pnpm run typecheck`
+- **Route change**: Inspect `server.ts` route registration and run `pnpm run typecheck`
 - **Interface change**: Inspect all imports from `interfaces/general.ts`
 - **Secrets/config change**: Do not print or commit secret values
 - **Streaming change**: Verify SSE formatting and OpenAI compatibility

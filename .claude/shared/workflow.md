@@ -17,8 +17,8 @@ This document outlines the standard development workflow for this Cloudflare Wor
 - **Think incrementally**: Break complex changes into smaller, testable steps
 
 ### 3. Code Quality
-- **Type safety**: Run `npm run typecheck` before completion for code changes
-- **Testing**: Run `npm run test` before finishing any non-trivial change. Test both success and error paths
+- **Type safety**: Run `pnpm run typecheck` before completion for code changes
+- **Testing**: Run `pnpm run test` before finishing any non-trivial change. Test both success and error paths
 - **Documentation**: Update relevant documentation when behavior changes
 - **Code review**: Consider security implications and edge cases
 
@@ -34,16 +34,16 @@ This document outlines the standard development workflow for this Cloudflare Wor
 1. **Inspect configuration**: Review `config/providers.ts` for current model setup
 2. **Understand aliases**: Check existing model aliases and their mappings
 3. **Update configuration**: Add or modify model aliases and provider settings
-4. **Type check**: Run `npm run typecheck` to verify TypeScript correctness
+4. **Type check**: Run `pnpm run typecheck` to verify TypeScript correctness
 5. **Test resolution**: Verify model resolution works with both aliases and full IDs
-6. **Run tests**: Run `npm run test` to ensure no regressions
+6. **Run tests**: Run `pnpm run test` to ensure no regressions
 7. **Document changes**: Update any relevant documentation
 
 ### Route Changes
 1. **Review routes**: Inspect `server.ts` for current route registration
 2. **Understand handlers**: Review existing route handlers and patterns
 3. **Implement changes**: Add or modify routes following existing patterns
-4. **Type check**: Run `npm run typecheck` to verify TypeScript correctness
+4. **Type check**: Run `pnpm run typecheck` to verify TypeScript correctness
 5. **Test endpoints**: Verify new or modified routes work correctly
 6. **Check compatibility**: Ensure OpenAI API compatibility is maintained
 
@@ -52,7 +52,7 @@ This document outlines the standard development workflow for this Cloudflare Wor
 2. **Check imports**: Find all files importing the affected interfaces
 3. **Update interfaces**: Modify type definitions as needed
 4. **Update implementations**: Update all code using the changed interfaces
-5. **Type check**: Run `npm run typecheck` to verify all changes
+5. **Type check**: Run `pnpm run typecheck` to verify all changes
 6. **Test thoroughly**: Ensure all implementations work with new interfaces
 
 ### Streaming Response Changes
@@ -172,8 +172,8 @@ When modifying request/response handling, verify:
 Before considering a task complete, verify:
 
 - [ ] Code changes are minimal and focused
-- [ ] TypeScript type checking passes (`npm run typecheck`)
-- [ ] All tests pass (`npm run test`)
+- [ ] TypeScript type checking passes (`pnpm run typecheck`)
+- [ ] All tests pass (`pnpm run test`)
 - [ ] OpenAI API compatibility is maintained
 - [ ] Error handling is robust and tested
 - [ ] Security best practices are followed
