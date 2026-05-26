@@ -30,7 +30,7 @@ describe('NvidiaProvider', () => {
       expect(result.messages).toEqual([{ role: 'user', content: 'Hello' }])
       expect(result.temperature).toBe(0.9)
       expect(result.top_p).toBe(0.95)
-      expect(result.max_tokens).toBe(131072)
+      expect(result.max_tokens).toBe(32768)
       expect(result.stream).toBe(true)
     })
 

@@ -38,12 +38,12 @@ if [ "$NODE_MAJOR" -lt 18 ]; then
 fi
 ok "Versión de Node.js compatible (>= 18)"
 
-# npm disponible
-if ! command -v npm >/dev/null 2>&1; then
-  fail "npm no está instalado"
+# pnpm disponible
+if ! command -v pnpm >/dev/null 2>&1; then
+  fail "pnpm no está instalado"
   exit 1
 fi
-ok "npm -> $(npm --version)"
+ok "pnpm -> $(pnpm --version)"
 
 # npx disponible (para wrangler)
 if ! command -v npx >/dev/null 2>&1; then
@@ -57,7 +57,7 @@ echo ""
 echo "── 2. Verificando dependencias instaladas ─────────────"
 
 if [ ! -d "node_modules" ]; then
-  fail "node_modules/ no existe. Ejecuta: npm install"
+  fail "node_modules/ no existe. Ejecuta: pnpm install"
   EXIT_CODE=1
 else
   ok "node_modules/ existe"
@@ -122,14 +122,14 @@ echo "── 5. Verificando wrangler CLI ─────────────
 if npx wrangler --version >/dev/null 2>&1; then
   ok "wrangler CLI disponible -> $(npx wrangler --version 2>/dev/null | head -1)"
 else
-  warn "wrangler CLI no disponible (npm install -D wrangler)"
+  warn "wrangler CLI no disponible (pnpm install -D wrangler)"
   EXIT_CODE=1
 fi
 
 echo ""
 echo "── 6. Ejecutando typecheck ────────────────────────────"
 
-if npm run typecheck 2>&1; then
+if pnpm run typecheck 2>&1; then
   ok "TypeScript typecheck pasa"
 else
   fail "TypeScript typecheck falló"
@@ -139,7 +139,7 @@ fi
 echo ""
 echo "── 7. Ejecutando tests ────────────────────────────────"
 
-if npm run test 2>&1; then
+if pnpm run test 2>&1; then
   ok "Todos los tests pasan"
 else
   fail "Hay tests rotos"
