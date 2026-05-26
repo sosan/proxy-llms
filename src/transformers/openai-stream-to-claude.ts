@@ -25,6 +25,13 @@ interface ClaudeSSEEvent {
   data: Record<string, unknown>
 }
 
+interface StreamState {
+  messageStarted: boolean
+  blockOpen: boolean
+  currentBlockIndex: number
+  finished: boolean
+}
+
 /**
  * Transform an OpenAI SSE stream into a Claude SSE stream.
  */
@@ -35,31 +42,50 @@ export function createOpenAIStreamToClaudeTransformStream(
   const encoder = new TextEncoder()
   let buffer = ''
   let messageIndex = 0
-  let currentBlockIndex = 0
+  const state: StreamState = {
+    messageStarted: false,
+    blockOpen: false,
+    currentBlockIndex: 0,
+    finished: false,
+  }
 
   return new TransformStream({
     transform: (chunk, controller) => {
+      if (state.finished) return
       const text = decoder.decode(chunk, { stream: true })
       buffer += text
       const events = parseSSEEvents(buffer)
       buffer = events.remainder
 
       for (const sseEvent of events.events) {
-        const claudeEvents = transformSSEEvent(sseEvent, messageIndex, currentBlockIndex)
+        const claudeEvents = transformSSEEvent(sseEvent, messageIndex, state)
         for (const claudeEvent of claudeEvents) {
           controller.enqueue(encoder.encode(`event: ${claudeEvent.event}\ndata: ${JSON.stringify(claudeEvent.data)}\n\n`))
         }
+        messageIndex++
       }
     },
     flush: (controller) => {
+      if (state.finished) return
+      // Emit any remaining buffered events
       if (buffer.trim()) {
         const events = parseSSEEvents(buffer + '\n')
         for (const sseEvent of events.events) {
-          const claudeEvents = transformSSEEvent(sseEvent, messageIndex, currentBlockIndex)
+          const claudeEvents = transformSSEEvent(sseEvent, messageIndex, state)
           for (const claudeEvent of claudeEvents) {
             controller.enqueue(encoder.encode(`event: ${claudeEvent.event}\ndata: ${JSON.stringify(claudeEvent.data)}\n\n`))
           }
         }
+      }
+      // Ensure block is closed if left open
+      if (state.blockOpen) {
+        controller.enqueue(encoder.encode(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: state.currentBlockIndex - 1 })}\n\n`))
+        state.blockOpen = false
+      }
+      // Ensure message_stop is sent
+      if (state.messageStarted && !state.finished) {
+        controller.enqueue(encoder.encode(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`))
+        state.finished = true
       }
     },
   })
@@ -93,7 +119,7 @@ export function createOpenAIStreamToClaudeTransformStream(
   function transformSSEEvent(
     event: OpenAIStreamChunk,
     messageIndex: number,
-    currentBlockIndex: number
+    state: StreamState
   ): ClaudeSSEEvent[] {
     if (!event || Object.keys(event).length === 0) {
       // DONE event
@@ -106,7 +132,8 @@ export function createOpenAIStreamToClaudeTransformStream(
     if (!choice) return claudeEvents
 
     // message_start on first delta
-    if (messageIndex === 0) {
+    if (messageIndex === 0 && !state.messageStarted) {
+      state.messageStarted = true
       claudeEvents.push({
         event: 'message_start',
         data: {
@@ -124,40 +151,42 @@ export function createOpenAIStreamToClaudeTransformStream(
       })
     }
 
-    // content_block_start
-    if (choice.delta?.content || choice.delta?.tool_calls) {
+    // content_block_start: only once per block
+    if (!state.blockOpen && (choice.delta?.content || choice.delta?.tool_calls)) {
+      state.blockOpen = true
       claudeEvents.push({
         event: 'content_block_start',
         data: {
           type: 'content_block_start',
-          index: currentBlockIndex,
+          index: state.currentBlockIndex,
           content_block: { type: 'text', text: '' },
         },
       })
     }
 
     // content_block_delta
-    if (choice.delta?.content) {
+    if (choice.delta?.content && state.blockOpen) {
       claudeEvents.push({
         event: 'content_block_delta',
         data: {
           type: 'content_block_delta',
-          index: currentBlockIndex,
+          index: state.currentBlockIndex,
           delta: { type: 'text_delta', text: choice.delta.content },
         },
       })
     }
 
-    // content_block_stop
-    if (choice.delta?.content || choice.delta?.tool_calls) {
+    // content_block_stop: only on finish_reason
+    if (state.blockOpen && choice.finish_reason) {
+      state.blockOpen = false
       claudeEvents.push({
         event: 'content_block_stop',
         data: {
           type: 'content_block_stop',
-          index: currentBlockIndex,
+          index: state.currentBlockIndex,
         },
       })
-      currentBlockIndex++
+      state.currentBlockIndex++
     }
 
     // message_delta / message_stop on finish_reason
@@ -174,9 +203,9 @@ export function createOpenAIStreamToClaudeTransformStream(
         event: 'message_stop',
         data: { type: 'message_stop' },
       })
+      state.finished = true
     }
 
-    messageIndex++
     return claudeEvents
   }
 }

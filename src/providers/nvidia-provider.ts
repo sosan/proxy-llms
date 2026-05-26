@@ -54,7 +54,7 @@ export class NvidiaProvider extends BaseProvider {
     return this.executeWithRetry(
       requestId,
       async () => this._doStreamRequest(requestId, uri, payload),
-      (err) => err.status === 429
+      (err) => err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 
@@ -125,7 +125,7 @@ export class NvidiaProvider extends BaseProvider {
     return this.executeWithRetry(
       requestId,
       async () => this._doRequest(requestId, uri, payload),
-      (err) => err.status === 429
+      (err) => err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 

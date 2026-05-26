@@ -21,9 +21,12 @@ const _ProviderConfigs = {
   },
   nvidia: {
     endpoint: '/chat/completions',
+    alterEndpoint: '/messages',
     models: {
-      'z-ai/glm5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
       'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
+      'z-ai/glm5.1': 'z-ai/glm-5.1',
+      'zai/glm-5.1': 'z-ai/glm-5.1',
+      'zai/glm5.1': 'z-ai/glm-5.1',
       'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6', // 7 ranking GB200x4
       'z-ai/glm4.7': 'z-ai/glm4.7', // 20 ranking H100x8
       'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro', // 16 ranking
@@ -91,7 +94,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'z-ai/glm5.1': {
     temperature: 0.9,
     top_p: 0.95,
-    max_tokens: 131072,
+    max_tokens: 32768,
     stream: true,
     extra: {
       chat_template_kwargs: {
@@ -103,7 +106,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'z-ai/glm-5.1': {
     temperature: 0.9,
     top_p: 0.95,
-    max_tokens: 131072,
+    max_tokens: 32768,
     stream: true,
     extra: {
       chat_template_kwargs: {
@@ -180,6 +183,11 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
     }
     if (fullIds.includes(payloadModel)) {
       return payloadModel
+    }
+    // Fallback: allow partial match (e.g., "kimi-k2.6" matches "moonshotai/kimi-k2.6")
+    const partialMatch = fullIds.find(id => id === payloadModel || id.endsWith(`/${payloadModel}`))
+    if (partialMatch) {
+      return partialMatch
     }
     throw new Error(
       `Model alias "${payloadModel}" is not supported by this provider config. Supported aliases: ${Object.keys(aliases).join(', ')}`
