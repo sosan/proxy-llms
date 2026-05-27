@@ -75,13 +75,20 @@ export function transformClaudeToOpenAI(body: Record<string, unknown>): GenericP
     result.tool_choice = convertClaudeToolChoice(body.tool_choice)
   }
 
-  // Pass through any extra fields not in the routing keys
+  // Pass through any extra fields not in the routing keys.
+  // Exclude Claude-specific fields that are not part of the OpenAI spec.
   const knownKeys = new Set([
     'model', 'messages', 'max_tokens', 'temperature', 'top_p', 'stream',
     'system', 'tools', 'tool_choice', 'provider', 'content',
   ])
+  const excludedClaudeKeys = new Set([
+    'thinking',
+    'context_management',
+    'output_config',
+    'metadata',
+  ])
   for (const [key, value] of Object.entries(body)) {
-    if (!knownKeys.has(key) && value !== undefined) {
+    if (!knownKeys.has(key) && !excludedClaudeKeys.has(key) && value !== undefined) {
       result[key] = value
     }
   }

@@ -7,6 +7,7 @@ export type ModelDefaults = {
   max_tokens?: number
   stream?: boolean
   extra?: Record<string, unknown>
+  supportsToolCalling?: boolean
 }
 
 const _ProviderConfigs = {
@@ -18,6 +19,7 @@ const _ProviderConfigs = {
       'claude-haiku-4-6': 'claude-haiku-4-6',
     },
     format: 'anthropic',
+    supportsToolCalling: true,
   },
   nvidia: {
     endpoint: '/chat/completions',
@@ -38,6 +40,7 @@ const _ProviderConfigs = {
       'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
     },
     format: 'openai',
+    supportsToolCalling: true, // Some models support tool calling, some don't; checked per-model via ModelDefaultsById
   },
   google: {
     endpoint: '/chat/completions',
@@ -49,6 +52,7 @@ const _ProviderConfigs = {
     endpoint: '/chat/completions',
     models: {},
     format: 'openai',
+    supportsToolCalling: true,
   },
   lmstudio: {
     endpoint: '/chat/completions',
@@ -96,6 +100,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     top_p: 0.95,
     max_tokens: 32768,
     stream: true,
+    supportsToolCalling: false,
     extra: {
       chat_template_kwargs: {
         enable_thinking: true,
@@ -108,6 +113,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     top_p: 0.95,
     max_tokens: 32768,
     stream: true,
+    supportsToolCalling: false,
     extra: {
       chat_template_kwargs: {
         enable_thinking: true,
@@ -143,8 +149,12 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     top_p: 0.95,
     max_tokens: 65536,
     stream: true,
+    supportsToolCalling: true,
     extra: {
-      "chat_template_kwargs": { "thinking": true },
+      "chat_template_kwargs": {
+        thinking: true,
+        parallel_tool_calls: true,
+      },
     }
   },
   'stepfun-ai/step-3.5-flash': { // no ranking
@@ -156,6 +166,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
     temperature: 0.7,
     top_p: 0.8,
+    supportsToolCalling: true,
     max_tokens: 262144,
     stream: true,
   },
@@ -164,6 +175,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     top_p: 0.8,
     max_tokens: 32768,
     stream: true,
+    supportsToolCalling: false,
     extra: {
       chat_template_kwargs: { enable_thinking: true },
     }
@@ -172,20 +184,20 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
-  console.log("---> resolvemoodel:  " + JSON.stringify(config.models) + " " + payloadModel );
   const aliases = config.models
   const fullIds = Object.values(aliases)
 
   if (payloadModel) {
     logger.debug(`Resolving model for payload model: "${payloadModel}" with config format: "${config.format}"`)
-    if (aliases[payloadModel]) {
-      return aliases[payloadModel]
+    const fullmodel = payloadModel.substring(payloadModel.indexOf('/') + 1)
+    if (aliases[fullmodel]) {
+      return aliases[fullmodel]
     }
-    if (fullIds.includes(payloadModel)) {
-      return payloadModel
+    if (fullIds.includes(fullmodel)) {
+      return fullmodel
     }
     // Fallback: allow partial match (e.g., "kimi-k2.6" matches "moonshotai/kimi-k2.6")
-    const partialMatch = fullIds.find(id => id === payloadModel || id.endsWith(`/${payloadModel}`))
+    const partialMatch = fullIds.find(id => id === fullmodel || id.endsWith(`/${fullmodel}`))
     if (partialMatch) {
       return partialMatch
     }

@@ -1,5 +1,5 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import type { ProviderConfig, GenericPayload } from '../interfaces/general'
+import type { ProviderConfig, GenericPayload, ChatMessage } from '../interfaces/general'
 import type { AIProvider } from '../interfaces/provider'
 import { ProviderError } from '../errors/provider-error'
 import { resolveModel, ModelDefaultsById } from '../config/providers'
@@ -125,7 +125,7 @@ export abstract class BaseProvider implements AIProvider {
     const model = resolveModel(config, payload.model)
     const modelDefaults = ModelDefaultsById[model] ?? {}
 
-    let messages: import('../interfaces/general').ChatMessage[] = []
+    let messages: ChatMessage[] = []
     if (payload.messages && Array.isArray(payload.messages)) {
       messages = payload.messages
     } else if (typeof payload.content === 'string') {
