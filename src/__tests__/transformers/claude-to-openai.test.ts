@@ -260,4 +260,24 @@ describe('transformClaudeToOpenAI', () => {
 
     expect(result.messages).toEqual([])
   })
+
+  it('should filter out Claude-specific fields', () => {
+    const claudeBody = {
+      model: 'nvidia/glm5.1',
+      messages: [{ role: 'user', content: 'Hello' }],
+      thinking: { type: 'adaptive', display: 'summarized' },
+      context_management: { edits: [] },
+      output_config: { effort: 'xhigh' },
+      metadata: { user_id: '123' },
+      custom_field: 'should_remain',
+    }
+
+    const result = transformClaudeToOpenAI(claudeBody)
+
+    expect(result.thinking).toBeUndefined()
+    expect(result.context_management).toBeUndefined()
+    expect(result.output_config).toBeUndefined()
+    expect(result.metadata).toBeUndefined()
+    expect(result.custom_field).toBe('should_remain')
+  })
 })

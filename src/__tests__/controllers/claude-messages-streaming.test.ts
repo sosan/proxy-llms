@@ -117,7 +117,7 @@ describe('handleClaudeMessages - streaming', () => {
         }),
       }
 
-      ;(getProviderByName as any).mockReturnValue(mockProvider)
+        ; (getProviderByName as any).mockReturnValue(mockProvider)
 
       const c = createMockContext({
         body: { model: 'nvidia/glm5.1', messages: [{ role: 'user', content: 'hello' }] },
@@ -143,7 +143,7 @@ describe('handleClaudeMessages - streaming', () => {
         }),
       }
 
-      ;(getProviderByName as any).mockReturnValue(mockProvider)
+        ; (getProviderByName as any).mockReturnValue(mockProvider)
 
       const c = createMockContext({
         body: { model: 'nvidia/glm5.1', messages: [{ role: 'user', content: 'hello' }] },
