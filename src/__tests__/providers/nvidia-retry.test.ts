@@ -37,14 +37,14 @@ describe('NvidiaProvider - retry logic', () => {
         )
       }
       return Promise.resolve(
-        new Response(JSON.stringify({ id: 'chatcmpl-123', choices: [] }), { status: 200 })
+        new Response(JSON.stringify({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] }), { status: 200 })
       )
     }) as any
 
     const result = await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(2)
-    expect(result).toEqual({ id: 'chatcmpl-123', choices: [] })
+    expect(result).toEqual({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] })
 
     globalThis.fetch = originalFetch
   })
@@ -62,24 +62,56 @@ describe('NvidiaProvider - retry logic', () => {
         )
       }
       return Promise.resolve(
-        new Response(JSON.stringify({ id: 'chatcmpl-123', choices: [] }), { status: 200 })
+        new Response(JSON.stringify({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] }), { status: 200 })
       )
     }) as any
 
     const result = await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(2)
-    expect(result).toEqual({ id: 'chatcmpl-123', choices: [] })
+    expect(result).toEqual({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] })
 
     globalThis.fetch = originalFetch
   })
 
-  it('should not retry on 4xx errors other than 429', async () => {
+  it('should retry on 400 and 408 errors', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+
+    let attempt = 0
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      attempt++
+      if (attempt === 1) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'bad request' }), { status: 400 })
+        )
+      }
+      if (attempt === 2) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'timeout' }), { status: 408 })
+        )
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] }), { status: 200 })
+      )
+    }) as any
+
+    const result = await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3)
+    expect(result).toEqual({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] })
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should not retry on non-retryable 4xx errors', async () => {
     const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
 
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: 'bad request' }), { status: 400 })
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 })
+      )
     ) as any
 
     await expect(
@@ -95,8 +127,10 @@ describe('NvidiaProvider - retry logic', () => {
     const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
 
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 })
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 })
+      )
     ) as any
 
     await expect(
@@ -104,6 +138,155 @@ describe('NvidiaProvider - retry logic', () => {
     ).rejects.toThrow()
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(3) // RETRY_MAX_ATTEMPTS
+
+    globalThis.fetch = originalFetch
+  })
+})
+
+describe('NvidiaProvider - empty response validation', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('should throw on 200 with missing choices', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ id: 'x', choices: [] }), { status: 200 })
+      )
+    ) as any
+
+    await expect(
+      provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    ).rejects.toThrow('NVIDIA returned a response with no choices')
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should throw on 200 with null content', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ id: 'x', choices: [{ message: { content: null } }] }), { status: 200 })
+      )
+    ) as any
+
+    await expect(
+      provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    ).rejects.toThrow('NVIDIA returned a response with empty content')
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should throw on 200 with empty string content', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ id: 'x', choices: [{ message: { content: '' } }] }), { status: 200 })
+      )
+    ) as any
+
+    await expect(
+      provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    ).rejects.toThrow('NVIDIA returned a response with empty content')
+
+    globalThis.fetch = originalFetch
+  })
+})
+
+describe('NvidiaProvider - leaked reasoning detection', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('should throw on leaked <thinking prefix', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ id: 'x', choices: [{ message: { content: '<thinking>reasoning here' } }] }), { status: 200 })
+      )
+    ) as any
+
+    await expect(
+      provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    ).rejects.toThrow('NVIDIA returned response with leaked reasoning tokens')
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should throw on leaked <reasoning prefix', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ id: 'x', choices: [{ message: { content: '<reasoning>reasoning here' } }] }), { status: 200 })
+      )
+    ) as any
+
+    await expect(
+      provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    ).rejects.toThrow('NVIDIA returned response with leaked reasoning tokens')
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should not throw on normal content', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ id: 'x', choices: [{ message: { content: 'Hello world' } }] }), { status: 200 })
+      )
+    ) as any
+
+    const result = await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    expect(result).toEqual({ id: 'x', choices: [{ message: { content: 'Hello world' } }] })
+
+    globalThis.fetch = originalFetch
+  })
+})
+
+describe('NvidiaProvider - payload sanitization', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('should strip unstable parameters from payload', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+    const originalFetch = globalThis.fetch
+    let capturedBody: string | null = null
+
+    globalThis.fetch = vi.fn().mockImplementation((_url, init) => {
+      if (typeof init === 'object' && init !== null) {
+        capturedBody = (init as RequestInit).body as string | null
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ id: 'x', choices: [{ message: { content: 'ok' } }] }), { status: 200 })
+      )
+    }) as any
+
+    await provider.makeRequest('/chat/completions', {
+      model: 'test-model',
+      messages: [],
+      frequency_penalty: 0.5,
+      presence_penalty: 0.3,
+      logprobs: true,
+      top_logprobs: 5,
+      seed: 42,
+    }, 'openai')
+
+    expect(capturedBody).toBeDefined()
+    const parsed = JSON.parse(capturedBody!)
+    expect(parsed).not.toHaveProperty('frequency_penalty')
+    expect(parsed).not.toHaveProperty('presence_penalty')
+    expect(parsed).not.toHaveProperty('logprobs')
+    expect(parsed).not.toHaveProperty('top_logprobs')
+    expect(parsed).not.toHaveProperty('seed')
+    expect(parsed).toHaveProperty('model', 'test-model')
 
     globalThis.fetch = originalFetch
   })
