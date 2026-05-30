@@ -20,6 +20,9 @@ export interface Env {
   DEBUG?: string
   LOG_PAYLOAD?: string
   LOG_METRICS?: string
+  RTK_ENABLED?: string
+  CAVEMAN_ENABLED?: string
+  CAVEMAN_LEVEL?: string
   PROCESSOR: DurableObjectNamespace
   ANALYTICS: AnalyticsEngineDataset
   ANALYTICS_ACCOUNT_ID?: string

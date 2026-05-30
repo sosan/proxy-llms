@@ -1,6 +1,6 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Context } from 'hono'
-import { Env, GenericPayload } from '../interfaces/general'
+import type { Env, GenericPayload } from '../interfaces/general'
 import { ProviderConfigs, resolveAnthropicModel, ModelDefaultsById } from '../config/providers'
 import { ProviderError } from '../errors/provider-error'
 import { MetricsCollector } from '../metrics/metrics-collector'
@@ -10,7 +10,7 @@ import { logger } from '../utils/logger'
 import { transformClaudeToOpenAI } from '../transformers/claude-to-openai'
 import { transformOpenAIToClaude } from '../transformers/openai-to-claude'
 import { createOpenAIStreamToClaudeTransformStream } from '../transformers/openai-stream-to-claude'
-import { getUserFacingErrorMessage } from '../utils/error-formatter'
+import type { AIProvider } from '../interfaces/provider'
 
 export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
@@ -22,11 +22,11 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     if (bodyResult.error) {
       return c.json(createResponse(false, null, bodyResult.error), { status: bodyResult.status })
     }
-    const claudePayload = bodyResult.payload!
+    const claudePayload: GenericPayload = bodyResult.payload!
 
     // -- 2. Resolve model mapping (before knowing provider format) ----------
-    const payloadModel = claudePayload.model as string | undefined
-    if (!payloadModel) {
+    const payloadModel = claudePayload.model
+    if (typeof payloadModel !== 'string' || payloadModel.length === 0) {
       return c.json(createResponse(false, null, 'Model not specified in request body'), { status: 400 })
     }
 
@@ -37,6 +37,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
       ANTHROPIC_DEFAULT_MODEL: c.env.ANTHROPIC_DEFAULT_MODEL,
     }
     const mappedModel = resolveAnthropicModel(envMap, payloadModel)
+
     if (mappedModel === '') {
       return c.json(createResponse(false, null, 'Mapped model is empty'), { status: 400 })
     }
@@ -97,25 +98,21 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     const resolvedModelId = genericPayload.model ? `${providerDC}/${genericPayload.model}` : null
     const modelDefaults = resolvedModelId ? ModelDefaultsById[resolvedModelId] : undefined
     if (modelDefaults?.supportsToolCalling === false) {
-      if (genericPayload.tools) {
-        log.debug(`[Claude Messages] Stripping tools from request (model ${resolvedModelId} does not support tool calling)`)
-        delete genericPayload.tools
-      }
-      if ('tool_choice' in genericPayload) {
-        delete (genericPayload as Record<string, unknown>).tool_choice
-      }
+      log.debug(`[Claude Messages] Stripping tools from request (model ${resolvedModelId} does not support tool calling)`)
+      const { tools: _tools, tool_choice: _toolChoice, ...rest } = genericPayload
+      genericPayload = rest
     }
 
     // -- 6. Resolve provider instance & make request ------------------------
     const provider = getProviderByName(c.env, providerDC)
     const transformedPayload = provider.transformRequest(genericPayload, config)
     const isStream = (transformedPayload as Record<string, unknown>).stream === true
-    const model = (transformedPayload as Record<string, unknown>).model as string || 'unknown'
+    const model = ((transformedPayload as Record<string, unknown>).model as string) || 'unknown'
     const requestId = crypto.randomUUID().slice(0, 8)
 
     metricsCollector = new MetricsCollector(c.env, requestId, model, providerDC, isStream)
 
-    // -- 6a. Streaming response ------------------------------------------─
+    // -- 6a. Streaming response -------------------------------------------
     if (isStream) {
       return handleStream(c, provider, config, transformedPayload, metricsCollector)
     }
@@ -128,11 +125,11 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
   }
 }
 
-// -- Helper: streaming ----------------------------------------------------─
+// -- Helper: streaming ----------------------------------------------------
 async function handleStream(
   c: Context,
-  provider: any,
-  config: any,
+  provider: AIProvider,
+  config: { endpoint: string },
   payload: unknown,
   metricsCollector: MetricsCollector
 ): Promise<Response> {
@@ -178,11 +175,11 @@ async function handleStream(
   })
 }
 
-// -- Helper: non-streaming ------------------------------------------------─
+// -- Helper: non-streaming -------------------------------------------------
 async function handleNonStream(
   c: Context,
-  provider: any,
-  config: any,
+  provider: AIProvider,
+  config: { endpoint: string; format: string },
   payload: unknown,
   metricsCollector: MetricsCollector
 ): Promise<Response> {
@@ -196,19 +193,17 @@ async function handleNonStream(
   return c.json(claudeResponse)
 }
 
-// -- Helper: error handler ------------------------------------------------─
+// -- Helper: error handler -------------------------------------------------
 function handleClaudeError(
   c: Context,
   error: unknown,
   metricsCollector: MetricsCollector | null,
   log: ReturnType<typeof logger.withEnv>
 ): Response {
-  log.error(`Provider Error (Claude):`, error)
+  log.error('Provider Error (Claude):', error)
   const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
   const status = error instanceof ProviderError ? error.status : 500
-  const publicMessage = error instanceof Error
-    ? getUserFacingErrorMessage(error)
-    : 'Provider request failed unexpectedly.'
+  const publicMessage = error instanceof Error ? error.message : 'Provider request failed unexpectedly.'
   const errorData = error instanceof ProviderError
     ? { code: error.code, status, ...(error.retryAfter ? { retry_after: error.retryAfter } : {}) }
     : null

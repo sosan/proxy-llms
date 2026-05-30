@@ -149,11 +149,10 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     top_p: 0.95,
     max_tokens: 65536,
     stream: true,
-    supportsToolCalling: true,
+    supportsToolCalling: false,
     extra: {
       "chat_template_kwargs": {
         thinking: true,
-        parallel_tool_calls: true,
       },
     }
   },
@@ -166,7 +165,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
     temperature: 0.7,
     top_p: 0.8,
-    supportsToolCalling: true,
+    supportsToolCalling: false,
     max_tokens: 262144,
     stream: true,
   },
@@ -189,15 +188,14 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
 
   if (payloadModel) {
     logger.debug(`Resolving model for payload model: "${payloadModel}" with config format: "${config.format}"`)
-    const fullmodel = payloadModel.substring(payloadModel.indexOf('/') + 1)
-    if (aliases[fullmodel]) {
-      return aliases[fullmodel]
+    if (aliases[payloadModel]) {
+      return aliases[payloadModel]
     }
-    if (fullIds.includes(fullmodel)) {
-      return fullmodel
+    if (fullIds.includes(payloadModel)) {
+      return payloadModel
     }
     // Fallback: allow partial match (e.g., "kimi-k2.6" matches "moonshotai/kimi-k2.6")
-    const partialMatch = fullIds.find(id => id === fullmodel || id.endsWith(`/${fullmodel}`))
+    const partialMatch = fullIds.find(id => id === payloadModel || id.endsWith(`/${payloadModel}`))
     if (partialMatch) {
       return partialMatch
     }

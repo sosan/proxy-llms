@@ -122,7 +122,8 @@ export abstract class BaseProvider implements AIProvider {
   // --- Shared transformRequest (can be overridden) --------------------------
 
   transformRequest(payload: GenericPayload, config: ProviderConfig): unknown {
-    const model = resolveModel(config, payload.model)
+    const fullmodel = payload.model?.substring(payload.model.indexOf('/') + 1)
+    const model = resolveModel(config, fullmodel)
     const modelDefaults = ModelDefaultsById[model] ?? {}
 
     let messages: ChatMessage[] = []
