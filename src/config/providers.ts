@@ -5,6 +5,7 @@ export type ModelDefaults = {
   temperature?: number
   top_p?: number
   max_tokens?: number
+  maxTokensCap?: number
   stream?: boolean
   extra?: Record<string, unknown>
   supportsToolCalling?: boolean
@@ -111,7 +112,8 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'z-ai/glm-5.1': {
     temperature: 0.9,
     top_p: 0.95,
-    max_tokens: 32768,
+    max_tokens: 8192,
+    maxTokensCap: 8192,
     stream: true,
     supportsToolCalling: false,
     extra: {
@@ -135,7 +137,8 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'minimaxai/minimax-m2.7': {
     temperature: 0.2,
     top_p: 0.9,
-    max_tokens: 32768,
+    max_tokens: 8192,
+    maxTokensCap: 8192,
     stream: true,
   },
   'moonshotai/kimi-k2-thinking': {
@@ -147,7 +150,8 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'moonshotai/kimi-k2.6': {
     temperature: 1,
     top_p: 0.95,
-    max_tokens: 65536,
+    max_tokens: 8192,
+    maxTokensCap: 8192,
     stream: true,
     supportsToolCalling: false,
     extra: {

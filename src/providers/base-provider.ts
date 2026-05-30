@@ -126,6 +126,9 @@ export abstract class BaseProvider implements AIProvider {
     const model = resolveModel(config, fullmodel)
     const modelDefaults = ModelDefaultsById[model] ?? {}
 
+    // Apply max_tokens cap when model has instability history
+    const maxTokensCap = modelDefaults.maxTokensCap ?? modelDefaults.max_tokens
+
     let messages: ChatMessage[] = []
     if (payload.messages && Array.isArray(payload.messages)) {
       messages = payload.messages
@@ -145,7 +148,10 @@ export abstract class BaseProvider implements AIProvider {
       messages: messages,
       temperature: payload.temperature ?? modelDefaults.temperature ?? DEFAULT_MAX_TEMP,
       top_p: payload.top_p ?? modelDefaults.top_p ?? DEFAULT_MAX_TOP_P,
-      max_tokens: payload.max_tokens ?? modelDefaults.max_tokens ?? DEFAULT_MAX_TOKENS,
+      max_tokens: Math.min(
+        payload.max_tokens ?? modelDefaults.max_tokens ?? DEFAULT_MAX_TOKENS,
+        maxTokensCap ?? DEFAULT_MAX_TOKENS
+      ),
       stream: payload.stream ?? modelDefaults.stream ?? DEFAULT_IS_STREAMING,
     }
 

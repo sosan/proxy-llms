@@ -3,6 +3,73 @@ import { BaseProvider, sleep, getRetryDelay, RETRY_MAX_ATTEMPTS } from './base-p
 import { ProviderError } from '../errors/provider-error'
 import { logger } from '../utils/logger'
 
+// ---------------------------------------------------------------------------
+// Helpers: NVIDIA-specific defensive mitigations
+// ---------------------------------------------------------------------------
+
+/**
+ * Strips parameters known to cause instability on NVIDIA routes.
+ */
+function sanitizeNvidiaPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') return payload
+  const p = payload as Record<string, unknown>
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { frequency_penalty, presence_penalty, logprobs, top_logprobs, seed, ...rest } = p
+  return rest
+}
+
+/**
+ * Checks whether a string contains leaked reasoning tokens.
+ */
+function hasLeakedReasoning(content: string): boolean {
+  if (typeof content !== 'string') return false
+  const lower = content.toLowerCase().trimStart()
+  return (
+    lower.startsWith('<thinking') ||
+    lower.startsWith('<reasoning') ||
+    lower.startsWith('### thinking') ||
+    lower.startsWith('reasoning:') ||
+    lower.startsWith('<|thinking|>') ||
+    lower.startsWith('<think')
+  )
+}
+
+/**
+ * Validates that a 200 OK response from NVIDIA has usable content.
+ * Throws ProviderError when the body is empty, missing choices, or has null content.
+ */
+function validateOpenAIResponse(json: unknown): void {
+  if (!json || typeof json !== 'object') {
+    throw new ProviderError(
+      'NVIDIA returned empty or invalid JSON',
+      502 as ContentfulStatusCode,
+      'upstream_empty_response',
+      'NVIDIA returned an empty response. Retry the request or try a different model.'
+    )
+  }
+  const obj = json as Record<string, unknown>
+  const choices = obj.choices as Array<Record<string, unknown>> | undefined
+  if (!Array.isArray(choices) || choices.length === 0) {
+    throw new ProviderError(
+      'NVIDIA returned a response with no choices',
+      502 as ContentfulStatusCode,
+      'upstream_empty_response',
+      'NVIDIA returned an empty response. Retry the request or try a different model.'
+    )
+  }
+  const firstChoice = choices[0]
+  const message = firstChoice?.message as Record<string, unknown> | undefined
+  const content = message?.content
+  if (content === null || content === undefined || content === '') {
+    throw new ProviderError(
+      'NVIDIA returned a response with empty content',
+      502 as ContentfulStatusCode,
+      'upstream_empty_response',
+      'NVIDIA returned an empty response. Retry the request or try a different model.'
+    )
+  }
+}
+
 /**
  * NVIDIA NIM Provider
  * Forwards requests to NVIDIA's API (api.nvidia.com)
@@ -44,17 +111,18 @@ export class NvidiaProvider extends BaseProvider {
   async makeStreamRequest(endpoint: string, payload: unknown): Promise<Response> {
     const requestId = crypto.randomUUID().slice(0, 8)
     const uri = `${this.baseUrl}${endpoint}`
+    const sanitizedPayload = sanitizeNvidiaPayload(payload)
 
     logger.info(`[${requestId}] → Stream request`, {
       uri,
-      model: (payload as Record<string, unknown>).model,
+      model: (sanitizedPayload as Record<string, unknown>).model,
     })
-    logger.logUpstreamConfig(requestId, payload)
+    logger.logUpstreamConfig(requestId, sanitizedPayload)
 
     return this.executeWithRetry(
       requestId,
-      async () => this._doStreamRequest(requestId, uri, payload),
-      (err) => err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
+      async () => this._doStreamRequest(requestId, uri, sanitizedPayload),
+      (err) => err.status === 400 || err.status === 408 || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 
@@ -100,7 +168,8 @@ export class NvidiaProvider extends BaseProvider {
 
     if (!response.ok) {
       const errorBody = await this.readErrorBody(response)
-      logger.error(`[${requestId}] ✘ Upstream error`, {
+      const now = new Date().toISOString()
+      logger.error(`[${now}] [${requestId}] ✘ Upstream error`, {
         status: response.status,
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
@@ -114,18 +183,19 @@ export class NvidiaProvider extends BaseProvider {
   async makeRequest(endpoint: string, payload: unknown, _configFormat: string): Promise<unknown> {
     const requestId = crypto.randomUUID().slice(0, 8)
     const uri = `${this.baseUrl}${endpoint}`
+    const sanitizedPayload = sanitizeNvidiaPayload(payload)
 
     logger.info(`[${requestId}] → Request`, {
       uri,
-      model: (payload as Record<string, unknown>).model,
-      messages: ((payload as Record<string, unknown>).messages as unknown[])?.length ?? 0,
+      model: (sanitizedPayload as Record<string, unknown>).model,
+      messages: ((sanitizedPayload as Record<string, unknown>).messages as unknown[])?.length ?? 0,
     })
-    logger.logUpstreamConfig(requestId, payload)
+    logger.logUpstreamConfig(requestId, sanitizedPayload)
 
     return this.executeWithRetry(
       requestId,
-      async () => this._doRequest(requestId, uri, payload),
-      (err) => err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
+      async () => this._doRequest(requestId, uri, sanitizedPayload),
+      (err) => err.status === 400 || err.status === 408 || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 
@@ -180,6 +250,22 @@ export class NvidiaProvider extends BaseProvider {
     }
 
     const json = await response.json()
+
+    // Validate response is not empty / malformed
+    validateOpenAIResponse(json)
+
+    // Detect leaked reasoning in content
+    const message = ((json as Record<string, unknown>).choices as Array<Record<string, unknown>>)?.[0]?.message as Record<string, unknown> | undefined
+    const content = message?.content
+    if (typeof content === 'string' && hasLeakedReasoning(content)) {
+      throw new ProviderError(
+        'NVIDIA returned response with leaked reasoning tokens',
+        502 as ContentfulStatusCode,
+        'upstream_malformed_response',
+        'NVIDIA returned a malformed response. Retry the request or try a different model.'
+      )
+    }
+
     logger.info(`[${requestId}] ✔ Completed`, {
       finish_reason: ((json as Record<string, unknown>).choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason,
     })
