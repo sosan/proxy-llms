@@ -1,7 +1,7 @@
 import { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Env } from '../interfaces/general'
-import { ProviderConfigs } from '../config/providers'
+import { ProviderConfigs, resolveModelFormat } from '../config/providers'
 import { ProviderError } from '../errors/provider-error'
 import { MetricsCollector } from '../metrics/metrics-collector'
 import { getProviderByName } from '../providers/provider-factory'
@@ -189,21 +189,25 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     // --- Transform ---
     const transformedPayload: TransformedPayload = provider.transformRequest(result.payload!, config) as TransformedPayload
 
+    // --- Resolve model format and endpoint ---
+    const resolvedModel = transformedPayload.model || 'unknown'
+    const modelFormat = resolveModelFormat(config, resolvedModel)
+    const endpoint = modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint
+
     // --- Apply middlewares ---
-    const finalPayload = applyPayloadMiddlewares(transformedPayload, c.env, config)
+    const finalPayload = applyPayloadMiddlewares(transformedPayload, c.env, { format: modelFormat as 'anthropic' | 'openai' | 'google' })
 
     // --- Route to stream or non-stream ---
     const isStream = finalPayload.stream === true
-    const model = finalPayload.model || 'unknown'
     const requestId = crypto.randomUUID().slice(0, 8)
 
-    metricsCollector = new MetricsCollector(c.env, requestId, model, providerDC, isStream)
+    metricsCollector = new MetricsCollector(c.env, requestId, resolvedModel, providerDC, isStream)
 
     if (isStream) {
-      return handleStreamRequest(provider, config.endpoint, finalPayload, metricsCollector)
+      return handleStreamRequest(provider, endpoint, finalPayload, metricsCollector)
     }
 
-    const response = await handleNonStreamRequest(provider, config.endpoint, finalPayload, config, metricsCollector)
+    const response = await handleNonStreamRequest(provider, endpoint, finalPayload, { format: modelFormat as 'anthropic' | 'openai' | 'google' }, metricsCollector)
     return c.json(createResponse(true, response))
 
   } catch (error) {

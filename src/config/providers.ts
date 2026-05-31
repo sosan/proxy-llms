@@ -9,6 +9,7 @@ export type ModelDefaults = {
   stream?: boolean
   extra?: Record<string, unknown>
   supportsToolCalling?: boolean
+  format?: 'anthropic' | 'openai' | 'google'
 }
 
 const _ProviderConfigs = {
@@ -51,8 +52,13 @@ const _ProviderConfigs = {
   },
   openrouter: {
     endpoint: '/chat/completions',
-    models: {},
-    format: 'openai',
+    alterEndpoint: '/messages',
+    models: {
+      'stealth/owl-alpha': 'owl-alpha',
+      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6'
+
+    },
+    format: 'anthropic',
     supportsToolCalling: true,
   },
   lmstudio: {
@@ -154,6 +160,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     maxTokensCap: 8192,
     stream: true,
     supportsToolCalling: false,
+    format: 'openai',
     extra: {
       "chat_template_kwargs": {
         thinking: true,
@@ -182,8 +189,19 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     extra: {
       chat_template_kwargs: { enable_thinking: true },
     }
-  }
+  },
+  'owl-alpha': {
+    format: 'anthropic',
+    stream: true,
+  },
+}
 
+export const resolveModelFormat = (config: { format: string; alterEndpoint?: string }, model: string): string => {
+  const modelDefaults = ModelDefaultsById[model]
+  if (modelDefaults?.format) {
+    return modelDefaults.format
+  }
+  return config.format
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {

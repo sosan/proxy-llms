@@ -1,7 +1,7 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Context } from 'hono'
 import type { Env, GenericPayload } from '../interfaces/general'
-import { ProviderConfigs, resolveAnthropicModel, ModelDefaultsById } from '../config/providers'
+import { ProviderConfigs, resolveAnthropicModel, resolveModelFormat } from '../config/providers'
 import { ProviderError } from '../errors/provider-error'
 import { MetricsCollector } from '../metrics/metrics-collector'
 import { getProviderByName } from '../providers/provider-factory'
@@ -69,12 +69,14 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
       return c.json(createResponse(false, null, `Unknown provider: "${providerDC}". Supported: ${supportedProviders}`), { status: 400 })
     }
 
-    // -- 4. Transform payload according to provider format ------------------
+    // -- 4. Resolve model format per-model ---------------------------------
     const modelParts = mappedModel.split('/')
     const modelName = modelParts.length > 1 ? modelParts.slice(1).join('/') : mappedModel
+    const modelFormat = resolveModelFormat(config, modelName)
 
+    // -- 5. Transform payload according to provider format ------------------
     let genericPayload: GenericPayload
-    switch (config.format) {
+    switch (modelFormat) {
       case 'openai':
         genericPayload = transformClaudeToOpenAI(claudePayload)
         genericPayload.model = modelName
@@ -85,25 +87,25 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
         genericPayload.model = modelName
         break
       default:
-        return c.json(createResponse(false, null, `Provider "${providerDC}" format "${config.format}" is not supported by the /messages endpoint.`), { status: 400 })
+        return c.json(createResponse(false, null, `Provider "${providerDC}" format "${modelFormat}" is not supported by the /messages endpoint.`), { status: 400 })
     }
 
     log.debug('[Claude Messages] Transformed request', {
       model: genericPayload.model,
-      format: config.format,
+      format: modelFormat,
       keys: Object.keys(genericPayload),
     })
 
-    // -- 5. Strip tools if the specific resolved model doesn't support tool calling -----
+    // -- 6. Strip tools if the specific resolved model doesn't support tool calling -----
     const resolvedModelId = genericPayload.model ? `${providerDC}/${genericPayload.model}` : null
-    const modelDefaults = resolvedModelId ? ModelDefaultsById[resolvedModelId] : undefined
+    const modelDefaults = resolvedModelId ? (await import('../config/providers')).ModelDefaultsById[resolvedModelId] : undefined
     if (modelDefaults?.supportsToolCalling === false) {
       log.debug(`[Claude Messages] Stripping tools from request (model ${resolvedModelId} does not support tool calling)`)
       const { tools: _tools, tool_choice: _toolChoice, ...rest } = genericPayload
       genericPayload = rest
     }
 
-    // -- 6. Resolve provider instance & make request ------------------------
+    // -- 7. Resolve provider instance & make request ------------------------
     const provider = getProviderByName(c.env, providerDC)
     const transformedPayload = provider.transformRequest(genericPayload, config)
     const isStream = (transformedPayload as Record<string, unknown>).stream === true
@@ -112,13 +114,16 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
 
     metricsCollector = new MetricsCollector(c.env, requestId, model, providerDC, isStream)
 
-    // -- 6a. Streaming response -------------------------------------------
+    // -- 8. Determine endpoint based on model format -----------------------
+    const endpoint = modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint
+
+    // -- 9a. Streaming response -------------------------------------------
     if (isStream) {
-      return handleStream(c, provider, config, transformedPayload, metricsCollector)
+      return handleStream(c, provider, { endpoint, format: modelFormat }, transformedPayload, metricsCollector)
     }
 
-    // -- 6b. Non-streaming response ------------------------------------------
-    return handleNonStream(c, provider, config, transformedPayload, metricsCollector)
+    // -- 9b. Non-streaming response ------------------------------------------
+    return handleNonStream(c, provider, { endpoint, format: modelFormat }, transformedPayload, metricsCollector)
 
   } catch (error) {
     return handleClaudeError(c, error, metricsCollector, log)
@@ -129,7 +134,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
 async function handleStream(
   c: Context,
   provider: AIProvider,
-  config: { endpoint: string },
+  config: { endpoint: string; format: string },
   payload: unknown,
   metricsCollector: MetricsCollector
 ): Promise<Response> {
