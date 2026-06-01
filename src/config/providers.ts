@@ -10,6 +10,16 @@ export type ModelDefaults = {
   extra?: Record<string, unknown>
   supportsToolCalling?: boolean
   format?: 'anthropic' | 'openai' | 'google'
+  frequency_penalty?: number
+  logit_bias?: Record<string, number>
+  presence_penalty?: number
+  repetition_penalty?: number
+  response_format?: Record<string, unknown>
+  seed?: number
+  stop?: string[]
+  structured_outputs?: boolean
+  tools?: unknown[]
+  top_k?: number
 }
 
 const _ProviderConfigs = {
@@ -20,7 +30,6 @@ const _ProviderConfigs = {
       'claude-sonnet-4-6': 'claude-sonnet-4-6',
       'claude-haiku-4-6': 'claude-haiku-4-6',
     },
-    format: 'anthropic',
     supportsToolCalling: true,
   },
   nvidia: {
@@ -41,14 +50,12 @@ const _ProviderConfigs = {
       'stepfun-ai/step-3.5-flash': 'stepfun-ai/step-3.5-flash', // no ranking
       'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
     },
-    format: 'openai',
     supportsToolCalling: true, // Some models support tool calling, some don't; checked per-model via ModelDefaultsById
   },
   google: {
     endpoint: '/chat/completions',
     models: {
     },
-    format: 'google',
   },
   openrouter: {
     endpoint: '/chat/completions',
@@ -58,25 +65,31 @@ const _ProviderConfigs = {
       'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6'
 
     },
-    format: 'anthropic',
     supportsToolCalling: true,
   },
   lmstudio: {
     endpoint: '/chat/completions',
     models: {},
-    format: 'openai',
   },
   llamacpp: {
     endpoint: '/chat/completions',
     models: {},
-    format: 'openai',
   },
   ollama: {
     endpoint: '/chat/completions',
     models: {},
-    format: 'openai',
   },
 } as const
+
+export const PROVIDER_DEFAULT_FORMATS: Record<string, string> = {
+  claude: 'anthropic',
+  nvidia: 'openai',
+  google: 'google',
+  openrouter: 'anthropic',
+  lmstudio: 'openai',
+  llamacpp: 'openai',
+  ollama: 'openai',
+}
 
 export const ProviderConfigs: Record<string, ProviderConfig> = _ProviderConfigs
 
@@ -193,15 +206,21 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'owl-alpha': {
     format: 'anthropic',
     stream: true,
+    temperature: 1,
+    top_p: 1,
+    top_k: 0,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+    repetition_penalty: 1,
   },
 }
 
-export const resolveModelFormat = (config: { format: string; alterEndpoint?: string }, model: string): string => {
+export const resolveModelFormat = (provider: string, model: string): string => {
   const modelDefaults = ModelDefaultsById[model]
   if (modelDefaults?.format) {
     return modelDefaults.format
   }
-  return config.format
+  return PROVIDER_DEFAULT_FORMATS[provider] ?? 'openai'
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
@@ -209,7 +228,7 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
   const fullIds = Object.values(aliases)
 
   if (payloadModel) {
-    logger.debug(`Resolving model for payload model: "${payloadModel}" with config format: "${config.format}"`)
+    logger.debug(`Resolving model for payload model: "${payloadModel}"`)
     if (aliases[payloadModel]) {
       return aliases[payloadModel]
     }

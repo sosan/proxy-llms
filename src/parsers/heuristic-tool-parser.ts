@@ -137,7 +137,7 @@ export class HeuristicToolParser {
             this.buffer = ''
             finishedToolCall = true
           }
-        } else if (this.buffer.length === 0 && Object.keys(this.currentParameters).length > 0) {
+        } else if (this.buffer.length === 0) {
           finishedToolCall = true
         }
 
@@ -210,7 +210,7 @@ export class HeuristicToolParser {
     text: string,
     detectedTools: ToolUse[]
   ): string {
-    const matches = text.matchAll(WEB_TOOL_JSON_PATTERN)
+    const matches = [...text.matchAll(WEB_TOOL_JSON_PATTERN)]
     let remaining = text
 
     for (const match of matches) {
@@ -240,7 +240,7 @@ export class HeuristicToolParser {
       }
     }
 
-    return remaining
+    return remaining.trim()
   }
 
   private generateToolId(): string {

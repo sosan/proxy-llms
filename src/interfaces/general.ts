@@ -86,6 +86,5 @@ export interface ProviderConfig {
   endpoint: string;
   alterEndpoint?: string; // Alternative endpoint for Anthropic-compatible path (e.g., '/messages' on NIM)
   models: Record<string, string>; // alias: 'provider/model-id'
-  format: 'anthropic' | 'openai' | 'google';
   supportsToolCalling?: boolean; // Whether models in this config support tool calling
 }

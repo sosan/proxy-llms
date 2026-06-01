@@ -72,7 +72,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     // -- 4. Resolve model format per-model ---------------------------------
     const modelParts = mappedModel.split('/')
     const modelName = modelParts.length > 1 ? modelParts.slice(1).join('/') : mappedModel
-    const modelFormat = resolveModelFormat(config, modelName)
+    const modelFormat = resolveModelFormat(providerDC, modelName)
 
     // -- 5. Transform payload according to provider format ------------------
     let genericPayload: GenericPayload

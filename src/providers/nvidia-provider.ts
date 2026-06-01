@@ -1,5 +1,5 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import { BaseProvider, sleep, getRetryDelay, RETRY_MAX_ATTEMPTS } from './base-provider'
+import { BaseProvider, sleep, getRetryDelay, RETRY_MAX_ATTEMPTS, isNetworkError } from './base-provider'
 import { ProviderError } from '../errors/provider-error'
 import { logger } from '../utils/logger'
 
@@ -90,16 +90,25 @@ export class NvidiaProvider extends BaseProvider {
         return await operation()
       } catch (err) {
         lastError = err instanceof ProviderError ? err : null
+        if (!lastError && isNetworkError(err)) {
+          const networkErr = new ProviderError(
+            `Network error: ${err instanceof Error ? err.message : 'unknown'}`,
+            504 as ContentfulStatusCode,
+            'upstream_network_error',
+            'Network connection lost. Retrying the request.'
+          )
+          lastError = networkErr
+        }
         if (!lastError || !isRetryable(lastError)) {
           throw err
         }
 
         if (attempt === RETRY_MAX_ATTEMPTS) {
           logger.warn(`[${requestId}] Max retry attempts reached, propagating error`)
-          throw err
+          throw lastError
         }
 
-        const delay = getRetryDelay(attempt)
+        const delay = getRetryDelay(attempt, lastError.status)
         logger.info(`[${requestId}] Retrying after ${Math.round(delay)}ms (attempt ${attempt}/${RETRY_MAX_ATTEMPTS})`)
         await sleep(delay)
       }

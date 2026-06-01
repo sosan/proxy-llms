@@ -12,18 +12,39 @@ const DEFAULT_IS_STREAMING = false
 const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'model', 'messages', 'content'])
 
 // Retry configuration for transient upstream failures
-const RETRY_MAX_ATTEMPTS = 3
+const RETRY_MAX_ATTEMPTS = 5
 const RETRY_BASE_DELAY_MS = 1000
+const RETRY_BASE_DELAY_MS_GATEWAY = 5000
 const JITTER_MAX_MS = 500
 
 export async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export function getRetryDelay(attempt: number): number {
-  const base = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+export function getRetryDelay(attempt: number, status?: number): number {
+  const baseDelay = status === 502 || status === 503 || status === 504 ? RETRY_BASE_DELAY_MS_GATEWAY : RETRY_BASE_DELAY_MS
+  const base = baseDelay * 2 ** (attempt - 1)
   const jitter = Math.random() * JITTER_MAX_MS
   return base + jitter
+}
+
+/**
+ * Checks whether an error is a network-level failure that should be retried.
+ */
+export function isNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  const msg = err.message.toLowerCase()
+  return (
+    msg.includes('network') ||
+    msg.includes('fetch failed') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('connection lost') ||
+    msg.includes('econnreset') ||
+    msg.includes('etimedout') ||
+    msg.includes('socket hang up') ||
+    msg.includes('aborted') ||
+    err.name === 'TypeError'
+  )
 }
 
 export { RETRY_MAX_ATTEMPTS }

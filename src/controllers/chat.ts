@@ -113,15 +113,34 @@ async function handleStreamRequest(
   const upstream = await provider.makeStreamRequest(endpoint, payload)
   metricsCollector.setUpstreamStatus(upstream.status)
 
+  if (!upstream.body) {
+    throw new ProviderError(
+      'Upstream returned a streaming response without a body',
+      502 as ContentfulStatusCode,
+      'upstream_empty_stream',
+      'Upstream returned an empty stream. Retry the request in a few seconds.'
+    )
+  }
+
   const transformStream = metricsCollector.createStreamingTransformStream()
-  const transformedBody = upstream.body?.pipeThrough(transformStream)
+  let transformedBody: ReadableStream<Uint8Array> | null = null
+  try {
+    transformedBody = upstream.body.pipeThrough(transformStream)
+  } catch (err) {
+    throw new ProviderError(
+      `Failed to pipe upstream stream: ${err instanceof Error ? err.message : 'unknown'}`,
+      502 as ContentfulStatusCode,
+      'upstream_stream_pipe_failed',
+      'Failed to process upstream stream. Retry the request in a few seconds.'
+    )
+  }
 
   if (!transformedBody) {
     throw new ProviderError(
-      'NVIDIA returned a streaming response without a body',
+      'Upstream returned a streaming response without a body',
       502 as ContentfulStatusCode,
       'upstream_empty_stream',
-      'NVIDIA returned an empty stream. Retry the request in a few seconds.'
+      'Upstream returned an empty stream. Retry the request in a few seconds.'
     )
   }
 
@@ -191,7 +210,7 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
 
     // --- Resolve model format and endpoint ---
     const resolvedModel = transformedPayload.model || 'unknown'
-    const modelFormat = resolveModelFormat(config, resolvedModel)
+    const modelFormat = resolveModelFormat(providerDC, resolvedModel)
     const endpoint = modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint
 
     // --- Apply middlewares ---

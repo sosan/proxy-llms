@@ -1,5 +1,5 @@
 import { Env, GenericPayload, ProcessState } from '../interfaces/general'
-import { ProviderConfigs } from '../config/providers'
+import { ProviderConfigs, resolveModelFormat } from '../config/providers'
 import { getProviderByName } from '../providers/provider-factory'
 import { createResponse, parseRequestBody } from '../utils/response'
 
@@ -122,7 +122,8 @@ export class ProcessorDurableObject {
 
       const provider = getProviderByName(this.env, providerName)
       const transformedPayload = provider.transformRequest(payload, config)
-      const result = await provider.makeRequest(config.endpoint, transformedPayload, config.format)
+      const format = resolveModelFormat(providerName, payload.model || 'unknown')
+      const result = await provider.makeRequest(config.endpoint, transformedPayload, format)
 
       await this.updateState({
         status: ProcessStates.COMPLETED,
