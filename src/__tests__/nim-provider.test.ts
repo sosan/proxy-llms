@@ -1,4 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+vi.mock('../utils/logger', () => ({
+  logger: {
+    withEnv: vi.fn().mockReturnValue({
+      info: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+      logUpstreamConfig: vi.fn(),
+    }),
+    info: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    logUpstreamConfig: vi.fn(),
+  },
+}))
+
+vi.mock('../providers/base-provider', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../providers/base-provider')>()
+  return {
+    ...mod,
+    sleep: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
 import { NvidiaProvider } from '../providers/nvidia-provider'
 
 import { ProviderConfigs } from '../config/providers'

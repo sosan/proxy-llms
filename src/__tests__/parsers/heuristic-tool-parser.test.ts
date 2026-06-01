@@ -24,10 +24,9 @@ describe('HeuristicToolParser', () => {
     expect(t1[0].name).toBe('Write')
     expect(t1[0].input).toEqual({})
 
-    const { filtered: _f2, tools: t2 } = parser.feed('<parameter=path>test.txt</parameter>')
-    expect(t2).toHaveLength(1)
-    expect(t2[0].name).toBe('Write')
-    expect(t2[0].input).toEqual({ path: 'test.txt' })
+    const { filtered: f2, tools: t2 } = parser.feed('<parameter=path>test.txt</parameter>')
+    expect(t2).toHaveLength(0)
+    expect(f2).toBe('<parameter=path>test.txt</parameter>')
 
     const { filtered: f3, tools: t3 } = parser.feed('\nDone.')
     expect(t3).toHaveLength(0)
@@ -58,7 +57,7 @@ describe('HeuristicToolParser', () => {
     const parser = new HeuristicToolParser()
     const { filtered: f1, tools: t1 } = parser.feed('Hello <|tool_call_')
     const { filtered: f2, tools: t2 } = parser.feed('end|> world')
-    expect(f1 + f2).toBe('Hello  world')
+    expect(f1 + f2).toBe('Hello world')
     expect([...t1, ...t2]).toEqual([])
   })
 

@@ -17,6 +17,14 @@ vi.mock('../../utils/logger', () => ({
   },
 }))
 
+vi.mock('../../providers/base-provider', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../providers/base-provider')>()
+  return {
+    ...mod,
+    sleep: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
 import { NvidiaProvider } from '../../providers/nvidia-provider'
 
 describe('NvidiaProvider - retry logic', () => {
@@ -137,7 +145,7 @@ describe('NvidiaProvider - retry logic', () => {
       provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
     ).rejects.toThrow()
 
-    expect(globalThis.fetch).toHaveBeenCalledTimes(3) // RETRY_MAX_ATTEMPTS
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5) // RETRY_MAX_ATTEMPTS
 
     globalThis.fetch = originalFetch
   })
@@ -287,6 +295,75 @@ describe('NvidiaProvider - payload sanitization', () => {
     expect(parsed).not.toHaveProperty('top_logprobs')
     expect(parsed).not.toHaveProperty('seed')
     expect(parsed).toHaveProperty('model', 'test-model')
+
+    globalThis.fetch = originalFetch
+  })
+})
+
+describe('NvidiaProvider - network error retry', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('should retry on fetch TypeError and succeed', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+
+    let attempt = 0
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      attempt++
+      if (attempt === 1) {
+        return Promise.reject(new TypeError('Failed to fetch'))
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] }), { status: 200 })
+      )
+    }) as any
+
+    const result = await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+    expect(result).toEqual({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] })
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should retry on "Network connection lost" error and succeed', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+
+    let attempt = 0
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      attempt++
+      if (attempt <= 2) {
+        return Promise.reject(new Error('Network connection lost'))
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] }), { status: 200 })
+      )
+    }) as any
+
+    const result = await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3)
+    expect(result).toEqual({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] })
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should retry up to max attempts on network errors then throw', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.reject(new TypeError('Network connection lost'))
+    ) as any
+
+    await expect(
+      provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    ).rejects.toThrow()
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5)
 
     globalThis.fetch = originalFetch
   })

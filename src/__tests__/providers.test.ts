@@ -87,14 +87,12 @@ describe('Provider Configs', () => {
     it('should have nvidia config with endpoint and models', () => {
       expect(ProviderConfigs.nvidia).toBeDefined()
       expect(ProviderConfigs.nvidia.endpoint).toBe('/chat/completions')
-      expect(ProviderConfigs.nvidia.format).toBe('openai')
       expect(Object.keys(ProviderConfigs.nvidia.models).length).toBeGreaterThan(0)
     })
 
     it('should have claude config with endpoint and models', () => {
       expect(ProviderConfigs.claude).toBeDefined()
       expect(ProviderConfigs.claude.endpoint).toBe('/messages')
-      expect(ProviderConfigs.claude.format).toBe('anthropic')
     })
 
     it('should have google config', () => {

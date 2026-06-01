@@ -17,6 +17,14 @@ vi.mock('../../utils/logger', () => ({
   },
 }))
 
+vi.mock('../../providers/base-provider', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../providers/base-provider')>()
+  return {
+    ...mod,
+    sleep: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
 import { NvidiaProvider } from '../../providers/nvidia-provider'
 
 describe('NvidiaProvider - timeout handling', () => {
