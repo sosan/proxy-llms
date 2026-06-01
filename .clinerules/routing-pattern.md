@@ -7,20 +7,23 @@ Routes must be thin, declarative wrappers. All business logic lives in controlle
 ## Rule: Thin Routes, Fat Controllers
 
 - `routes/*.ts` export only thin handler functions — each handler is an `async (c: Context) => Response` function that delegates immediately to the corresponding controller in `controllers/`.
-- `routes/index.ts` is 100% declarative — it imports all handlers and registers routes with `app.post('/', handler)` or `app.get('/', handler)`.
+- `routes/index.ts` is 100% declarative — it imports all handlers and registers routes with `app.post('/', handler)` or `app.get('/', handler)` inside `registerRoutes(app)`. No business logic, no conditionals, no validation in the routing layer.
 - No business logic, no conditionals, no validation in routes.
 
 ## Anti-patterns to avoid
 
-- Do NOT use `register*Routes(app)` functions — the declarative registration in `routes/index.ts` replaces that indirection.
 - Do NOT add logic in route handlers — if you find yourself adding logic in a route handler, extract it to the corresponding controller.
+- Do NOT put business logic in `routes/index.ts` — route registration should only import handlers and attach them to paths.
 
 ## Example
 
 ```typescript
 // routes/index.ts — 100% declarative
 import { handleChatCompletions } from '../controllers/chat'
-app.post('/chat/completions', handleChatCompletions)
+
+export const registerRoutes = (app: any) => {
+  app.post('/:version/chat/completions', handleChatCompletions)
+}
 
 // controllers/chat.ts — all business logic here
 export async function handleChatCompletions(c: Context) {

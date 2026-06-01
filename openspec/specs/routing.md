@@ -6,85 +6,79 @@ Routes are **thin wrappers**. All business logic lives in controllers. The routi
 
 ## Declarative Route Registration
 
-`routes/index.ts` is 100% declarative. It imports handlers and registers them:
+`routes/index.ts` exports a `registerRoutes(app)` function that registers all routes. This is the only place where routes are registered. All business logic is delegated to controllers.
 
 ```typescript
 import { handleChatCompletions } from '../controllers/chat'
 import { handleHealth } from '../controllers/health'
 // ...
 
-app.post('/:provider/chat/completions', handleChatCompletions)
-app.get('/health', handleHealth)
-// etc.
+export const registerRoutes = (app: any) => {
+  app.post('/:version/chat/completions', handleChatCompletions)
+  app.get('/health', handleHealth)
+  // etc.
+}
 ```
 
-No `register*Routes(app)` functions. No route guards in the routing layer.
+## Routes
 
-## URL-Based Routing
-
-The proxy routes chat completion requests by provider name in the URL:
+### OpenAI-Compatible Chat Completions
 
 ```
-POST /:provider/chat/completions
+POST /:version/chat/completions → handleChatCompletions (controllers/chat.ts)
 ```
 
-### Path Parameters
-
-| Param | Description | Example |
-|-------|-------------|---------|
-| `provider` | Provider backend key in `ProviderConfigs` | `nvidia`, `openrouter`, `lmstudio`, `llamacpp`, `ollama` |
-
-### Validation
-
-- The route handler looks up `ProviderConfigs[urlProvider]` directly.
+- The `version` path parameter is typically `v1`.
 - The model is resolved from the request body (alias or full upstream model ID).
-- If the provider is not found, returns 400 with a list of supported providers.
+- The provider is resolved from the request body (`provider` field) or inferred from the model.
 
-### Examples
-
-```
-POST /nvidia/chat/completions
-POST /openrouter/chat/completions
-POST /lmstudio/chat/completions
-```
-
-### Request Body
-
-The model is specified in the request body, either as an alias or full upstream model ID:
-
-```json
-{
-  "model": "glm4.7",
-  "messages": [...],
-  "stream": true
-}
-```
-
-Or with a full upstream model ID:
-
-```json
-{
-  "model": "z-ai/glm4.7",
-  "messages": [...],
-  "stream": true
-}
-```
-
-## Model Discovery Routes
+### Claude-Compatible Messages
 
 ```
-GET /:version/models        → handleModels         (all providers)
-GET /:provider/models       → handleProviderModels (single provider)
+POST /:version/messages            → handleClaudeMessages (controllers/claude-messages.ts)
+HEAD /:version/messages            → handleProbe ('POST, HEAD, OPTIONS')
+OPTIONS /:version/messages         → handleProbe ('POST, HEAD, OPTIONS')
 ```
 
-## Legacy Routes (Backward Compatible)
+- Translates Claude API requests to OpenAI-compatible upstream requests.
+- Supports streaming and non-streaming responses.
+
+### Token Counting (Claude-Compatible)
 
 ```
-GET /openai/v1/models       → handleOpenAIModels
-GET /claude/v1/models       → handleClaudeModels
+POST /:version/messages/count_tokens → handleCountTokens (controllers/count-tokens.ts)
+HEAD /:version/messages/count_tokens → handleProbe ('POST, HEAD, OPTIONS')
+OPTIONS /:version/messages/count_tokens → handleProbe ('POST, HEAD, OPTIONS')
 ```
 
-These remain for model discovery by older clients.
+### Model Discovery
+
+```
+GET /:version/models              → handleModels (controllers/models.ts)
+```
+
+Returns all models from all providers.
+
+### Durable Object Async Processing
+
+```
+POST /api/process                  → handleProcess   (controllers/process.ts)
+GET  /api/status/:processId        → handleStatus    (controllers/process.ts)
+GET  /api/stream/:processId         → handleStream    (controllers/process.ts)
+GET  /api/websocket/:processId      → handleWebSocket (controllers/process.ts)
+```
+
+### Stop / Root / Health
+
+```
+POST /stop                         → handleStop      (controllers/stop.ts)
+GET  /                             → handleRoot      (controllers/root.ts)
+GET  /health                       → handleHealth    (controllers/health.ts)
+HEAD /health                       → handleProbe ('GET, HEAD, OPTIONS')
+OPTIONS /health                    → handleProbe ('GET, HEAD, OPTIONS')
+HEAD /                             → handleProbe ('GET, HEAD, OPTIONS')
+OPTIONS /                          → handleProbe ('GET, HEAD, OPTIONS')
+```
 
 ## Route Handler Pattern
 
@@ -99,7 +93,10 @@ export const chatHandler = handleChatCompletions
 ```typescript
 // routes/index.ts
 import { chatHandler } from './chat'
-app.post('/:provider/chat/completions', chatHandler)
+
+export const registerRoutes = (app: any) => {
+  app.post('/:version/chat/completions', chatHandler)
+}
 ```
 
 ## Anti-patterns
@@ -107,7 +104,6 @@ app.post('/:provider/chat/completions', chatHandler)
 - **Do NOT** put business logic in route handlers
 - **Do NOT** put validation in route handlers
 - **Do NOT** put conditionals in `routes/index.ts`
-- **Do NOT** use `register*Routes(app)` indirection
 
 ## Tests
 

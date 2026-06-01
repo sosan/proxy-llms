@@ -13,8 +13,8 @@ The proxy supports multiple upstream LLM providers. Each provider is configured 
 | LMStudio | `LocalProvider` | Local desktop inference |
 | LlamaCPP | `LocalProvider` | Local llama.cpp server |
 | Ollama | `LocalProvider` | Local Ollama instance |
-| Claude | `AnthropicProvider` | Anthropic API (future) |
-| Google | `GoogleProvider` | Google AI (future) |
+| Google | `LocalProvider` | Google AI (via generic OpenAI endpoint) |
+| Claude | `LocalProvider` | Anthropic API (via generic OpenAI endpoint) |
 
 ## Provider Configuration
 
@@ -22,21 +22,60 @@ All provider configuration lives in `config/providers.ts`:
 
 ```typescript
 export const ProviderConfigs = {
+  claude: {
+    endpoint: '/messages',
+    models: {
+      'claude-opus-4-7': 'claude-opus-4-7',
+      'claude-sonnet-4-6': 'claude-sonnet-4-6',
+      'claude-haiku-4-6': 'claude-haiku-4-6',
+    },
+    supportsToolCalling: true,
+  },
   nvidia: {
     endpoint: '/chat/completions',
+    alterEndpoint: '/messages',
     models: {
-      'glm4.7': 'z-ai/glm4.7',
-      'kimi-k2.6': 'moonshotai/kimi-k2.6',
-      // ...
+      'z-ai/glm-5.1': 'z-ai/glm-5.1',
+      'z-ai/glm5.1': 'z-ai/glm-5.1',
+      'zai/glm-5.1': 'z-ai/glm-5.1',
+      'zai/glm5.1': 'z-ai/glm-5.1',
+      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6',
+      'z-ai/glm4.7': 'z-ai/glm4.7',
+      'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
+      'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7',
+      'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking',
+      'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct',
+      'openai/gpt-oss-120b': 'openai/gpt-oss-120b',
+      'stepfun-ai/step-3.5-flash': 'stepfun-ai/step-3.5-flash',
+      'google/gemma-4-31b-it': 'google/gemma-4-31b-it',
     },
-    format: 'openai',
+    supportsToolCalling: true,
+  },
+  google: {
+    endpoint: '/chat/completions',
+    models: {},
   },
   openrouter: {
     endpoint: '/chat/completions',
-    models: {},
-    format: 'openai',
+    alterEndpoint: '/messages',
+    models: {
+      'stealth/owl-alpha': 'owl-alpha',
+      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6',
+    },
+    supportsToolCalling: true,
   },
-  // ...
+  lmstudio: {
+    endpoint: '/chat/completions',
+    models: {},
+  },
+  llamacpp: {
+    endpoint: '/chat/completions',
+    models: {},
+  },
+  ollama: {
+    endpoint: '/chat/completions',
+    models: {},
+  },
 }
 ```
 
@@ -45,8 +84,25 @@ export const ProviderConfigs = {
 | Field | Description | Example |
 |-------|-------------|---------|
 | `endpoint` | API path for chat completions | `/chat/completions`, `/messages` |
-| `models` | Map of aliases to full upstream model IDs | `{ 'glm4.7': 'z-ai/glm4.7' }` |
-| `format` | API format: `openai`, `anthropic`, or `google` | `openai` |
+| `alterEndpoint` | Alternative endpoint (e.g., for Anthropic format) | `/messages` |
+| `models` | Map of aliases to full upstream model IDs | `{ 'z-ai/glm4.7': 'z-ai/glm4.7' }` |
+| `supportsToolCalling` | Whether the provider supports tool calling | `true`, `false` |
+
+### Default Formats
+
+```typescript
+export const PROVIDER_DEFAULT_FORMATS: Record<string, string> = {
+  claude: 'anthropic',
+  nvidia: 'openai',
+  google: 'google',
+  openrouter: 'anthropic',
+  lmstudio: 'openai',
+  llamacpp: 'openai',
+  ollama: 'openai',
+}
+```
+
+Per-model format overrides are supported via `ModelDefaultsById[model].format`.
 
 ## Model Aliases
 
@@ -60,9 +116,10 @@ export const ProviderConfigs = {
 
 `resolveModel(config, payloadModel)` in `config/providers.ts`:
 
-1. If `payloadModel` is an alias (e.g., `"glm4.7"`), resolve to full ID (`"z-ai/glm4.7"`).
-2. If `payloadModel` is already a full ID (e.g., `"z-ai/glm4.7"`), pass it through.
-3. If no model is specified, use the first alias's resolved ID as the default.
+1. If `payloadModel` is an alias (e.g., `"z-ai/glm4.7"`), resolve to full ID.
+2. If `payloadModel` is already a full ID, pass it through.
+3. Fallback: allow partial match (e.g., `"kimi-k2.6"` matches `"moonshotai/kimi-k2.6"`).
+4. If no model is specified, use the first alias's resolved ID as the default.
 
 ### Adding a New Alias
 
@@ -83,9 +140,10 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     max_tokens: 32768,
     stream: true,
     extra: {
-      chat_template_kwargs: { enable_thinking: true },
+      chat_template_kwargs: { enable_thinking: true, clear_thinking: false },
     },
   },
+  // ...
 }
 ```
 
@@ -166,7 +224,7 @@ Shared logic for all providers:
 
 ### LocalProvider (`providers/local-provider.ts`)
 
-- Handles LMStudio, LlamaCPP, and Ollama local servers
+- Handles LMStudio, LlamaCPP, Ollama, Google, and Claude local or generic endpoints
 - Configurable base URL per provider
 - Supports local inference without cloud dependency
 
