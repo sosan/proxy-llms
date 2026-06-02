@@ -54,6 +54,7 @@ This repository supports a **hybrid model** for secret management. You can choos
 | `CLOUDFLARE_API_TOKEN` | GitHub | Pipeline auth (Wrangler → Cloudflare) |
 | `CLOUDFLARE_ACCOUNT_ID` | GitHub | Pipeline auth (Wrangler → Cloudflare) |
 | `NVIDIA_API_KEY` | Infisical | Worker runtime secret; easier rotation and audit |
+| `OPENROUTER_API_KEY` | Infisical | Worker runtime secret; easier rotation and audit |
 | `OPENCODE_API_KEY` | Infisical | Worker runtime secret; easier rotation and audit |
 | `ANALYTICS_ACCOUNT_ID` | Infisical | Worker runtime secret; easier rotation and audit |
 | `ANALYTICS_API_TOKEN` | Infisical | Worker runtime secret; easier rotation and audit |
@@ -179,6 +180,7 @@ If you choose the hybrid model, follow these steps to configure Infisical for th
    - `production`
 4. In each environment, add the following secrets:
    - `NVIDIA_API_KEY`
+   - `OPENROUTER_API_KEY`
    - `OPENCODE_API_KEY`
    - `ANALYTICS_ACCOUNT_ID`
    - `ANALYTICS_API_TOKEN`
@@ -247,6 +249,7 @@ The generated file contains at minimum:
 - `ANALYTICS_ACCOUNT_ID`
 - `ANALYTICS_API_TOKEN`
 - `NVIDIA_API_KEY`
+- `OPENROUTER_API_KEY`
 - `OPENCODE_API_KEY`
 
 The file is removed after the deploy step and is ignored by git as `.worker-secrets`.
@@ -260,6 +263,7 @@ pnpm exec wrangler secret put CLOUDFLARE_ACCOUNT_ID --env staging
 pnpm exec wrangler secret put ANALYTICS_ACCOUNT_ID --env staging
 pnpm exec wrangler secret put ANALYTICS_API_TOKEN --env staging
 pnpm exec wrangler secret put NVIDIA_API_KEY --env staging
+pnpm exec wrangler secret put OPENROUTER_API_KEY --env staging
 pnpm exec wrangler secret put OPENCODE_API_KEY --env staging
 
 # production
@@ -268,6 +272,7 @@ pnpm exec wrangler secret put CLOUDFLARE_ACCOUNT_ID --env production
 pnpm exec wrangler secret put ANALYTICS_ACCOUNT_ID --env production
 pnpm exec wrangler secret put ANALYTICS_API_TOKEN --env production
 pnpm exec wrangler secret put NVIDIA_API_KEY --env production
+pnpm exec wrangler secret put OPENROUTER_API_KEY --env production
 pnpm exec wrangler secret put OPENCODE_API_KEY --env production
 ```
 

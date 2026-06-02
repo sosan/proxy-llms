@@ -129,6 +129,25 @@ ANTHROPIC_BASE_URL=http://localhost:8787 claude
 
 `ANTHROPIC_BASE_URL` is a Claude Code client setting, not a Worker runtime variable for `wrangler.toml`.
 
+### Environment Variables
+
+The following public environment variables configure the proxy behavior. Set them in `wrangler.toml` `[vars]` or via `.env` for local development:
+
+| Variable | Description | Example |
+|---|---|---|
+| `NVIDIA_BASE_URL` | NVIDIA NIM API base URL | `https://integrate.api.nvidia.com/v1` |
+| `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
+| `OPENCODE_BASE_URL` | Opencode API base URL | `https://api.opencode.dev/v1` |
+| `ANTHROPIC_OPUS_MODEL` | Gateway model for Claude Code "opus" tier | `nvidia/moonshotai/kimi-k2.6` |
+| `ANTHROPIC_SONNET_MODEL` | Gateway model for Claude Code "sonnet" tier | `nvidia/z-ai/glm-5.1` |
+| `ANTHROPIC_HAIKU_MODEL` | Gateway model for Claude Code "haiku" tier | `nvidia/...` |
+| `ANTHROPIC_DEFAULT_MODEL` | Fallback gateway model for Claude Code | `nvidia/...` |
+| `DEBUG` | Enable debug logging (`true`/`false`) | `true` |
+| `LOG_PAYLOAD` | Log upstream request payloads (`true`/`false`) | `true` |
+| `LOG_METRICS` | Enable Analytics Engine metrics (`true`/`false`) | `true` |
+| `RTK_ENABLED` | Enable RTK tool result compression (`true`/`false`) | `true` |
+| `CAVEMAN_ENABLED` | Enable terse-style caveman prompts (`true`/`false`) | `true` |
+
 ### Legacy routes (backward compatible)
 - `GET /openai/v1/models` - OpenAI-compatible model discovery
 - `GET /claude/v1/models` - Claude-compatible model discovery
