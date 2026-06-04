@@ -15,7 +15,10 @@ const providerRegistry: Map<string, AIProvider> = new Map()
 function createProvider(env: Env, type: ProviderType): AIProvider {
   switch (type) {
     case 'nvidia':
-      return new NvidiaProvider(env.NVIDIA_API_KEY, env.NVIDIA_BASE_URL)
+      return new NvidiaProvider(
+        env.NVIDIA_API_KEY,
+        env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1'
+      )
     case 'openrouter':
       return new OpenRouterProvider(
         env.OPENROUTER_API_KEY || '',
