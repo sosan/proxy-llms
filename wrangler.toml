@@ -87,8 +87,8 @@ LOG_METRICS = "true"
 RTK_ENABLED = "true"
 CAVEMAN_ENABLED = "true"
 
-# Required secrets:
-# - ANALYTICS_ACCOUNT_ID - account ID from cloudflare
-# - ANALYTICS_API_TOKEN - create api token to read analytics_engine_datasets
-# - CLOUDFLARE_API_TOKEN -
-# - CLOUDFLARE_ACCOUNT_ID -
+# Required secrets (set via `wrangler secret put` or `--secrets-file`):
+# - NVIDIA_API_KEY - API key for NVIDIA NIM upstream
+# - OPENROUTER_API_KEY - API key for OpenRouter upstream (optional)
+# - ANALYTICS_ACCOUNT_ID - Cloudflare account ID for Analytics Engine SQL API
+# - ANALYTICS_API_TOKEN - API token for Analytics Engine SQL API
