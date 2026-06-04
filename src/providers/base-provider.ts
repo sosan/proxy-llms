@@ -2,7 +2,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { ProviderConfig, GenericPayload, ChatMessage } from '../interfaces/general'
 import type { AIProvider } from '../interfaces/provider'
 import { ProviderError } from '../errors/provider-error'
-import { resolveModel, ModelDefaultsById } from '../config/providers'
+import { resolveModel, resolveModelDefaults } from '../config/providers'
 import { logger } from '../utils/logger'
 
 const DEFAULT_MAX_TOKENS = 32768
@@ -142,13 +142,16 @@ export abstract class BaseProvider implements AIProvider {
 
   // --- Shared transformRequest (can be overridden) --------------------------
 
-  transformRequest(payload: GenericPayload, config: ProviderConfig): unknown {
+  transformRequest(payload: GenericPayload, config: ProviderConfig): Record<string, unknown> {
     const fullmodel = payload.model?.substring(payload.model.indexOf('/') + 1)
     const model = resolveModel(config, fullmodel)
-    const modelDefaults = ModelDefaultsById[model] ?? {}
+    const modelDefaults = resolveModelDefaults(model)
+    if (!modelDefaults) {
+      logger.warn(`No model defaults found for model "${model}". Using generic defaults.`)
+    }
 
     // Apply max_tokens cap when model has instability history
-    const maxTokensCap = modelDefaults.maxTokensCap ?? modelDefaults.max_tokens
+    const maxTokensCap = modelDefaults?.maxTokensCap ?? modelDefaults?.max_tokens
 
     let messages: ChatMessage[] = []
     if (payload.messages && Array.isArray(payload.messages)) {
@@ -164,16 +167,16 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     const commonPayload: Record<string, unknown> = {
-      ...modelDefaults.extra,
+      ...modelDefaults?.extra,
       model: model,
       messages: messages,
-      temperature: payload.temperature ?? modelDefaults.temperature ?? DEFAULT_MAX_TEMP,
-      top_p: payload.top_p ?? modelDefaults.top_p ?? DEFAULT_MAX_TOP_P,
+      temperature: payload.temperature ?? modelDefaults?.temperature ?? DEFAULT_MAX_TEMP,
+      top_p: payload.top_p ?? modelDefaults?.top_p ?? DEFAULT_MAX_TOP_P,
       max_tokens: Math.min(
-        payload.max_tokens ?? modelDefaults.max_tokens ?? DEFAULT_MAX_TOKENS,
+        payload.max_tokens ?? modelDefaults?.max_tokens ?? DEFAULT_MAX_TOKENS,
         maxTokensCap ?? DEFAULT_MAX_TOKENS
       ),
-      stream: payload.stream ?? modelDefaults.stream ?? DEFAULT_IS_STREAMING,
+      stream: payload.stream ?? modelDefaults?.stream ?? DEFAULT_IS_STREAMING,
     }
 
     for (const [key, value] of Object.entries(payload)) {

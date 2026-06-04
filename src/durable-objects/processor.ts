@@ -122,7 +122,7 @@ export class ProcessorDurableObject {
 
       const provider = getProviderByName(this.env, providerName)
       const transformedPayload = provider.transformRequest(payload, config)
-      const format = resolveModelFormat(providerName, payload.model || 'unknown')
+      const format = resolveModelFormat(payload.model || '')
       const result = await provider.makeRequest(config.endpoint, transformedPayload, format)
 
       await this.updateState({
