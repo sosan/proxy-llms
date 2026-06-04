@@ -1,7 +1,7 @@
 import { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Env } from '../interfaces/general'
-import { ProviderConfigs, resolveModelFormat } from '../config/providers'
+import { ProviderConfigs, resolveModelDefaults } from '../config/providers'
 import { ProviderError } from '../errors/provider-error'
 import { MetricsCollector } from '../metrics/metrics-collector'
 import { getProviderByName } from '../providers/provider-factory'
@@ -181,28 +181,32 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
   try {
     // --- Parse ---
     const result = await parseRequestBody(c.req)
+    console.log('Parsed request body:', result.payload) // Debug log for parsed payload
     if (result.error) {
       return c.json(createResponse(false, null, result.error), { status: result.status })
     }
 
     // --- Validate ---
     const payloadModel = result.payload?.model
+    console.log('Extracted model from payload:', payloadModel) // Debug log for extracted model
     if (!payloadModel) {
       return c.json(createResponse(false, null, 'Model not specified in request body'), { status: 400 })
     }
 
     // --- Resolve provider ---
     const providerDC = extractProviderFromModel(payloadModel)
+    console.log('Resolved provider from model:', providerDC) // Debug log for resolved provider
     if (!providerDC) {
       return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
 
     const configResult = resolveProviderConfig(providerDC)
+    console.log('Resolved provider config:', 'error' in configResult ? configResult.error : 'config found') // Debug log for provider config resolution
     if ('error' in configResult) {
       return c.json(createResponse(false, null, configResult.error), { status: configResult.status })
     }
     const { config } = configResult
-
+    console.log('Using provider config:', config) // Debug log for provider config
     const provider = getProviderByName(c.env, providerDC)
 
     // --- Transform ---
@@ -210,11 +214,16 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
 
     // --- Resolve model format and endpoint ---
     const resolvedModel = transformedPayload.model || 'unknown'
-    const modelFormat = resolveModelFormat(providerDC, resolvedModel)
-    const endpoint = modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint
+    const fullModelId = payloadModel //`${providerDC}/${resolvedModel}`
+    // const modelFormat = resolveModelFormat(fullModelId)
+    const modelDefaults = resolveModelDefaults(fullModelId)
+    if (!modelDefaults) {
+      return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
+    }
+    const endpoint = modelDefaults?.endpoint ?? (modelDefaults.format === 'anthropic' ? '/messages' : '/chat/completions')
 
     // --- Apply middlewares ---
-    const finalPayload = applyPayloadMiddlewares(transformedPayload, c.env, { format: modelFormat as 'anthropic' | 'openai' | 'google' })
+    const finalPayload = applyPayloadMiddlewares(transformedPayload, c.env, { format: modelDefaults.format as 'anthropic' | 'openai' | 'google' })
 
     // --- Route to stream or non-stream ---
     const isStream = finalPayload.stream === true
@@ -226,7 +235,7 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
       return handleStreamRequest(provider, endpoint, finalPayload, metricsCollector)
     }
 
-    const response = await handleNonStreamRequest(provider, endpoint, finalPayload, { format: modelFormat as 'anthropic' | 'openai' | 'google' }, metricsCollector)
+    const response = await handleNonStreamRequest(provider, endpoint, finalPayload, { format: modelDefaults.format as 'anthropic' | 'openai' | 'google' }, metricsCollector)
     return c.json(createResponse(true, response))
 
   } catch (error) {

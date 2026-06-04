@@ -1,7 +1,7 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { Context } from 'hono'
 import type { Env, GenericPayload } from '../interfaces/general'
-import { ProviderConfigs, resolveAnthropicModel, resolveModelFormat } from '../config/providers'
+import { ProviderConfigs, resolveAnthropicModel, resolveModelFormat, ModelDefaultsById } from '../config/providers'
 import { ProviderError } from '../errors/provider-error'
 import { MetricsCollector } from '../metrics/metrics-collector'
 import { getProviderByName } from '../providers/provider-factory'
@@ -98,7 +98,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
 
     // -- 6. Strip tools if the specific resolved model doesn't support tool calling -----
     const resolvedModelId = genericPayload.model ? `${providerDC}/${genericPayload.model}` : null
-    const modelDefaults = resolvedModelId ? (await import('../config/providers')).ModelDefaultsById[resolvedModelId] : undefined
+    const modelDefaults = resolvedModelId ? ModelDefaultsById[resolvedModelId] : undefined
     if (modelDefaults?.supportsToolCalling === false) {
       log.debug(`[Claude Messages] Stripping tools from request (model ${resolvedModelId} does not support tool calling)`)
       const { tools: _tools, tool_choice: _toolChoice, ...rest } = genericPayload
@@ -115,7 +115,8 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     metricsCollector = new MetricsCollector(c.env, requestId, model, providerDC, isStream)
 
     // -- 8. Determine endpoint based on model format -----------------------
-    const endpoint = modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint
+    const modelDefaultsEntry = ModelDefaultsById[mappedModel]
+    const endpoint = modelDefaultsEntry?.endpoint ?? (modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint)
 
     // -- 9a. Streaming response -------------------------------------------
     if (isStream) {

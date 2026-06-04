@@ -2,6 +2,7 @@ import type { ProviderConfig } from '../interfaces/general'
 import { logger } from '../utils/logger'
 
 export type ModelDefaults = {
+  endpoint?: string,
   temperature?: number
   top_p?: number
   max_tokens?: number
@@ -81,29 +82,19 @@ const _ProviderConfigs = {
   },
 } as const
 
-export const PROVIDER_DEFAULT_FORMATS: Record<string, string> = {
-  claude: 'anthropic',
-  nvidia: 'openai',
-  google: 'google',
-  openrouter: 'anthropic',
-  lmstudio: 'openai',
-  llamacpp: 'openai',
-  ollama: 'openai',
-}
-
 export const ProviderConfigs: Record<string, ProviderConfig> = _ProviderConfigs
 
 export type ProviderType = keyof typeof _ProviderConfigs
 
 
 export const ModelDefaultsById: Record<string, ModelDefaults> = {
-  'openai/gpt-oss-120b': {
+  'nvidia/openai/gpt-oss-120b': {
     temperature: 0.2,
     top_p: 1,
     max_tokens: 32768,
     stream: true,
   },
-  'z-ai/glm4.7': {
+  'nvidia/z-ai/glm4.7': {
     temperature: 0.9,
     top_p: 0.95,
     max_tokens: 32768,
@@ -115,7 +106,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     },
   },
-  'z-ai/glm5.1': {
+  'nvidia/z-ai/glm5.1': {
     temperature: 0.9,
     top_p: 0.95,
     max_tokens: 32768,
@@ -128,11 +119,11 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     },
   },
-  'z-ai/glm-5.1': {
+  'nvidia/z-ai/glm-5.1': {
     temperature: 0.9,
     top_p: 0.95,
-    max_tokens: 8192,
-    maxTokensCap: 8192,
+    max_tokens: 32768,
+    maxTokensCap: 32768,
     stream: true,
     supportsToolCalling: false,
     extra: {
@@ -142,7 +133,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     },
   },
-  'deepseek/deepseek-v4-pro': {
+  'nvidia/deepseek/deepseek-v4-pro': {
     temperature: 1,
     top_p: 0.95,
     max_tokens: 16384,
@@ -153,20 +144,21 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     },
   },
-  'minimaxai/minimax-m2.7': {
+  'nvidia/minimaxai/minimax-m2.7': {
     temperature: 0.2,
     top_p: 0.9,
     max_tokens: 8192,
     maxTokensCap: 8192,
     stream: true,
   },
-  'moonshotai/kimi-k2-thinking': {
+  'nvidia/moonshotai/kimi-k2-thinking': {
     temperature: 0.6,
     top_p: 0.95,
     max_tokens: 32768,
     stream: true,
   },
-  'moonshotai/kimi-k2.6': {
+  'openrouter/moonshotai/kimi-k2.6': {
+    endpoint: '/chat/completions',
     temperature: 1,
     top_p: 0.95,
     max_tokens: 8192,
@@ -180,20 +172,35 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     }
   },
-  'stepfun-ai/step-3.5-flash': { // no ranking
+  'nvidia/moonshotai/kimi-k2.6': {
+    endpoint: '/chat/completions',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 32768,
+    maxTokensCap: 32768,
+    stream: true,
+    supportsToolCalling: false,
+    format: 'openai',
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'nvidia/stepfun-ai/step-3.5-flash': { // no ranking
     temperature: 1,
     top_p: 0.9,
     max_tokens: 26214,
     stream: true,
   },
-  'qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
+  'nvidia/qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
     temperature: 0.7,
     top_p: 0.8,
     supportsToolCalling: false,
     max_tokens: 262144,
     stream: true,
   },
-  'google/gemma-4-31b-it': {
+  'nvidia/google/gemma-4-31b-it': {
     temperature: 1,
     top_p: 0.8,
     max_tokens: 32768,
@@ -203,7 +210,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       chat_template_kwargs: { enable_thinking: true },
     }
   },
-  'owl-alpha': {
+  'openrouter/stealth/owl-alpha': {
     format: 'anthropic',
     stream: true,
     temperature: 1,
@@ -215,12 +222,16 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   },
 }
 
-export const resolveModelFormat = (provider: string, model: string): string => {
-  const modelDefaults = ModelDefaultsById[model]
+export const resolveModelFormat = (fullModelId: string): string => {
+  const modelDefaults = ModelDefaultsById[fullModelId]
   if (modelDefaults?.format) {
     return modelDefaults.format
   }
-  return PROVIDER_DEFAULT_FORMATS[provider] ?? 'openai'
+  return 'openai'
+}
+
+export const resolveModelDefaults = (fullModelId: string): ModelDefaults | undefined => {
+  return ModelDefaultsById[fullModelId] ?? undefined
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
