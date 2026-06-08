@@ -1,6 +1,7 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { BaseProvider, sleep, getRetryDelay, RETRY_MAX_ATTEMPTS, isNetworkError } from './base-provider'
 import { ProviderError } from '../errors/provider-error'
+import { ProviderConfigs } from '../config/providers'
 import { logger } from '../utils/logger'
 
 // ---------------------------------------------------------------------------
@@ -70,6 +71,56 @@ function validateOpenAIResponse(json: unknown): void {
   }
 }
 
+function parseRetryAfterMs(retryAfter: string): number | undefined {
+  const seconds = Number(retryAfter)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return seconds * 1000
+  }
+
+  const retryAt = Date.parse(retryAfter)
+  if (Number.isNaN(retryAt)) return undefined
+
+  return Math.max(0, retryAt - Date.now())
+}
+
+function getNvidiaRateLimitDelayMs(): number {
+  return ProviderConfigs.nvidia.rateLimit?.rateLimitDelayMs ?? 600000
+}
+
+function getNvidiaRetryAfterSeconds(): string {
+  return String(Math.ceil(getNvidiaRateLimitDelayMs() / 1000))
+}
+
+function normalizeRetryAfterSeconds(retryAfter?: string): string {
+  if (!retryAfter) return getNvidiaRetryAfterSeconds()
+
+  const retryAfterMs = parseRetryAfterMs(retryAfter)
+  if (retryAfterMs === undefined) return retryAfter
+
+  return String(Math.ceil(retryAfterMs / 1000))
+}
+
+function withNvidiaRateLimitHeaders(error: ProviderError): ProviderError {
+  if (error.status !== 429) return error
+
+  const retryAfter = normalizeRetryAfterSeconds(error.retryAfter)
+  const requestsPerMinute = ProviderConfigs.nvidia.rateLimit?.requestsPerMinute
+  const resetAtSeconds = Math.ceil(Date.now() / 1000) + Number(retryAfter)
+
+  error.retryAfter = retryAfter
+  error.responseHeaders = {
+    ...error.responseHeaders,
+    'Retry-After': retryAfter,
+    'RateLimit-Reset': String(resetAtSeconds),
+    'X-RateLimit-Remaining': '0',
+    'X-RateLimit-Reset': String(resetAtSeconds),
+    'X-RateLimit-Delay-Ms': String(Number(retryAfter) * 1000),
+    ...(requestsPerMinute ? { 'X-RateLimit-Limit': String(requestsPerMinute) } : {}),
+  }
+
+  return error
+}
+
 /**
  * NVIDIA NIM Provider
  * Forwards requests to NVIDIA's API (api.nvidia.com)
@@ -108,7 +159,15 @@ export class NvidiaProvider extends BaseProvider {
           throw lastError
         }
 
-        const delay = getRetryDelay(attempt, lastError.status)
+        const retryAfterMs = lastError.status === 429 && lastError.retryAfter
+          ? parseRetryAfterMs(lastError.retryAfter)
+          : undefined
+        const rateLimitDelayMs = getNvidiaRateLimitDelayMs()
+        const delay = retryAfterMs ?? getRetryDelay(
+          attempt,
+          lastError.status,
+          lastError.status === 429 && typeof rateLimitDelayMs === 'number' ? rateLimitDelayMs : 0
+        )
         logger.info(`[${requestId}] Retrying after ${Math.round(delay)}ms (attempt ${attempt}/${RETRY_MAX_ATTEMPTS})`)
         await sleep(delay)
       }
@@ -131,7 +190,7 @@ export class NvidiaProvider extends BaseProvider {
     return this.executeWithRetry(
       requestId,
       async () => this._doStreamRequest(requestId, uri, sanitizedPayload),
-      (err) => err.status === 400 || err.status === 408 || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
+      (err) => err.status === 400 || err.status === 408 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 
@@ -183,7 +242,7 @@ export class NvidiaProvider extends BaseProvider {
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
       })
-      throw this.createUpstreamError(response, errorBody, 'NVIDIA')
+      throw withNvidiaRateLimitHeaders(this.createUpstreamError(response, errorBody, 'NVIDIA'))
     }
 
     return response
@@ -204,7 +263,7 @@ export class NvidiaProvider extends BaseProvider {
     return this.executeWithRetry(
       requestId,
       async () => this._doRequest(requestId, uri, sanitizedPayload),
-      (err) => err.status === 400 || err.status === 408 || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504
+      (err) => err.status === 400 || err.status === 408 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 
@@ -255,7 +314,7 @@ export class NvidiaProvider extends BaseProvider {
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
       })
-      throw this.createUpstreamError(response, errorBody, 'NVIDIA')
+      throw withNvidiaRateLimitHeaders(this.createUpstreamError(response, errorBody, 'NVIDIA'))
     }
 
     const json = await response.json()

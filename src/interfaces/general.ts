@@ -82,9 +82,31 @@ export interface ProcessState {
   progress: number
 }
 
+export interface RateLimitConfig {
+  requestsPerMinute?: number // e.g. 40 for NVIDIA
+  minRetryDelayMs?: number   // minimum delay between retries (ms)
+  maxRetryDelayMs?: number   // maximum delay between retries (ms)
+  rateLimitDelayMs?: number  // delay for 429 rate limit responses (ms)
+}
+
+export interface RetryStrategy {
+  baseDelayMs: number
+  backoffMultiplier: number
+  maxDelayMs: number
+  rateLimitRpm?: number
+}
+
 export interface ProviderConfig {
   endpoint: string;
   alterEndpoint?: string; // Alternative endpoint for Anthropic-compatible path (e.g., '/messages' on NIM)
   models: Record<string, string>; // alias: 'provider/model-id'
   supportsToolCalling?: boolean; // Whether models in this config support tool calling
+  rateLimit?: RateLimitConfig;
+  retryStrategy?: RetryStrategy;
+}
+
+export type TransformedPayload = {
+  model: string
+  stream?: boolean
+  [key: string]: unknown
 }

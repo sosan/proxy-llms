@@ -8,7 +8,7 @@ import { logger } from '../utils/logger'
 const DEFAULT_MAX_TOKENS = 32768
 const DEFAULT_MAX_TEMP = 1
 const DEFAULT_MAX_TOP_P = 1
-const DEFAULT_IS_STREAMING = false
+const DEFAULT_IS_STREAMING = true
 const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'model', 'messages', 'content'])
 
 // Retry configuration for transient upstream failures
@@ -21,11 +21,32 @@ export async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export function getRetryDelay(attempt: number, status?: number): number {
+export function getRetryDelay(attempt: number, status?: number, minRetryDelayMs = 0): number {
   const baseDelay = status === 502 || status === 503 || status === 504 ? RETRY_BASE_DELAY_MS_GATEWAY : RETRY_BASE_DELAY_MS
   const base = baseDelay * 2 ** (attempt - 1)
   const jitter = Math.random() * JITTER_MAX_MS
-  return base + jitter
+  const delay = base + jitter
+  return Math.max(delay, minRetryDelayMs)
+}
+
+export function getRetryDelayWithConfig(attempt: number, rateLimitConfig: { minRetryDelayMs?: number; maxRetryDelayMs?: number } | undefined, status?: number): number {
+  const isGateway = status === 502 || status === 503 || status === 504
+  const is429 = status === 429
+  let baseDelay: number
+  if (is429 && rateLimitConfig?.minRetryDelayMs) {
+    baseDelay = rateLimitConfig.minRetryDelayMs
+  } else if (isGateway) {
+    baseDelay = RETRY_BASE_DELAY_MS_GATEWAY
+  } else {
+    baseDelay = RETRY_BASE_DELAY_MS
+  }
+  const base = baseDelay * 2 ** (attempt - 1)
+  const jitter = Math.random() * JITTER_MAX_MS
+  let delay = base + jitter
+  if (rateLimitConfig?.maxRetryDelayMs) {
+    delay = Math.min(delay, rateLimitConfig.maxRetryDelayMs)
+  }
+  return delay
 }
 
 /**
@@ -143,11 +164,22 @@ export abstract class BaseProvider implements AIProvider {
   // --- Shared transformRequest (can be overridden) --------------------------
 
   transformRequest(payload: GenericPayload, config: ProviderConfig): Record<string, unknown> {
-    const fullmodel = payload.model?.substring(payload.model.indexOf('/') + 1)
-    const model = resolveModel(config, fullmodel)
-    const modelDefaults = resolveModelDefaults(model)
+    const fullmodel = payload.model //?.substring(payload.model.indexOf('/') + 1)
+    if (!fullmodel) {
+      logger.warn(`No model found for model "${fullmodel}" in payload: ${JSON.stringify(payload)}. Using provider default model if available.`)
+      throw new ProviderError(
+        'Model not specified in payload',
+        400 as ContentfulStatusCode,
+        'model_not_specified',
+        'Model must be specified in the request payload.'
+      )
+    }
+    console.log("fullmodel: ", fullmodel) // Debug log for full model ID
+    const modelWOProvider = resolveModel(config, fullmodel)
+    console.log("resolved model: ", modelWOProvider) // Debug log for resolved model
+    const modelDefaults = resolveModelDefaults(fullmodel)
     if (!modelDefaults) {
-      logger.warn(`No model defaults found for model "${model}". Using generic defaults.`)
+      logger.warn(`No model defaults found for model "${fullmodel}". Using generic defaults.`)
     }
 
     // Apply max_tokens cap when model has instability history
@@ -168,7 +200,7 @@ export abstract class BaseProvider implements AIProvider {
 
     const commonPayload: Record<string, unknown> = {
       ...modelDefaults?.extra,
-      model: model,
+      model: modelWOProvider,
       messages: messages,
       temperature: payload.temperature ?? modelDefaults?.temperature ?? DEFAULT_MAX_TEMP,
       top_p: payload.top_p ?? modelDefaults?.top_p ?? DEFAULT_MAX_TOP_P,

@@ -1,80 +1,20 @@
 import { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import { Env } from '../interfaces/general'
-import { ProviderConfigs, resolveModelDefaults } from '../config/providers'
+import { Env, TransformedPayload } from '../interfaces/general'
+import {  resolveModelDefaults, resolveModelFormat } from '../config/providers'
 import { ProviderError } from '../errors/provider-error'
 import { MetricsCollector } from '../metrics/metrics-collector'
 import { getProviderByName } from '../providers/provider-factory'
 import { createResponse, parseRequestBody } from '../utils/response'
 import { logger } from '../utils/logger'
-import { compressMessages, formatRtkLog } from '../transformers/rtk/index'
-import { injectCaveman } from '../transformers/rtk/caveman'
-import type { CavemanLevel } from '../interfaces/rtk'
+import { applyPayloadMiddlewares, extractProviderFromModel, resolveProviderConfig } from './models'
+import { resolve } from 'node:dns'
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
-type TransformedPayload = {
-  model: string
-  stream?: boolean
-  [key: string]: unknown
-}
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-/**
- * Extracts and validates the provider prefix from a model string (e.g., "nvidia/gpt-oss" → "nvidia").
- * Returns null if the model format is invalid.
- */
-function extractProviderFromModel(model: string): string | null {
-  const parts = model.split('/')
-  return parts.length >= 2 ? parts[0] : null
-}
-
-/**
- * Resolves the provider config or returns an error response.
- */
-function resolveProviderConfig(providerDC: string): { config: typeof ProviderConfigs[string] } | { error: string; status: ContentfulStatusCode } {
-  const config = ProviderConfigs[providerDC]
-  if (!config) {
-    const supportedProviders = Object.keys(ProviderConfigs).join(', ')
-    return {
-      error: `Unknown provider: "${providerDC}". Supported: ${supportedProviders}`,
-      status: 400 as ContentfulStatusCode,
-    }
-  }
-  return { config }
-}
-
-/**
- * Applies RTK compression and Caveman middleware to the payload.
- * Returns a new payload (no mutation).
- */
-function applyPayloadMiddlewares(
-  payload: TransformedPayload,
-  env: Env,
-  config: { format: 'anthropic' | 'openai' | 'google' }
-): TransformedPayload {
-  let result: TransformedPayload = { ...payload }
-
-  // RTK: compress tool_result content before sending upstream
-  if (env.RTK_ENABLED === 'true') {
-    const rtkStats = compressMessages(result, true)
-    const rtkLine = formatRtkLog(rtkStats)
-    if (rtkLine) logger.debug(rtkLine)
-  }
-
-  // Caveman: inject terse-style system prompt before sending upstream
-  if (env.CAVEMAN_ENABLED === 'true') {
-    const cavemanLevel = (env.CAVEMAN_LEVEL || 'full') as CavemanLevel
-    injectCaveman(result, config.format, cavemanLevel)
-  }
-
-  return result
-}
 
 /**
  * Builds a standardized error response from an error.
@@ -94,8 +34,11 @@ function buildErrorResponse(error: unknown): {
     ? { code: providerError.code, status, ...(providerError.retryAfter ? { retry_after: providerError.retryAfter } : {}) }
     : null
 
-  const headers = providerError?.retryAfter
-    ? { 'Retry-After': providerError.retryAfter }
+  const headers = providerError
+    ? {
+      ...providerError.responseHeaders,
+      ...(providerError.retryAfter ? { 'Retry-After': providerError.retryAfter } : {}),
+    }
     : undefined
 
   return { status, publicMessage, errorData, headers }
@@ -208,19 +151,30 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     const { config } = configResult
     console.log('Using provider config:', config) // Debug log for provider config
     const provider = getProviderByName(c.env, providerDC)
-
+    console.log("Instantiated provider:", provider.name) // Debug log for instantiated provider
     // --- Transform ---
     const transformedPayload: TransformedPayload = provider.transformRequest(result.payload!, config) as TransformedPayload
+    // console.log('Transformed payload:', JSON.stringify(transformedPayload)) // Debug log for transformed payload
 
     // --- Resolve model format and endpoint ---
     const resolvedModel = transformedPayload.model || 'unknown'
-    const fullModelId = payloadModel //`${providerDC}/${resolvedModel}`
-    // const modelFormat = resolveModelFormat(fullModelId)
-    const modelDefaults = resolveModelDefaults(fullModelId)
+    console.log("resolvedmodel: ", resolvedModel) // Debug log for resolved model
+    console.log("payload model: ", payloadModel) // Debug log for original payload model
+    // const fullModelId = payloadModel //`${providerDC}/${resolvedModel}`
+    const modelFormat = resolveModelFormat(payloadModel)
+    const modelDefaults = resolveModelDefaults(payloadModel)
     if (!modelDefaults) {
       return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
     const endpoint = modelDefaults?.endpoint ?? (modelDefaults.format === 'anthropic' ? '/messages' : '/chat/completions')
+
+    // let genericPayload: GenericPayload
+    switch (modelFormat) {
+      case 'anthropic':
+      case 'openai':
+      case 'google':
+
+    }
 
     // --- Apply middlewares ---
     const finalPayload = applyPayloadMiddlewares(transformedPayload, c.env, { format: modelDefaults.format as 'anthropic' | 'openai' | 'google' })

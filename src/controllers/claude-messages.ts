@@ -11,6 +11,7 @@ import { transformClaudeToOpenAI } from '../transformers/claude-to-openai'
 import { transformOpenAIToClaude } from '../transformers/openai-to-claude'
 import { createOpenAIStreamToClaudeTransformStream } from '../transformers/openai-stream-to-claude'
 import type { AIProvider } from '../interfaces/provider'
+import { extractProviderFromModel } from './models'
 
 export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
@@ -23,10 +24,13 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
       return c.json(createResponse(false, null, bodyResult.error), { status: bodyResult.status })
     }
     const claudePayload: GenericPayload = bodyResult.payload!
+    if (!claudePayload) {
+      return c.json(createResponse(false, null, 'Request body is empty or invalid'), { status: 400 })
+    }
 
     // -- 2. Resolve model mapping (before knowing provider format) ----------
     const payloadModel = claudePayload.model
-    if (typeof payloadModel !== 'string' || payloadModel.length === 0) {
+    if (!payloadModel) {
       return c.json(createResponse(false, null, 'Model not specified in request body'), { status: 400 })
     }
 
@@ -44,7 +48,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
 
     if (mappedModel === payloadModel) {
       return c.json(
-        createResponse(false, null, `Model "${payloadModel}" is not mapped to a gateway model. Please specify a model alias in the request body that maps to a supported gateway model.`),
+        createResponse(false, null, `not supported`),
         { status: 400 }
       )
     }
@@ -58,7 +62,8 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     })
 
     // -- 3. Resolve provider & validate --------------------------------------
-    const providerDC = mappedModel.split('/')[0]
+    // const providerDC = mappedModel.split('/')[0]
+    const providerDC = extractProviderFromModel(payloadModel)
     if (!providerDC) {
       return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
@@ -72,7 +77,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     // -- 4. Resolve model format per-model ---------------------------------
     const modelParts = mappedModel.split('/')
     const modelName = modelParts.length > 1 ? modelParts.slice(1).join('/') : mappedModel
-    const modelFormat = resolveModelFormat(providerDC, modelName)
+    const modelFormat = resolveModelFormat(payloadModel)
 
     // -- 5. Transform payload according to provider format ------------------
     let genericPayload: GenericPayload
@@ -216,6 +221,11 @@ function handleClaudeError(
 
   // Propagate upstream rate-limit to client so they can back off
   const responseHeaders = new Headers()
+  if (error instanceof ProviderError && error.responseHeaders) {
+    Object.entries(error.responseHeaders).forEach(([key, value]) => {
+      responseHeaders.set(key, value)
+    })
+  }
   if (status === 429) {
     const retryAfter = error instanceof ProviderError ? error.retryAfter : undefined
     if (retryAfter) {

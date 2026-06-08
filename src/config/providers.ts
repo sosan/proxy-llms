@@ -36,6 +36,12 @@ const _ProviderConfigs = {
   nvidia: {
     endpoint: '/chat/completions',
     alterEndpoint: '/messages',
+    rateLimit: {
+      requestsPerMinute: 40,
+      minRetryDelayMs: 1500,
+      rateLimitDelayMs: 600000,
+      maxRetryDelayMs: 60000,
+    },
     models: {
       'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
       'z-ai/glm5.1': 'z-ai/glm-5.1',
@@ -157,15 +163,19 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     max_tokens: 32768,
     stream: true,
   },
+  'claude/claude-opus-4-7': {
+    endpoint: '/messages',
+    format: 'anthropic',
+  },
   'openrouter/moonshotai/kimi-k2.6': {
     endpoint: '/chat/completions',
+    format: 'openai',
     temperature: 1,
     top_p: 0.95,
     max_tokens: 8192,
     maxTokensCap: 8192,
     stream: true,
     supportsToolCalling: false,
-    format: 'openai',
     extra: {
       "chat_template_kwargs": {
         thinking: true,
@@ -174,13 +184,13 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   },
   'nvidia/moonshotai/kimi-k2.6': {
     endpoint: '/chat/completions',
+    format: 'openai',
     temperature: 1,
     top_p: 0.95,
     max_tokens: 32768,
     maxTokensCap: 32768,
     stream: true,
     supportsToolCalling: false,
-    format: 'openai',
     extra: {
       "chat_template_kwargs": {
         thinking: true,
@@ -235,16 +245,22 @@ export const resolveModelDefaults = (fullModelId: string): ModelDefaults | undef
 }
 
 export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
+  const parts = payloadModel?.split('/')
+  if (!parts || parts.length < 2) {
+    logger.warn(`Model "${payloadModel}" does not contain a provider prefix. Attempting to resolve using full model ID or alias matching.`)
+  }
+
+  const model = parts?.slice(1).join('/')
   const aliases = config.models
   const fullIds = Object.values(aliases)
 
-  if (payloadModel) {
+  if (model) {
     logger.debug(`Resolving model for payload model: "${payloadModel}"`)
-    if (aliases[payloadModel]) {
-      return aliases[payloadModel]
+    if (aliases[model]) {
+      return aliases[model]
     }
-    if (fullIds.includes(payloadModel)) {
-      return payloadModel
+    if (fullIds.includes(model)) {
+      return model
     }
     // Fallback: allow partial match (e.g., "kimi-k2.6" matches "moonshotai/kimi-k2.6")
     const partialMatch = fullIds.find(id => id === payloadModel || id.endsWith(`/${payloadModel}`))
