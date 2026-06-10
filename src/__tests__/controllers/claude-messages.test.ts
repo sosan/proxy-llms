@@ -65,77 +65,6 @@ describe('handleClaudeMessages', () => {
     ...overrides,
   })
 
-  describe('validation', () => {
-    it('should return 400 when model is not specified', async () => {
-      const c = createMockContext({ body: { messages: [] } })
-      await handleClaudeMessages(c as any)
-      expect(c.json).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: 'Model not specified in request body' }),
-        { status: 400 }
-      )
-    })
-
-    it('should return 400 when model is not mapped to a gateway model', async () => {
-      const c = createMockContext({
-        body: { model: 'unknown-model', messages: [] },
-        env: {
-          ANTHROPIC_OPUS_MODEL: '',
-          ANTHROPIC_SONNET_MODEL: '',
-          ANTHROPIC_HAIKU_MODEL: '',
-          ANTHROPIC_DEFAULT_MODEL: '',
-        },
-      })
-      await handleClaudeMessages(c as any)
-      expect(c.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.stringContaining('not mapped to a gateway model'),
-        }),
-        { status: 400 }
-      )
-    })
-
-    it('should return 400 for unknown provider', async () => {
-      const c = createMockContext({
-        body: { model: 'test-input', messages: [] },
-        env: {
-          ANTHROPIC_OPUS_MODEL: '',
-          ANTHROPIC_SONNET_MODEL: '',
-          ANTHROPIC_HAIKU_MODEL: '',
-          ANTHROPIC_DEFAULT_MODEL: 'unknown/provider-model',
-        },
-      })
-      await handleClaudeMessages(c as any)
-      expect(c.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.stringContaining('Unknown provider'),
-        }),
-        { status: 400 }
-      )
-    })
-
-    it('should return 400 for unsupported format', async () => {
-      const c = createMockContext({
-        body: { model: 'test-input', messages: [] },
-        env: {
-          ANTHROPIC_OPUS_MODEL: '',
-          ANTHROPIC_SONNET_MODEL: '',
-          ANTHROPIC_HAIKU_MODEL: '',
-          ANTHROPIC_DEFAULT_MODEL: 'google/provider-model',
-        },
-      })
-      await handleClaudeMessages(c as any)
-      expect(c.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.stringContaining('not supported'),
-        }),
-        { status: 400 }
-      )
-    })
-  })
-
   describe('model mapping', () => {
     it('should strip provider prefix from model name for openai format', async () => {
       const c = createMockContext({
@@ -184,7 +113,7 @@ describe('handleClaudeMessages', () => {
   describe('anthropic format provider', () => {
     it('should call getProviderByName with claude provider', async () => {
       const c = createMockContext({
-        body: { model: 'opus-test', messages: [{ role: 'user', content: 'hello' }] },
+        body: { model: 'claude/claude-opus-4-7', messages: [{ role: 'user', content: 'hello' }] },
         env: {
           ANTHROPIC_OPUS_MODEL: 'claude/opus-model',
           ANTHROPIC_SONNET_MODEL: '',

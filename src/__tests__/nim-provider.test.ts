@@ -43,23 +43,6 @@ describe('NvidiaProvider', () => {
   })
 
   describe('transformRequest', () => {
-    // it('should transform a basic payload with messages', () => {
-    //   const config = ProviderConfigs.nvidia
-    //   const payload = {
-    //     model: 'nvidia/z-ai/glm-5.1',
-    //     messages: [{ role: 'user' as const, content: 'Hello' }],
-    //   }
-
-    //   const result = provider.transformRequest(payload, config) as Record<string, unknown>
-
-    //   expect(result.model).toBe('z-ai/glm-5.1')
-    //   expect(result.messages).toEqual([{ role: 'user', content: 'Hello' }])
-    //   expect(result.temperature).toBe(0.9)
-    //   expect(result.top_p).toBe(0.95)
-    //   expect(result.max_tokens).toBe(8192)
-    //   expect(result.stream).toBe(true)
-    // })
-
     it('should transform payload with string content', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
@@ -83,20 +66,6 @@ describe('NvidiaProvider', () => {
 
       expect(result.messages).toEqual([{ role: 'user', content: [{ type: 'text', text: 'Hello with parts' }] }])
     })
-
-    // it('should apply model defaults for temperature and tokens', () => {
-    //   const config = ProviderConfigs.nvidia
-    //   const payload = {
-    //     model: 'nvidia/deepseek/deepseek-v4-pro',
-    //     messages: [{ role: 'user' as const, content: 'Hello' }],
-    //   }
-
-    //   const result = provider.transformRequest(payload, config) as Record<string, unknown>
-
-    //   expect(result.temperature).toBe(1)
-    //   // expect(result.max_tokens).toBe(16384)
-    //   expect(result.stream).toBe(true)
-    // })
 
     it('should override defaults with payload values', () => {
       const config = ProviderConfigs.nvidia
@@ -146,15 +115,13 @@ describe('NvidiaProvider', () => {
       expect(result.content).toBeUndefined()
     })
 
-    it('should create default message when no messages or content provided', () => {
+    it('should throw ProviderError if model is missing', () => {
       const config = ProviderConfigs.nvidia
       const payload = {
-        provider: 'openai',
+        messages: [{ role: 'user' as const, content: 'Hello' }],
       }
 
-      const result = provider.transformRequest(payload, config) as Record<string, unknown>
-
-      expect(result.messages).toEqual([{ role: 'user', content: 'Default message for openai provider.' }])
+      expect(() => provider.transformRequest(payload, config)).toThrow(ProviderError)
     })
   })
 

@@ -6,7 +6,7 @@ describe('Provider Configs', () => {
     const openaiConfig = ProviderConfigs.nvidia
 
     it('should resolve an alias to the full model ID', () => {
-      const result = resolveModel(openaiConfig, 'z-ai/glm5.1')
+      const result = resolveModel(openaiConfig, 'nvidia/z-ai/glm5.1')
       expect(result).toBe('z-ai/glm-5.1')
     })
 
@@ -16,8 +16,8 @@ describe('Provider Configs', () => {
     })
 
     it('should throw an error for an unsupported model alias', () => {
-      expect(() => resolveModel(openaiConfig, 'nonexistent-model')).toThrow(
-        /Model alias "nonexistent-model" is not supported/
+      expect(() => resolveModel(openaiConfig, 'google/noexist/nonexistent-model')).toThrow(
+        /Model alias google\/noexist\/nonexistent-model is not supported/
       )
     })
 
@@ -40,7 +40,7 @@ describe('Provider Configs', () => {
 
     it('should handle full IDs that are present in values', () => {
       const claudeConfig = ProviderConfigs.claude
-      expect(resolveModel(claudeConfig, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+      expect(resolveModel(claudeConfig, 'claude/claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
     })
   })
 

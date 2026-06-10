@@ -26,14 +26,85 @@ vi.mock('../../providers/base-provider', async (importOriginal) => {
 })
 
 import { NvidiaProvider } from '../../providers/nvidia-provider'
+import { sleep } from '../../providers/base-provider'
+import { ProviderError } from '../../errors/provider-error'
 
 describe('NvidiaProvider - retry logic', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.mocked(sleep).mockClear()
   })
 
-  it('should retry on 429 rate limit error and succeed on second attempt', async () => {
+  it('should propagate 429 with local rate-limit headers when upstream omits Retry-After', async () => {
     const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 })
+      )
+    ) as any
+
+    try {
+      await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+      throw new Error('Expected request to fail')
+    } catch (error) {
+      expect(error).toBeInstanceOf(ProviderError)
+      const providerError = error as ProviderError
+      expect(providerError.status).toBe(429)
+      expect(providerError.retryAfter).toBe('600')
+      expect(providerError.responseHeaders).toMatchObject({
+        'Retry-After': '600',
+        'RateLimit-Reset': expect.any(String),
+        'X-RateLimit-Limit': '40',
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Reset': expect.any(String),
+        'X-RateLimit-Delay-Ms': '600000',
+      })
+    }
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    expect(sleep).not.toHaveBeenCalled()
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should respect upstream Retry-After header on propagated 429', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: 'rate limited' }), {
+          status: 429,
+          headers: { 'Retry-After': '120' },
+        })
+      )
+    ) as any
+
+    try {
+      await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+      throw new Error('Expected request to fail')
+    } catch (error) {
+      expect(error).toBeInstanceOf(ProviderError)
+      const providerError = error as ProviderError
+      expect(providerError.retryAfter).toBe('120')
+      expect(providerError.responseHeaders).toMatchObject({
+        'Retry-After': '120',
+        'X-RateLimit-Delay-Ms': '120000',
+      })
+    }
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    expect(sleep).not.toHaveBeenCalled()
+
+    globalThis.fetch = originalFetch
+  })
+
+  it('should fall back to standard retry delay for 502/503 retries', async () => {
+    const provider = new NvidiaProvider('test-key', 'https://api.nvidia.com/v1')
+
+    vi.spyOn(Math, 'random').mockReturnValue(0)
 
     let attempt = 0
     const originalFetch = globalThis.fetch
@@ -41,7 +112,12 @@ describe('NvidiaProvider - retry logic', () => {
       attempt++
       if (attempt === 1) {
         return Promise.resolve(
-          new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 })
+          new Response(JSON.stringify({ error: 'bad gateway' }), { status: 502 })
+        )
+      }
+      if (attempt === 2) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'service unavailable' }), { status: 503 })
         )
       }
       return Promise.resolve(
@@ -49,10 +125,10 @@ describe('NvidiaProvider - retry logic', () => {
       )
     }) as any
 
-    const result = await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
+    await provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
 
-    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
-    expect(result).toEqual({ id: 'chatcmpl-123', choices: [{ message: { content: 'ok' } }] })
+    expect(sleep).toHaveBeenNthCalledWith(1, 5000)
+    expect(sleep).toHaveBeenNthCalledWith(2, 10000)
 
     globalThis.fetch = originalFetch
   })
@@ -137,7 +213,7 @@ describe('NvidiaProvider - retry logic', () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = vi.fn().mockImplementation(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 })
+        new Response(JSON.stringify({ error: 'service unavailable' }), { status: 503 })
       )
     ) as any
 
