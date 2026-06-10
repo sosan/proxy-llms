@@ -244,10 +244,10 @@ export const resolveModelDefaults = (fullModelId: string): ModelDefaults | undef
   return ModelDefaultsById[fullModelId] ?? undefined
 }
 
-export const resolveModel = (config: ProviderConfig, payloadModel: string | null | undefined): string => {
-  const parts = payloadModel?.split('/')
+export const resolveModel = (config: ProviderConfig, fullModelID: string | null | undefined): string => {
+  const parts = fullModelID?.split('/')
   if (!parts || parts.length < 2) {
-    logger.warn(`Model "${payloadModel}" does not contain a provider prefix. Attempting to resolve using full model ID or alias matching.`)
+    logger.warn(`Model "${fullModelID}" does not contain a provider prefix. Attempting to resolve using full model ID or alias matching.`)
   }
 
   const model = parts?.slice(1).join('/')
@@ -255,7 +255,7 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
   const fullIds = Object.values(aliases)
 
   if (model) {
-    logger.debug(`Resolving model for payload model: "${payloadModel}"`)
+    logger.debug(`Resolving model for payload model: "${fullModelID}"`)
     if (aliases[model]) {
       return aliases[model]
     }
@@ -263,12 +263,12 @@ export const resolveModel = (config: ProviderConfig, payloadModel: string | null
       return model
     }
     // Fallback: allow partial match (e.g., "kimi-k2.6" matches "moonshotai/kimi-k2.6")
-    const partialMatch = fullIds.find(id => id === payloadModel || id.endsWith(`/${payloadModel}`))
+    const partialMatch = fullIds.find(id => id === fullModelID || id.endsWith(`/${fullModelID}`))
     if (partialMatch) {
       return partialMatch
     }
     throw new Error(
-      `Model alias "${payloadModel}" is not supported by this provider config. Supported aliases: ${Object.keys(aliases).join(', ')}`
+      `Model alias ${fullModelID} is not supported`
     )
   }
 
