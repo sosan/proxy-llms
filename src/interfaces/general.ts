@@ -24,6 +24,7 @@ export interface Env {
   CAVEMAN_ENABLED?: string
   CAVEMAN_LEVEL?: string
   PROCESSOR: DurableObjectNamespace
+  NVIDIA_RATE_LIMITER: DurableObjectNamespace
   ANALYTICS: AnalyticsEngineDataset
   ANALYTICS_ACCOUNT_ID?: string
   ANALYTICS_API_TOKEN?: string
@@ -87,6 +88,7 @@ export interface RateLimitConfig {
   minRetryDelayMs?: number   // minimum delay between retries (ms)
   maxRetryDelayMs?: number   // maximum delay between retries (ms)
   rateLimitDelayMs?: number  // delay for 429 rate limit responses (ms)
+  maxQueueDelayMs?: number   // maximum internal wait before returning 429 (ms)
 }
 
 export interface RetryStrategy {

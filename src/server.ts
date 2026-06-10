@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { Env } from './interfaces/general'
 import { registerRoutes } from './routes'
 import { ProcessorDurableObject } from './durable-objects/processor'
+import { NvidiaRateLimiterDurableObject } from './durable-objects/nvidia-rate-limiter'
 import { logger, setLoggerEnv } from './utils/logger'
 
 // Main application assembly
@@ -29,4 +30,4 @@ app.onError((err, c) => {
 registerRoutes(app)
 
 export default app
-export { ProcessorDurableObject }
+export { ProcessorDurableObject, NvidiaRateLimiterDurableObject }
