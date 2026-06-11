@@ -189,8 +189,8 @@ export class NvidiaProvider extends BaseProvider {
     })
     logger.logUpstreamConfig(requestId, sanitizedPayload)
 
-    await this.ensureRateLimit().catch((err) => {
-      logger.error(`[${requestId}] ✘ Rate limit error`, { error: err instanceof Error ? err.message : err })
+    await this.ensureCooldown().catch((err) => {
+      logger.error(`[${requestId}] ✘ Cooldown error`, { error: err instanceof Error ? err.message : err })
       throw err
     })
 
@@ -267,8 +267,8 @@ export class NvidiaProvider extends BaseProvider {
     })
     logger.logUpstreamConfig(requestId, sanitizedPayload)
 
-    await this.ensureRateLimit().catch((err) => {
-      logger.error(`[${requestId}] ✘ Rate limit error`, { error: err instanceof Error ? err.message : err })
+    await this.ensureCooldown().catch((err) => {
+      logger.error(`[${requestId}] ✘ Cooldown error`, { error: err instanceof Error ? err.message : err })
       throw err
     })
 
@@ -352,23 +352,18 @@ export class NvidiaProvider extends BaseProvider {
     return json
   }
 
-  private async ensureRateLimit(): Promise<void> {
+  private async ensureCooldown(): Promise<void> {
     const bucket = await hashNvidiaApiKey(this.apiKey)
     const limiter = this.rateLimiter?.getByName(bucket)
     if (!limiter) {
-      logger.warn(`NVIDIA rate limiter not configured, proceeding without rate limit slot`)
+      logger.warn(`NVIDIA rate limiter not configured, proceeding without cooldown slot`)
       return
     }
     const response = await limiter.fetch('https://internal/reserve', { method: 'POST' })
-    const reservation = (await response.json().catch(() => ({}))) as ReservationResponse
+    const lock = (await response.json().catch(() => ({}))) as ReservationResponse
 
-    if (!response.ok || reservation.allowed === false) {
-      throwRateLimited(reservation, response.headers)
-    }
-
-    const delayMs = typeof reservation.delayMs === 'number' ? reservation.delayMs : 0
-    if (delayMs > 0) {
-      await wait(delayMs)
+    if (!response.ok || lock.allowed === false) {
+      throwRateLimited(lock, response.headers)
     }
   }
 }

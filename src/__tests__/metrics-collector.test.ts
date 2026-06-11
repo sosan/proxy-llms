@@ -14,13 +14,14 @@ describe('MetricsCollector', () => {
       NVIDIA_API_KEY: 'test-key',
       NVIDIA_BASE_URL: 'https://api.test',
       LOG_METRICS: 'true',
+      DO_RATE_LIMITER: {} as any,
       ANALYTICS: {
         writeDataPoint: vi.fn().mockResolvedValue(undefined),
       } as any,
       PROCESSOR: {} as any,
     }
 
-    metricsCollector = new MetricsCollector(mockEnv, 'req-123', 'z-ai/glm-5.1', 'openai', false)
+    metricsCollector = new MetricsCollector(mockEnv, 'req-123', 'nvidia/z-ai/glm-5.1', 'openai', false)
   })
 
   afterEach(() => {

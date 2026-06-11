@@ -16,6 +16,7 @@ describe('Provider Factory', () => {
       LLAMACPP_BASE_URL: 'http://localhost:8080/v1',
       OLLAMA_BASE_URL: 'http://localhost:11434/v1',
       PROCESSOR: {} as any,
+      DO_RATE_LIMITER: {} as any,
       ANALYTICS: {
         writeDataPoint: () => Promise.resolve(),
       } as any,

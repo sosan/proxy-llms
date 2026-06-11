@@ -18,7 +18,7 @@ function createProvider(env: Env, type: ProviderType): AIProvider {
       return new NvidiaProvider(
         env.NVIDIA_API_KEY,
         env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
-        env.NVIDIA_RATE_LIMITER
+        env.DO_RATE_LIMITER
       )
     case 'openrouter':
       return new OpenRouterProvider(

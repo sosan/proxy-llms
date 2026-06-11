@@ -24,7 +24,7 @@ export interface Env {
   CAVEMAN_ENABLED?: string
   CAVEMAN_LEVEL?: string
   PROCESSOR: DurableObjectNamespace
-  NVIDIA_RATE_LIMITER: DurableObjectNamespace
+  DO_RATE_LIMITER: DurableObjectNamespace
   ANALYTICS: AnalyticsEngineDataset
   ANALYTICS_ACCOUNT_ID?: string
   ANALYTICS_API_TOKEN?: string

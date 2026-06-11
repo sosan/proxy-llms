@@ -3,7 +3,7 @@ import { ProviderConfigs } from '../config/providers'
 
 const NEXT_AVAILABLE_AT_KEY = 'nextAvailableAt'
 
-type ReservationResult = {
+type LockResult = {
   allowed: boolean
   delayMs: number
   scheduledAt: number
@@ -37,9 +37,11 @@ function buildRateLimitHeaders(delayMs: number, scheduledAt: number): Record<str
   }
 }
 
-export class NvidiaRateLimiterDurableObject {
-  private reservationQueue: Promise<void> = Promise.resolve()
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
+export class NvidiaRateLimiterDurableObject {
   constructor(
     private readonly state: DurableObjectState,
     private readonly _env: Env
@@ -49,33 +51,21 @@ export class NvidiaRateLimiterDurableObject {
     const url = new URL(request.url)
 
     if (url.pathname === '/reserve' && request.method === 'POST') {
-      return this.enqueueReservation()
+      return this.enqueueLock()
     }
 
     return new Response('Not found', { status: 404 })
   }
 
-  private async enqueueReservation(): Promise<Response> {
-    let release!: () => void
-    const previous = this.reservationQueue
-    this.reservationQueue = new Promise<void>((resolve) => {
-      release = resolve
+  private async enqueueLock(): Promise<Response> {
+    const result = await this.reserveLock()
+    return Response.json(result, {
+      status: result.allowed ? 200 : 429,
+      headers: result.allowed ? undefined : result.headers,
     })
-
-    await previous
-
-    try {
-      const result = await this.reserveSlot()
-      return Response.json(result, {
-        status: result.allowed ? 200 : 429,
-        headers: result.allowed ? undefined : result.headers,
-      })
-    } finally {
-      release()
-    }
   }
 
-  private async reserveSlot(): Promise<ReservationResult> {
+  private async reserveLock(): Promise<LockResult> {
     const now = Date.now()
     const slotDelayMs = getSlotDelayMs()
     const maxQueueDelayMs = getMaxQueueDelayMs()
@@ -92,6 +82,10 @@ export class NvidiaRateLimiterDurableObject {
         retryAfter: headers['Retry-After'],
         headers,
       }
+    }
+
+    if (delayMs > 0) {
+      await sleep(delayMs)
     }
 
     await this.state.storage.put(NEXT_AVAILABLE_AT_KEY, nextAvailableAt + slotDelayMs)
