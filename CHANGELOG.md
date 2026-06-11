@@ -1,0 +1,45 @@
+# 1.0.0 (2026-05-23)
+
+
+### Bug Fixes
+
+* downgrade dependencies versions in pnpm-lock.yaml for compatibility ([b9e70e6](https://github.com/sosan/proxy-llms/commit/b9e70e677aa57b702b545b7c6b4c4d01c6c23dba))
+* remove redundant option from lint:lockfile script in package.json ([e9f45f7](https://github.com/sosan/proxy-llms/commit/e9f45f79abbd36a6123d4650cf8c5b49d1ef07d2))
+* update dependencies versions for compatibility and security in package.json, pnpm-lock.yaml, and pnpm-workspace.yaml ([f6743ea](https://github.com/sosan/proxy-llms/commit/f6743eac061b0fe54fde39fd88a9dd826903f1e5))
+* update health check condition in CI/CD workflow; improve Cloudflare API token permissions in setup documentation; bump dependencies versions ([a01a5f3](https://github.com/sosan/proxy-llms/commit/a01a5f33f9f8b8b1435f81151e3931718ed68e07))
+
+
+### Features
+
+* add CodeQL analysis setup instructions to README and enable continue-on-error for analyze job in CI/CD workflow ([fadef2f](https://github.com/sosan/proxy-llms/commit/fadef2fa1d524d7d55c549211163b52f165d7feb))
+* add comprehensive security policy and vulnerability reporting guidelines to SECURITY.md ([604fe22](https://github.com/sosan/proxy-llms/commit/604fe22213b9dcad760e55b138d9ee84bc23efbd))
+* add comprehensive tests for health, legacy, models, process, routes, and logger functionalities ([6bfd05f](https://github.com/sosan/proxy-llms/commit/6bfd05f046f42c685e0a35af485394544b2e58a5))
+* add GitHub Actions workflow for automatic deployment to Cloudflare; include deployment script and update README ([17554a0](https://github.com/sosan/proxy-llms/commit/17554a080cb7f5b29e8ee5555fb766710715b624))
+* add Infisical integration for secure GitHub token management and update dependencies ([7f1025d](https://github.com/sosan/proxy-llms/commit/7f1025dd186f80b4bcc719bf34d867f189659d95))
+* add multi-provider proxy with dynamic URL routing ([995c529](https://github.com/sosan/proxy-llms/commit/995c5299dc84ce673087d6e21ddc703c0b3b57b7))
+* Add OpenSpec skills for change management and exploration ([509d698](https://github.com/sosan/proxy-llms/commit/509d69877a41f46fb398032670107f5208fe48d6))
+* add security best practices and CI configuration, implement dev container and CODEOWNERS ([645db7c](https://github.com/sosan/proxy-llms/commit/645db7caddc5446c9052268e392da23914d0cff3))
+* add support for Claude API model mapping and metrics collection ([f7911a3](https://github.com/sosan/proxy-llms/commit/f7911a35a700b478ef044ece2dbccd7aa07cbdc1))
+* add VSCode extensions recommendations for improved development experience ([f27b368](https://github.com/sosan/proxy-llms/commit/f27b3687b3409d61bd629a8f310542d0cdd04201))
+* consolidate CI/CD workflows into a single configuration; add health check script and update deployment settings ([f49bac3](https://github.com/sosan/proxy-llms/commit/f49bac3b6aa1f7b1be1dd714d4de8c013bf2baa6))
+* enhance deployment process and secret management; update README and setup documentation ([7cf6603](https://github.com/sosan/proxy-llms/commit/7cf66038f30d89f01944a90ef4a72b03bdcddcbe))
+* enhance documentation and testing guidelines for proxy rules and security reviews ([ebafa5c](https://github.com/sosan/proxy-llms/commit/ebafa5c7e6300b013785b0f327763dd596fb8de1))
+* enhance logger functionality with environment-specific logging and metrics control ([9025e02](https://github.com/sosan/proxy-llms/commit/9025e029a0796ec9c37c77c97ee422cb05096b01))
+* enhance security practices and add development workflow documentation ([504e9fc](https://github.com/sosan/proxy-llms/commit/504e9fce2e19823a9f2b1eebe7dde332b0ac50bd))
+* enhance tests for model handling, routing, and transformation functions ([5b25149](https://github.com/sosan/proxy-llms/commit/5b251499f3843386cda80c98a3f51867a5fb6c58))
+* implement chat and process handlers, add health check and model retrieval endpoints ([f8bf5cc](https://github.com/sosan/proxy-llms/commit/f8bf5cc62fa24edfa6fe01f73888dc6749446025))
+* implement Claude message handling and transformation to OpenAI format ([b6566bb](https://github.com/sosan/proxy-llms/commit/b6566bb9b2d77eb7be776f7283269c2021e7666a))
+* implement conditional logging utility and replace console logs with logger methods across the application ([050566a](https://github.com/sosan/proxy-llms/commit/050566afca22ef0ccb59cf1890a99b032e7f4de3))
+* implement model mapping and request parsing for Claude API integration ([352c99f](https://github.com/sosan/proxy-llms/commit/352c99fb32f0995be79a05942f0841c3b94be653))
+* refactor NIMProvider to NvidiaProvider and update related tests ([43decb6](https://github.com/sosan/proxy-llms/commit/43decb61eb4112bf32e083f6d621228a88d3494b))
+* remove CodeQL analysis job from CI/CD workflow and update permissions; add pnpm workspace configuration for enhanced security practices ([97501bb](https://github.com/sosan/proxy-llms/commit/97501bb79d8e65549c1c55549d4d1ba4e83dbb89))
+* remove console logging from metrics tests and ensure analytics data point recording ([25c22fa](https://github.com/sosan/proxy-llms/commit/25c22fa9655c7acded1942298c46902950f1bcc7))
+* update CI workflow to use actions/checkout@v6 and actions/setup-node@v6; add tests for Claude message handling and OpenAI stream transformations ([3dcabcc](https://github.com/sosan/proxy-llms/commit/3dcabccff7695638a60421ea395e241dbd4d17e0))
+* update CLAUDE.md to clarify provider configuration and routing instructions ([6353576](https://github.com/sosan/proxy-llms/commit/635357629f436627cd45ed3435c57003743ce174))
+* update logging documentation and enforce centralized logger usage across the project ([9fa811d](https://github.com/sosan/proxy-llms/commit/9fa811de1b1a245adbb5278626e8b1fe69767937))
+* update permissions in CI/CD workflow to enhance security practices ([c7e2700](https://github.com/sosan/proxy-llms/commit/c7e270000e3ab96afa0b4bcfbea6e1a9cd393e47))
+* update project to use pnpm for package management and deployment; revise documentation and CI/CD workflows for consistency ([f2e1e1e](https://github.com/sosan/proxy-llms/commit/f2e1e1efdc22b0d3009fc81d29e2bea8a68efca5))
+* update routing patterns and enhance model discovery routes ([db7837b](https://github.com/sosan/proxy-llms/commit/db7837b341b0338fc46e1f7f81b5907518de3a35))
+* update routing rules and add declarative routing pattern documentation ([c8c7cfd](https://github.com/sosan/proxy-llms/commit/c8c7cfdbfbd2e277a5566d12947d1a7138812477))
+* update routing to use body-based provider extraction and enhance error handling ([7507b7b](https://github.com/sosan/proxy-llms/commit/7507b7b7d926910ae7110f9a1de8e8b541c9dfdf))
+* update tests for NIMProvider and Provider Factory to support NVIDIA configuration ([aaaea73](https://github.com/sosan/proxy-llms/commit/aaaea73a5f6ac6381910aa7e998ffdd563950234))
