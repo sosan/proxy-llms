@@ -128,6 +128,7 @@ describe('API Endpoints', () => {
       OLLAMA_BASE_URL: 'http://localhost:11434/v1',
       ANALYTICS: {} as any,
       PROCESSOR: {} as any,
+      NVIDIA_RATE_LIMITER: {} as any,
     }
 
     beforeEach(() => {

@@ -78,11 +78,13 @@ export abstract class BaseProvider implements AIProvider {
   abstract readonly name: string
   protected apiKey: string
   protected baseUrl: string
+  protected rateLimiter?: DurableObjectNamespace
   protected readonly responseTimeoutMs = 980_000
 
-  constructor(apiKey: string, baseUrl: string) {
+  constructor(apiKey: string, baseUrl: string, rateLimiter?: DurableObjectNamespace) {
     this.apiKey = apiKey
     this.baseUrl = baseUrl
+    this.rateLimiter = rateLimiter
   }
 
   // --- Shared helpers -------------------------------------------------------
@@ -157,7 +159,6 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   // --- Abstract methods (must be implemented by subclasses) ---------------
-
   abstract makeRequest(endpoint: string, payload: unknown, configFormat: string): Promise<unknown>
   abstract makeStreamRequest(endpoint: string, payload: unknown): Promise<Response>
 
@@ -218,4 +219,6 @@ export abstract class BaseProvider implements AIProvider {
 
     return commonPayload
   }
+
+
 }

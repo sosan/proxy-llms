@@ -8,7 +8,6 @@ import { getProviderByName } from '../providers/provider-factory'
 import { createResponse, parseRequestBody } from '../utils/response'
 import { logger } from '../utils/logger'
 import { applyPayloadMiddlewares, extractProviderFromModel, resolveProviderConfig } from './models'
-import { resolve } from 'node:dns'
 
 
 // =============================================================================

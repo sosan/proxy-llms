@@ -18,5 +18,14 @@ export interface AIProvider {
   transformRequest(payload: GenericPayload, config: ProviderConfig): unknown
 }
 
+export type ReservationResponse = {
+  allowed?: boolean
+  delayMs?: number
+  scheduledAt?: number
+  retryAfter?: string
+  headers?: Record<string, string>
+}
+
+
 // ProviderType is now derived from ProviderConfigs in config/providers.ts
 export type { ProviderType }

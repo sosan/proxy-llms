@@ -1,32 +1,24 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import type { Env } from '../interfaces/general'
 import { ProviderError } from '../errors/provider-error'
+import { ReservationResponse } from '../interfaces/provider'
 
-type ReservationResponse = {
-  allowed?: boolean
-  delayMs?: number
-  scheduledAt?: number
-  retryAfter?: string
-  headers?: Record<string, string>
-}
-
-function wait(ms: number): Promise<void> {
+export function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function toHex(buffer: ArrayBuffer): string {
+export function toHex(buffer: ArrayBuffer): string {
   return [...new Uint8Array(buffer)]
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('')
 }
 
-async function hashNvidiaApiKey(apiKey: string): Promise<string> {
+export async function hashNvidiaApiKey(apiKey: string): Promise<string> {
   const data = new TextEncoder().encode(apiKey)
   const digest = await crypto.subtle.digest('SHA-256', data)
   return toHex(digest)
 }
 
-function headersToRecord(headers: Headers): Record<string, string> {
+export function headersToRecord(headers: Headers): Record<string, string> {
   const record: Record<string, string> = {}
   headers.forEach((value, key) => {
     record[key] = value
@@ -34,7 +26,7 @@ function headersToRecord(headers: Headers): Record<string, string> {
   return record
 }
 
-function throwRateLimited(reservation: ReservationResponse, responseHeaders?: Headers): never {
+export function throwRateLimited(reservation: ReservationResponse, responseHeaders?: Headers): never {
   const headers = {
     ...(responseHeaders ? headersToRecord(responseHeaders) : {}),
     ...reservation.headers,
@@ -49,20 +41,4 @@ function throwRateLimited(reservation: ReservationResponse, responseHeaders?: He
     retryAfter,
     headers
   )
-}
-
-export async function waitForNvidiaRateLimit(env: Env): Promise<void> {
-  const bucket = await hashNvidiaApiKey(env.NVIDIA_API_KEY)
-  const limiter = env.NVIDIA_RATE_LIMITER.getByName(bucket)
-  const response = await limiter.fetch('https://internal/reserve', { method: 'POST' })
-  const reservation = await response.json<ReservationResponse>().catch(() => ({}))
-
-  if (!response.ok || reservation.allowed === false) {
-    throwRateLimited(reservation, response.headers)
-  }
-
-  const delayMs = typeof reservation.delayMs === 'number' ? reservation.delayMs : 0
-  if (delayMs > 0) {
-    await wait(delayMs)
-  }
 }

@@ -3,6 +3,8 @@ import { BaseProvider, sleep, getRetryDelay, RETRY_MAX_ATTEMPTS, isNetworkError 
 import { ProviderError } from '../errors/provider-error'
 import { ProviderConfigs } from '../config/providers'
 import { logger } from '../utils/logger'
+import { hashNvidiaApiKey, throwRateLimited, wait } from '../utils/nvidia-rate-gate'
+import { ReservationResponse } from '../interfaces/provider'
 
 // ---------------------------------------------------------------------------
 // Helpers: NVIDIA-specific defensive mitigations
@@ -187,6 +189,11 @@ export class NvidiaProvider extends BaseProvider {
     })
     logger.logUpstreamConfig(requestId, sanitizedPayload)
 
+    await this.ensureRateLimit().catch((err) => {
+      logger.error(`[${requestId}] ✘ Rate limit error`, { error: err instanceof Error ? err.message : err })
+      throw err
+    })
+
     return this.executeWithRetry(
       requestId,
       async () => this._doStreamRequest(requestId, uri, sanitizedPayload),
@@ -259,6 +266,11 @@ export class NvidiaProvider extends BaseProvider {
       messages: ((sanitizedPayload as Record<string, unknown>).messages as unknown[])?.length ?? 0,
     })
     logger.logUpstreamConfig(requestId, sanitizedPayload)
+
+    await this.ensureRateLimit().catch((err) => {
+      logger.error(`[${requestId}] ✘ Rate limit error`, { error: err instanceof Error ? err.message : err })
+      throw err
+    })
 
     return this.executeWithRetry(
       requestId,
@@ -338,5 +350,25 @@ export class NvidiaProvider extends BaseProvider {
       finish_reason: ((json as Record<string, unknown>).choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason,
     })
     return json
+  }
+
+  private async ensureRateLimit(): Promise<void> {
+    const bucket = await hashNvidiaApiKey(this.apiKey)
+    const limiter = this.rateLimiter?.getByName(bucket)
+    if (!limiter) {
+      logger.warn(`NVIDIA rate limiter not configured, proceeding without rate limit slot`)
+      return
+    }
+    const response = await limiter.fetch('https://internal/reserve', { method: 'POST' })
+    const reservation = (await response.json().catch(() => ({}))) as ReservationResponse
+
+    if (!response.ok || reservation.allowed === false) {
+      throwRateLimited(reservation, response.headers)
+    }
+
+    const delayMs = typeof reservation.delayMs === 'number' ? reservation.delayMs : 0
+    if (delayMs > 0) {
+      await wait(delayMs)
+    }
   }
 }
