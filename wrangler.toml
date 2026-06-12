@@ -4,12 +4,13 @@ compatibility_date = "2026-04-21"
 
 [durable_objects]
 bindings = [
-  { name = "PROCESSOR", class_name = "ProcessorDurableObject" }
+  { name = "PROCESSOR", class_name = "ProcessorDurableObject" },
+  { name = "DO_RATE_LIMITER", class_name = "RateLimiterDurableObject" }
 ]
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["ProcessorDurableObject"]
+new_sqlite_classes = ["ProcessorDurableObject", "RateLimiterDurableObject"]
 
 [observability]
 [observability.logs]
@@ -40,7 +41,8 @@ name = "proxy-llms-staging"
 
 [env.staging.durable_objects]
 bindings = [
-  { name = "PROCESSOR", class_name = "ProcessorDurableObject" }
+  { name = "PROCESSOR", class_name = "ProcessorDurableObject" },
+  { name = "DO_RATE_LIMITER", class_name = "RateLimiterDurableObject" }
 ]
 
 [[env.staging.analytics_engine_datasets]]
@@ -66,7 +68,8 @@ name = "proxy-llms"
 
 [env.production.durable_objects]
 bindings = [
-  { name = "PROCESSOR", class_name = "ProcessorDurableObject" }
+  { name = "PROCESSOR", class_name = "ProcessorDurableObject" },
+  { name = "DO_RATE_LIMITER", class_name = "RateLimiterDurableObject" }
 ]
 
 [[env.production.analytics_engine_datasets]]

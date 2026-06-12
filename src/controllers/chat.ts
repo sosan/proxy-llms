@@ -123,7 +123,6 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
   try {
     // --- Parse ---
     const result = await parseRequestBody(c.req)
-    console.log('Parsed request body:', result.payload) // Debug log for parsed payload
     if (result.error) {
       return c.json(createResponse(false, null, result.error), { status: result.status })
     }
@@ -148,17 +147,15 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
       return c.json(createResponse(false, null, configResult.error), { status: configResult.status })
     }
     const { config } = configResult
-    console.log('Using provider config:', config) // Debug log for provider config
     const provider = getProviderByName(c.env, providerDC)
-    console.log("Instantiated provider:", provider.name) // Debug log for instantiated provider
+    if (!provider) {
+      return c.json(createResponse(false, null, `Provider "${providerDC}" not found`), { status: 400 })
+    }
     // --- Transform ---
     const transformedPayload: TransformedPayload = provider.transformRequest(result.payload!, config) as TransformedPayload
-    // console.log('Transformed payload:', JSON.stringify(transformedPayload)) // Debug log for transformed payload
 
     // --- Resolve model format and endpoint ---
     const resolvedModel = transformedPayload.model || 'unknown'
-    console.log("resolvedmodel: ", resolvedModel) // Debug log for resolved model
-    console.log("payload model: ", payloadModel) // Debug log for original payload model
     // const fullModelId = payloadModel //`${providerDC}/${resolvedModel}`
     const modelFormat = resolveModelFormat(payloadModel)
     const modelDefaults = resolveModelDefaults(payloadModel)

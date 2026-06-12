@@ -41,11 +41,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export class NvidiaRateLimiterDurableObject {
+export class RateLimiterDurableObject {
   constructor(
     private readonly state: DurableObjectState,
     private readonly _env: Env
-  ) {}
+  ) { }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
