@@ -359,7 +359,7 @@ export class NvidiaProvider extends BaseProvider {
       logger.warn(`NVIDIA rate limiter not configured, proceeding without cooldown slot`)
       return
     }
-    const response = await limiter.fetch('https://internal/reserve', { method: 'POST' })
+    const response = await limiter.fetch(`https://internal/reserve?provider=${this.name}`, { method: 'POST' })
     const lock = (await response.json().catch(() => ({}))) as ReservationResponse
 
     if (!response.ok || lock.allowed === false) {
