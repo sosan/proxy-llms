@@ -38,7 +38,7 @@ const _ProviderConfigs = {
     alterEndpoint: '/messages',
     rateLimit: {
       requestsPerMinute: 40,
-      minRetryDelayMs: 1500,
+      minRetryDelayMs: 1600,
       rateLimitDelayMs: 600000,
       maxRetryDelayMs: 60000,
     },

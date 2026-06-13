@@ -1,7 +1,7 @@
 import type { Env } from '../interfaces/general'
 import { ProviderConfigs } from '../config/providers'
 
-const NEXT_AVAILABLE_AT_KEY = 'nextAvailableAt'
+const LAST_SCHEDULED_AT_KEY = 'lastScheduledAt'
 
 type LockResult = {
   allowed: boolean
@@ -12,7 +12,7 @@ type LockResult = {
 }
 
 function getSlotDelayMs(): number {
-  return ProviderConfigs.nvidia.rateLimit?.minRetryDelayMs ?? 1500
+  return ProviderConfigs.nvidia.rateLimit?.minRetryDelayMs ?? 1600
 }
 
 function getMaxQueueDelayMs(): number {
@@ -24,7 +24,7 @@ function getRequestsPerMinute(): number {
 }
 
 function buildRateLimitHeaders(delayMs: number, scheduledAt: number): Record<string, string> {
-  const retryAfter = String(Math.ceil(delayMs / 1000))
+  const retryAfter = String(Math.max(1, Math.ceil(delayMs / 1000)))
   const resetAtSeconds = String(Math.ceil(scheduledAt / 1000))
 
   return {
@@ -37,15 +37,11 @@ function buildRateLimitHeaders(delayMs: number, scheduledAt: number): Record<str
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 export class RateLimiterDurableObject {
   constructor(
     private readonly state: DurableObjectState,
     private readonly _env: Env
-  ) { }
+  ) {}
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -69,33 +65,36 @@ export class RateLimiterDurableObject {
     const now = Date.now()
     const slotDelayMs = getSlotDelayMs()
     const maxQueueDelayMs = getMaxQueueDelayMs()
-    const currentNextAvailableAt = await this.state.storage.get<number>(NEXT_AVAILABLE_AT_KEY)
-    const nextAvailableAt = Math.max(now, currentNextAvailableAt ?? 0)
-    const delayMs = nextAvailableAt - now
 
-    if (delayMs > maxQueueDelayMs) {
-      const headers = buildRateLimitHeaders(delayMs, nextAvailableAt)
+    const result = await this.state.blockConcurrencyWhile(async () => {
+      const last = (await this.state.storage.get<number>(LAST_SCHEDULED_AT_KEY)) ?? 0
+      const scheduledAt = Math.max(now, last + slotDelayMs)
+      const delayMs = scheduledAt - now
+
+      await this.state.storage.put(LAST_SCHEDULED_AT_KEY, scheduledAt)
+
+      return { scheduledAt, delayMs }
+    })
+
+    if (result.delayMs > maxQueueDelayMs) {
+      const headers = buildRateLimitHeaders(result.delayMs, result.scheduledAt)
       return {
         allowed: false,
-        delayMs,
-        scheduledAt: nextAvailableAt,
+        delayMs: result.delayMs,
+        scheduledAt: result.scheduledAt,
         retryAfter: headers['Retry-After'],
         headers,
       }
     }
 
-    if (delayMs > 0) {
-      await sleep(delayMs)
-    }
-
-    await this.state.storage.put(NEXT_AVAILABLE_AT_KEY, nextAvailableAt + slotDelayMs)
+    const headers = buildRateLimitHeaders(result.delayMs, result.scheduledAt)
 
     return {
       allowed: true,
-      delayMs,
-      scheduledAt: nextAvailableAt,
-      retryAfter: String(Math.ceil(delayMs / 1000)),
-      headers: delayMs > 0 ? buildRateLimitHeaders(delayMs, nextAvailableAt) : {},
+      delayMs: result.delayMs,
+      scheduledAt: result.scheduledAt,
+      retryAfter: headers['Retry-After'],
+      headers,
     }
   }
 }
