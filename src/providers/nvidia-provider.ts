@@ -3,7 +3,7 @@ import { BaseProvider, sleep, getRetryDelay, RETRY_MAX_ATTEMPTS, isNetworkError 
 import { ProviderError } from '../errors/provider-error'
 import { ProviderConfigs } from '../config/providers'
 import { logger } from '../utils/logger'
-import { hashNvidiaApiKey, throwRateLimited, wait } from '../utils/nvidia-rate-gate'
+import { hashNvidiaApiKey, throwRateLimited } from '../utils/nvidia-rate-gate'
 import { ReservationResponse } from '../interfaces/provider'
 
 // ---------------------------------------------------------------------------
@@ -45,8 +45,8 @@ function validateOpenAIResponse(json: unknown): void {
   if (!json || typeof json !== 'object') {
     throw new ProviderError(
       'NVIDIA returned empty or invalid JSON',
-      502 as ContentfulStatusCode,
-      'upstream_empty_response',
+      422 as ContentfulStatusCode,
+      'upstream_malformed_response',
       'NVIDIA returned an empty response. Retry the request or try a different model.'
     )
   }
@@ -55,8 +55,8 @@ function validateOpenAIResponse(json: unknown): void {
   if (!Array.isArray(choices) || choices.length === 0) {
     throw new ProviderError(
       'NVIDIA returned a response with no choices',
-      502 as ContentfulStatusCode,
-      'upstream_empty_response',
+      422 as ContentfulStatusCode,
+      'upstream_malformed_response',
       'NVIDIA returned an empty response. Retry the request or try a different model.'
     )
   }
@@ -66,8 +66,8 @@ function validateOpenAIResponse(json: unknown): void {
   if (content === null || content === undefined || content === '') {
     throw new ProviderError(
       'NVIDIA returned a response with empty content',
-      502 as ContentfulStatusCode,
-      'upstream_empty_response',
+      422 as ContentfulStatusCode,
+      'upstream_malformed_response',
       'NVIDIA returned an empty response. Retry the request or try a different model.'
     )
   }
@@ -85,16 +85,16 @@ function parseRetryAfterMs(retryAfter: string): number | undefined {
   return Math.max(0, retryAt - Date.now())
 }
 
-function getNvidiaRateLimitDelayMs(): number {
-  return ProviderConfigs.nvidia.rateLimit?.rateLimitDelayMs ?? 600000
+function getRateLimitDelayMs(provider: string): number {
+  return ProviderConfigs[provider]?.rateLimit?.rateLimitDelayMs ?? 600000
 }
 
-function getNvidiaRetryAfterSeconds(): string {
-  return String(Math.ceil(getNvidiaRateLimitDelayMs() / 1000))
+function getRetryAfterSeconds(provider: string): string {
+  return String(Math.ceil(getRateLimitDelayMs(provider) / 1000))
 }
 
-function normalizeRetryAfterSeconds(retryAfter?: string): string {
-  if (!retryAfter) return getNvidiaRetryAfterSeconds()
+function normalizeRetryAfterSeconds(retryAfter: string, provider: string): string {
+  if (!retryAfter) return getRetryAfterSeconds(provider)
 
   const retryAfterMs = parseRetryAfterMs(retryAfter)
   if (retryAfterMs === undefined) return retryAfter
@@ -102,14 +102,17 @@ function normalizeRetryAfterSeconds(retryAfter?: string): string {
   return String(Math.ceil(retryAfterMs / 1000))
 }
 
-function withNvidiaRateLimitHeaders(error: ProviderError): ProviderError {
+function withRateLimitHeaders(error: ProviderError, provider: string): ProviderError {
   if (error.status !== 429) return error
 
-  const retryAfter = normalizeRetryAfterSeconds(error.retryAfter)
-  const requestsPerMinute = ProviderConfigs.nvidia.rateLimit?.requestsPerMinute
+  const rt = error.responseHeaders?.['Retry-After'] ?? error.responseHeaders?.['retry-after']
+  if (!rt) return error
+  const retryAfter = normalizeRetryAfterSeconds(rt, provider)
+  if (!retryAfter) return error
+
+  const requestsPerMinute = ProviderConfigs[provider]?.rateLimit?.requestsPerMinute
   const resetAtSeconds = Math.ceil(Date.now() / 1000) + Number(retryAfter)
 
-  error.retryAfter = retryAfter
   error.responseHeaders = {
     ...error.responseHeaders,
     'Retry-After': retryAfter,
@@ -161,10 +164,10 @@ export class NvidiaProvider extends BaseProvider {
           throw lastError
         }
 
-        const retryAfterMs = lastError.status === 429 && lastError.retryAfter
-          ? parseRetryAfterMs(lastError.retryAfter)
+        const retryAfterMs = lastError.status === 429 && lastError.responseHeaders?.['Retry-After']
+          ? parseRetryAfterMs(lastError.responseHeaders['Retry-After'])
           : undefined
-        const rateLimitDelayMs = getNvidiaRateLimitDelayMs()
+        const rateLimitDelayMs = getRateLimitDelayMs(this.name)
         const delay = retryAfterMs ?? getRetryDelay(
           attempt,
           lastError.status,
@@ -249,7 +252,7 @@ export class NvidiaProvider extends BaseProvider {
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
       })
-      throw withNvidiaRateLimitHeaders(this.createUpstreamError(response, errorBody, 'NVIDIA'))
+      throw withRateLimitHeaders(this.createUpstreamError(response, errorBody, this.name), this.name)
     }
 
     return response
@@ -326,7 +329,7 @@ export class NvidiaProvider extends BaseProvider {
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
       })
-      throw withNvidiaRateLimitHeaders(this.createUpstreamError(response, errorBody, 'NVIDIA'))
+      throw withRateLimitHeaders(this.createUpstreamError(response, errorBody, this.name), this.name)
     }
 
     const json = await response.json()
@@ -340,7 +343,7 @@ export class NvidiaProvider extends BaseProvider {
     if (typeof content === 'string' && hasLeakedReasoning(content)) {
       throw new ProviderError(
         'NVIDIA returned response with leaked reasoning tokens',
-        502 as ContentfulStatusCode,
+        422 as ContentfulStatusCode,
         'upstream_malformed_response',
         'NVIDIA returned a malformed response. Retry the request or try a different model.'
       )

@@ -28,15 +28,15 @@ function buildErrorResponse(error: unknown): {
   const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
   const status: ContentfulStatusCode = providerError?.status ?? 500
   const publicMessage = providerError?.publicMessage ?? `Provider error: ${errorMessage}`
-
+  const retryAfter = providerError?.responseHeaders?.['Retry-After'] ?? undefined
   const errorData = providerError
-    ? { code: providerError.code, status, ...(providerError.retryAfter ? { retry_after: providerError.retryAfter } : {}) }
+    ? { code: providerError.code, status, ...(retryAfter ? { retry_after: retryAfter } : {}) }
     : null
 
   const headers = providerError
     ? {
       ...providerError.responseHeaders,
-      ...(providerError.retryAfter ? { 'Retry-After': providerError.retryAfter } : {}),
+      ...(retryAfter ? { 'Retry-After': retryAfter } : {}),
     }
     : undefined
 
@@ -129,20 +129,20 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
 
     // --- Validate ---
     const payloadModel = result.payload?.model
-    console.log('Extracted model from payload:', payloadModel) // Debug log for extracted model
+    // console.log('Extracted model from payload:', payloadModel) // Debug log for extracted model
     if (!payloadModel) {
       return c.json(createResponse(false, null, 'Model not specified in request body'), { status: 400 })
     }
 
     // --- Resolve provider ---
     const providerDC = extractProviderFromModel(payloadModel)
-    console.log('Resolved provider from model:', providerDC) // Debug log for resolved provider
+    // console.log('Resolved provider from model:', providerDC) // Debug log for resolved provider
     if (!providerDC) {
       return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
 
     const configResult = resolveProviderConfig(providerDC)
-    console.log('Resolved provider config:', 'error' in configResult ? configResult.error : 'config found') // Debug log for provider config resolution
+    // console.log('Resolved provider config:', 'error' in configResult ? configResult.error : 'config found') // Debug log for provider config resolution
     if ('error' in configResult) {
       return c.json(createResponse(false, null, configResult.error), { status: configResult.status })
     }

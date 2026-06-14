@@ -4,7 +4,6 @@ export class ProviderError extends Error {
   status: ContentfulStatusCode
   code: string
   publicMessage: string
-  retryAfter?: string
   responseHeaders?: Record<string, string>
 
   constructor(
@@ -12,7 +11,6 @@ export class ProviderError extends Error {
     status: ContentfulStatusCode,
     code = 'provider_error',
     publicMessage = message,
-    retryAfter?: string,
     responseHeaders?: Record<string, string>
   ) {
     super(message)
@@ -20,7 +18,6 @@ export class ProviderError extends Error {
     this.status = status
     this.code = code
     this.publicMessage = publicMessage
-    this.retryAfter = retryAfter
     this.responseHeaders = responseHeaders
   }
 }

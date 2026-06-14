@@ -8,7 +8,7 @@ describe('ProviderError', () => {
       500,
       'upstream_error',
       'NVIDIA returned error 500.',
-      '60'
+      { 'Retry-After': '60' }
     )
 
     expect(error).toBeInstanceOf(ProviderError)
@@ -17,7 +17,7 @@ describe('ProviderError', () => {
     expect(error.status).toBe(500)
     expect(error.code).toBe('upstream_error')
     expect(error.publicMessage).toBe('NVIDIA returned error 500.')
-    expect(error.retryAfter).toBe('60')
+    expect(error.responseHeaders?.['Retry-After']).toBe('60')
     expect(error.name).toBe('ProviderError')
   })
 
@@ -31,7 +31,7 @@ describe('ProviderError', () => {
     expect(error.status).toBe(400)
     expect(error.code).toBe('provider_error')
     expect(error.publicMessage).toBe('Some error occurred')
-    expect(error.retryAfter).toBeUndefined()
+    expect(error.responseHeaders?.['Retry-After']).toBeUndefined()
   })
 
   it('should handle rate limit (429) error', () => {
@@ -40,12 +40,12 @@ describe('ProviderError', () => {
       429,
       'upstream_rate_limited',
       'Too many requests',
-      '120'
+      { 'Retry-After': '120' },
     )
 
     expect(error.status).toBe(429)
     expect(error.code).toBe('upstream_rate_limited')
-    expect(error.retryAfter).toBe('120')
+    expect(error.responseHeaders?.['Retry-After']).toBe('120')
   })
 
   it('should handle timeout error', () => {

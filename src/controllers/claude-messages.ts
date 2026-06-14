@@ -215,8 +215,9 @@ function handleClaudeError(
   const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
   const status = error instanceof ProviderError ? error.status : 500
   const publicMessage = error instanceof Error ? error.message : 'Provider request failed unexpectedly.'
+  const retryAfter = error instanceof ProviderError ? error.responseHeaders?.['Retry-After'] : undefined
   const errorData = error instanceof ProviderError
-    ? { code: error.code, status, ...(error.retryAfter ? { retry_after: error.retryAfter } : {}) }
+    ? { code: error.code, status, ...(retryAfter ? { retry_after: retryAfter } : {}) }
     : null
 
   // Propagate upstream rate-limit to client so they can back off
@@ -226,12 +227,9 @@ function handleClaudeError(
       responseHeaders.set(key, value)
     })
   }
-  if (status === 429) {
-    const retryAfter = error instanceof ProviderError ? error.retryAfter : undefined
-    if (retryAfter) {
-      responseHeaders.set('Retry-After', retryAfter)
-    }
-    log.warn(`[handleClaudeError] Propagating 429 to client${retryAfter ? ` (Retry-After: ${retryAfter})` : ''}`)
+  if (status === 429 && retryAfter) {
+    responseHeaders.set('Retry-After', retryAfter)
+    log.warn(`[handleClaudeError] Propagating 429 to client (Retry-After: ${retryAfter})`)
   }
 
   if (metricsCollector) {

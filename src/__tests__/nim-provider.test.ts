@@ -173,7 +173,7 @@ describe('NvidiaProvider', () => {
           status: 429,
           headers: {
             'Content-Type': 'application/json',
-            'retry-after': '60',
+            'Retry-After': '60',
           },
         })
       )
@@ -186,7 +186,8 @@ describe('NvidiaProvider', () => {
         const providerError = error as ProviderError
         expect(providerError.status).toBe(429)
         expect(providerError.code).toBe('upstream_rate_limited')
-        expect(providerError.retryAfter).toBe('60')
+        const retryAfter = providerError.responseHeaders?.['Retry-After'] ?? 'unknown'
+        expect(retryAfter).toBe('60')
       }
     })
 

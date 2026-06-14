@@ -41,7 +41,9 @@ describe('NvidiaProvider - retry logic', () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = vi.fn().mockImplementation(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 })
+        new Response(JSON.stringify({ error: 'rate limited' }), { status: 429, headers: {
+          'Retry-After': '600',
+        } })
       )
     ) as any
 
@@ -52,7 +54,8 @@ describe('NvidiaProvider - retry logic', () => {
       expect(error).toBeInstanceOf(ProviderError)
       const providerError = error as ProviderError
       expect(providerError.status).toBe(429)
-      expect(providerError.retryAfter).toBe('600')
+      const retryAfter = providerError.responseHeaders?.['Retry-After'] ?? 'unknown'
+      expect(retryAfter).toBe('600')
       expect(providerError.responseHeaders).toMatchObject({
         'Retry-After': '600',
         'RateLimit-Reset': expect.any(String),
@@ -88,7 +91,8 @@ describe('NvidiaProvider - retry logic', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(ProviderError)
       const providerError = error as ProviderError
-      expect(providerError.retryAfter).toBe('120')
+      const retryAfter = providerError.responseHeaders?.['Retry-After'] ?? 'unknown'
+      expect(retryAfter).toBe('120')
       expect(providerError.responseHeaders).toMatchObject({
         'Retry-After': '120',
         'X-RateLimit-Delay-Ms': '120000',
@@ -221,7 +225,7 @@ describe('NvidiaProvider - retry logic', () => {
       provider.makeRequest('/chat/completions', { model: 'test-model' }, 'openai')
     ).rejects.toThrow()
 
-    expect(globalThis.fetch).toHaveBeenCalledTimes(5) // RETRY_MAX_ATTEMPTS
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5)
 
     globalThis.fetch = originalFetch
   })

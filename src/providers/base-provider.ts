@@ -110,7 +110,7 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   protected createUpstreamError(response: Response, errorBody: unknown, providerName: string): ProviderError {
-    const retryAfter = response.headers.get('retry-after') ?? undefined
+    const retryAfter = response.headers.get('Retry-After') ?? '60'
     const upstreamMessage = this.extractUpstreamMessage(errorBody)
 
     if (response.status === 429) {
@@ -120,7 +120,7 @@ export abstract class BaseProvider implements AIProvider {
         429 as ContentfulStatusCode,
         'upstream_rate_limited',
         `${providerName} rate limit reached. Wait a bit before retrying.${retryHint}`,
-        retryAfter
+        { 'Retry-After': retryAfter }
       )
     }
 
@@ -138,7 +138,7 @@ export abstract class BaseProvider implements AIProvider {
       response.status as ContentfulStatusCode,
       'upstream_error',
       publicMessage,
-      retryAfter
+      { 'Retry-After': retryAfter }
     )
   }
 
@@ -175,9 +175,9 @@ export abstract class BaseProvider implements AIProvider {
         'Model must be specified in the request payload.'
       )
     }
-    console.log("fullmodel: ", fullmodel) // Debug log for full model ID
+    // console.log("fullmodel: ", fullmodel) // Debug log for full model ID
     const modelWOProvider = resolveModel(config, fullmodel)
-    console.log("resolved model: ", modelWOProvider) // Debug log for resolved model
+    // console.log("resolved model: ", modelWOProvider) // Debug log for resolved model
     const modelDefaults = resolveModelDefaults(fullmodel)
     if (!modelDefaults) {
       logger.warn(`No model defaults found for model "${fullmodel}". Using generic defaults.`)

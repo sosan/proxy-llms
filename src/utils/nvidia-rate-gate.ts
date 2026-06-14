@@ -33,12 +33,16 @@ export function throwRateLimited(reservation: ReservationResponse, responseHeade
   }
   const retryAfter = reservation.retryAfter ?? headers['Retry-After'] ?? headers['retry-after']
 
+  const mergedHeaders = {
+    ...headers,
+    ...(retryAfter ? { 'Retry-After': retryAfter } : {}),
+  }
+
   throw new ProviderError(
     'NVIDIA rate gate queue is full',
     429 as ContentfulStatusCode,
     'upstream_rate_limited',
     'NVIDIA rate limit queue is full. Retry after the indicated delay.',
-    retryAfter,
-    headers
+    mergedHeaders
   )
 }
