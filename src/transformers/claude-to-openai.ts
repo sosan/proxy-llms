@@ -1,5 +1,7 @@
-import type { GenericPayload, ChatMessage } from '../interfaces/general'
+import type { GenericPayload, ChatMessage, MessageContentPart } from '../interfaces/general'
 import { logger } from '../utils/logger'
+// import { parseClaudeCodeLog, claudeCodeLogToOpenAI } from '.'
+// import { transformClaudeToOpenAI } from './transformClaudeToOpenAI'
 
 /**
  * Transforms a Claude-format request body into an OpenAI-format payload.
@@ -11,6 +13,104 @@ import { logger } from '../utils/logger'
  * - Claude's 'max_tokens' → OpenAI 'max_tokens'
  * - Claude's 'temperature', 'top_p' → passthrough
  */
+// export function transformClaudeToOpenAI(body: Record<string, unknown>): GenericPayload {
+//   logger.debug('[transformClaudeToOpenAI] Starting transformation', { keys: Object.keys(body) })
+
+//   const result: GenericPayload = {
+//     model: body.model as string,
+//   }
+
+//   const claudePayload = parseClaudeCodeLog(JSON.stringify(body))
+//   console.log('Parsed Claude payload:', JSON.stringify(claudePayload)) // Debug log for parsed Claude payload
+
+//   // max_tokens
+//   if (typeof body.max_tokens === 'number') {
+//     result.max_tokens = body.max_tokens
+//   }
+
+//   // temperature
+//   if (typeof body.temperature === 'number') {
+//     result.temperature = body.temperature
+//   }
+
+//   // top_p
+//   if (typeof body.top_p === 'number') {
+//     result.top_p = body.top_p
+//   }
+
+//   // stream
+//   if (typeof body.stream === 'boolean') {
+//     result.stream = body.stream
+//   }
+
+//   // messages collection
+//   const messages: ChatMessage[] = []
+
+//   // System message (Claude specific)
+//   if (body.system !== undefined) {
+//     const systemContent = extractSystemContent(body.system)
+//     if (systemContent) {
+//       messages.push({ role: 'system', content: systemContent })
+//     }
+//   }
+
+//   // Convert Claude messages to OpenAI format
+//   if (Array.isArray(body.messages)) {
+//     for (const msg of body.messages) {
+//       const converted = convertClaudeMessage(msg)
+//       if (converted) {
+//         if (Array.isArray(converted)) {
+//           messages.push(...converted)
+//         } else {
+//           messages.push(converted)
+//         }
+//       }
+//     }
+//   }
+
+//   result.messages = messages
+
+//   // Tools
+//   // if (Array.isArray(body.tools)) {
+//   //   result.tools = body.tools.map((tool: unknown) => convertClaudeTool(tool))
+//   // }
+//   if (Array.isArray(body.tools) && body.tools.length > 0) {
+//     result.tools = body.tools.map((tool: unknown) => convertClaudeTool(tool))
+//   }
+
+//   // Tool choice
+//   if (body.tool_choice !== undefined) {
+//     result.tool_choice = convertClaudeToolChoice(body.tool_choice)
+//   }
+
+//   // Pass through any extra fields not in the routing keys.
+//   // Exclude Claude-specific fields that are not part of the OpenAI spec.
+//   const knownKeys = new Set([
+//     'model', 'messages', 'max_tokens', 'temperature', 'top_p', 'stream',
+//     'system', 'tools', 'tool_choice', 'provider', 'content',
+//   ])
+//   const excludedClaudeKeys = new Set([
+//     'thinking',
+//     'context_management',
+//     'output_config',
+//     'metadata',
+//   ])
+//   for (const [key, value] of Object.entries(body)) {
+//     if (!knownKeys.has(key) && !excludedClaudeKeys.has(key) && value !== undefined) {
+//       result[key] = value
+//     }
+//   }
+
+//   logger.debug('[transformClaudeToOpenAI] Transformation complete', {
+//     messageCount: messages.length,
+//     hasTools: !!result.tools,
+//   })
+
+//   return result
+// }
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
 export function transformClaudeToOpenAI(body: Record<string, unknown>): GenericPayload {
   logger.debug('[transformClaudeToOpenAI] Starting transformation', { keys: Object.keys(body) })
 
@@ -38,10 +138,8 @@ export function transformClaudeToOpenAI(body: Record<string, unknown>): GenericP
     result.stream = body.stream
   }
 
-  // messages collection
   const messages: ChatMessage[] = []
 
-  // System message (Claude specific)
   if (body.system !== undefined) {
     const systemContent = extractSystemContent(body.system)
     if (systemContent) {
@@ -49,7 +147,6 @@ export function transformClaudeToOpenAI(body: Record<string, unknown>): GenericP
     }
   }
 
-  // Convert Claude messages to OpenAI format
   if (Array.isArray(body.messages)) {
     for (const msg of body.messages) {
       const converted = convertClaudeMessage(msg)
@@ -65,18 +162,15 @@ export function transformClaudeToOpenAI(body: Record<string, unknown>): GenericP
 
   result.messages = messages
 
-  // Tools
-  if (Array.isArray(body.tools)) {
+  // ✅ FIX: omitir tools si el array está vacío
+  if (Array.isArray(body.tools) && body.tools.length > 0) {
     result.tools = body.tools.map((tool: unknown) => convertClaudeTool(tool))
   }
 
-  // Tool choice
   if (body.tool_choice !== undefined) {
     result.tool_choice = convertClaudeToolChoice(body.tool_choice)
   }
 
-  // Pass through any extra fields not in the routing keys.
-  // Exclude Claude-specific fields that are not part of the OpenAI spec.
   const knownKeys = new Set([
     'model', 'messages', 'max_tokens', 'temperature', 'top_p', 'stream',
     'system', 'tools', 'tool_choice', 'provider', 'content',
@@ -101,7 +195,6 @@ export function transformClaudeToOpenAI(body: Record<string, unknown>): GenericP
   return result
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
 
 function extractSystemContent(system: unknown): string | null {
   if (typeof system === 'string') {
@@ -189,6 +282,7 @@ function convertClaudeMessage(msg: unknown): ChatMessage | ChatMessage[] | null 
             }
             toolResults.push({
               role: 'tool',
+              tool_call_id: b.tool_use_id,
               content: resultContent,
             } as ChatMessage)
           }
@@ -267,3 +361,79 @@ function convertClaudeToolChoice(choice: unknown): unknown {
   }
   return 'auto'
 }
+
+
+// parer txt plain to json
+
+/**
+ * Parses a Claude Code execution log (plain text with internal delimiters)
+ * into a Claude API-compatible message payload.
+ *
+ * Input example:
+ *   "Voy a revisar los tests... <|tool_calls_section_begin|>
+ *    <|tool_call_begin|> functions.Read:0 <|tool_call_argument_begin|>
+ *    {"file_path": "..."} <|tool_call_end|> <|tool_calls_section_end|>"
+ *
+ * Output example:
+ *   {
+ *     messages: [{
+ *       role: 'assistant',
+ *       content: [
+ *         { type: 'text', text: 'Voy a revisar los tests...' },
+ *         { type: 'tool_use', id: 'tool_call_0', name: 'Read', input: { file_path: '...' } }
+ *       ]
+ *     }]
+ *   }
+ */
+export function parseClaudeCodeLog(raw: string): GenericPayload {
+  const messages: ChatMessage[] = []
+  const content: MessageContentPart[] = []
+
+  // 1. Extraer texto anterior a la sección de tool calls
+  const textBeforeTools = raw
+    .split('<|tool_calls_section_begin|>')[0]
+    .trim()
+
+  if (textBeforeTools) {
+    content.push({ type: 'text', text: textBeforeTools })
+  }
+
+  // 2. Extraer cada tool call con su nombre, índice y argumentos
+  const toolCallRegex =
+    /<\|tool_call_begin\|>\s*functions\.(\w+):(\d+)\s*<\|tool_call_argument_begin\|>([\s\S]*?)<\|tool_call_end\|>/g
+
+  for (const match of raw.matchAll(toolCallRegex)) {
+    const [, toolName, index, rawArgs] = match
+
+    let parsedInput: Record<string, unknown> = {}
+    try {
+      parsedInput = JSON.parse(rawArgs.trim())
+    } catch {
+      // Si los argumentos no son JSON válido, los guardamos como string
+      parsedInput = { _raw: rawArgs.trim() }
+    }
+
+    content.push({
+      type: 'tool_use',
+      id: `tool_call_${index}`,
+      name: toolName,
+      input: parsedInput,
+    })
+  }
+
+  // 3. Si hay contenido, construir el mensaje assistant
+  if (content.length > 0) {
+    messages.push({
+      role: 'assistant',
+      // Si solo hay texto y ningún tool_use, simplificar a string
+      content:
+        content.length === 1 && content[0].type === 'text'
+          ? content[0].text ?? ''
+          : content,
+    })
+  }
+
+  return { messages }
+}
+
+

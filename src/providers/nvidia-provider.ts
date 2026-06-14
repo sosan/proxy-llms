@@ -200,7 +200,7 @@ export class NvidiaProvider extends BaseProvider {
     return this.executeWithRetry(
       requestId,
       async () => this._doStreamRequest(requestId, uri, sanitizedPayload),
-      (err) => err.status === 400 || err.status === 408 || err.status === 502 || err.status === 503 || err.status === 504
+      (err) => err.status === 408 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 

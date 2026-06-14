@@ -29,7 +29,8 @@ interface StreamState {
   messageStarted: boolean
   blockOpen: boolean
   currentBlockIndex: number
-  finished: boolean
+  finished: boolean,
+  toolCallBlocks: Map<number, { id: string; name: string; blockIndex: number }>
 }
 
 /**
@@ -47,6 +48,7 @@ export function createOpenAIStreamToClaudeTransformStream(
     blockOpen: false,
     currentBlockIndex: 0,
     finished: false,
+    toolCallBlocks: new Map()
   }
 
   return new TransformStream({
@@ -58,7 +60,7 @@ export function createOpenAIStreamToClaudeTransformStream(
       buffer = events.remainder
 
       for (const sseEvent of events.events) {
-        const claudeEvents = transformSSEEvent(sseEvent, messageIndex, state)
+        const claudeEvents = transformSSEEvent(sseEvent, state)
         for (const claudeEvent of claudeEvents) {
           controller.enqueue(encoder.encode(`event: ${claudeEvent.event}\ndata: ${JSON.stringify(claudeEvent.data)}\n\n`))
         }
@@ -66,12 +68,18 @@ export function createOpenAIStreamToClaudeTransformStream(
       }
     },
     flush: (controller) => {
+      console.log('[SSE flush] state:', {
+        messageStarted: state.messageStarted,
+        blockOpen: state.blockOpen,
+        finished: state.finished,
+        toolCallBlocks: state.toolCallBlocks.size,
+      })
       if (state.finished) return
       // Emit any remaining buffered events
       if (buffer.trim()) {
         const events = parseSSEEvents(buffer + '\n')
         for (const sseEvent of events.events) {
-          const claudeEvents = transformSSEEvent(sseEvent, messageIndex, state)
+          const claudeEvents = transformSSEEvent(sseEvent, state)
           for (const claudeEvent of claudeEvents) {
             controller.enqueue(encoder.encode(`event: ${claudeEvent.event}\ndata: ${JSON.stringify(claudeEvent.data)}\n\n`))
           }
@@ -118,21 +126,52 @@ export function createOpenAIStreamToClaudeTransformStream(
 
   function transformSSEEvent(
     event: OpenAIStreamChunk,
-    messageIndex: number,
     state: StreamState
   ): ClaudeSSEEvent[] {
+    if (event && Object.keys(event).length > 0) {
+      const choice = event.choices?.[0]
+      if (choice?.delta?.tool_calls) {
+        console.log('[SSE] tool_calls delta:', JSON.stringify(choice.delta.tool_calls))
+      }
+      if (choice?.delta?.content) {
+        console.log('[SSE] text delta:', choice.delta.content.slice(0, 50))
+      }
+      if (choice?.finish_reason) {
+        console.log('[SSE] finish_reason:', choice.finish_reason)
+      }
+    }
+
     if (!event || Object.keys(event).length === 0) {
-      // DONE event
-      return [{ event: 'message_stop', data: { type: 'message_stop' } }]
+      const claudeEvents: ClaudeSSEEvent[] = []
+      if (!state.messageStarted) {
+        state.messageStarted = true
+        claudeEvents.push({
+          event: 'message_start',
+          data: {
+            type: 'message_start',
+            message: {
+              id: `msg_${crypto.randomUUID().slice(0, 8)}`,
+              type: 'message', role: 'assistant', model: 'unknown',
+              content: [], stop_reason: null, stop_sequence: null,
+            },
+          },
+        })
+      }
+      if (state.blockOpen) {
+        claudeEvents.push({ event: 'content_block_stop', data: { type: 'content_block_stop', index: state.currentBlockIndex } })
+        state.blockOpen = false
+      }
+      claudeEvents.push({ event: 'message_delta', data: { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {} } })
+      claudeEvents.push({ event: 'message_stop', data: { type: 'message_stop' } })
+      state.finished = true
+      return claudeEvents
     }
 
     const claudeEvents: ClaudeSSEEvent[] = []
     const choice = event.choices?.[0]
 
-    if (!choice) return claudeEvents
-
-    // message_start on first delta
-    if (messageIndex === 0 && !state.messageStarted) {
+    // message_start en primer chunk válido
+    if (!state.messageStarted && (event.id || event.model || event.choices !== undefined)) {
       state.messageStarted = true
       claudeEvents.push({
         event: 'message_start',
@@ -140,72 +179,140 @@ export function createOpenAIStreamToClaudeTransformStream(
           type: 'message_start',
           message: {
             id: event.id ?? `msg_${crypto.randomUUID().slice(0, 8)}`,
-            type: 'message',
-            role: 'assistant',
+            type: 'message', role: 'assistant',
             model: event.model ?? 'unknown',
-            content: [],
-            stop_reason: null,
-            stop_sequence: null,
+            content: [], stop_reason: null, stop_sequence: null,
           },
         },
       })
     }
 
-    // content_block_start: only once per block
-    if (!state.blockOpen && (choice.delta?.content || choice.delta?.tool_calls)) {
-      state.blockOpen = true
-      claudeEvents.push({
-        event: 'content_block_start',
-        data: {
-          type: 'content_block_start',
-          index: state.currentBlockIndex,
-          content_block: { type: 'text', text: '' },
-        },
-      })
-    }
+    if (!choice) return claudeEvents
 
-    // content_block_delta
-    if (choice.delta?.content && state.blockOpen) {
+    const delta = choice.delta
+
+    // ── Texto ────────────────────────────────────────────────────────────────
+    if (delta?.content) {
+      // Abrir bloque de texto si no hay ninguno abierto
+      if (!state.blockOpen) {
+        state.blockOpen = true
+        claudeEvents.push({
+          event: 'content_block_start',
+          data: {
+            type: 'content_block_start',
+            index: state.currentBlockIndex,
+            content_block: { type: 'text', text: '' },
+          },
+        })
+      }
       claudeEvents.push({
         event: 'content_block_delta',
         data: {
           type: 'content_block_delta',
           index: state.currentBlockIndex,
-          delta: { type: 'text_delta', text: choice.delta.content },
+          delta: { type: 'text_delta', text: delta.content },
         },
       })
     }
 
-    // content_block_stop: only on finish_reason
-    if (state.blockOpen && choice.finish_reason) {
-      state.blockOpen = false
-      claudeEvents.push({
-        event: 'content_block_stop',
-        data: {
-          type: 'content_block_stop',
-          index: state.currentBlockIndex,
-        },
-      })
-      state.currentBlockIndex++
+    // ── Tool calls ───────────────────────────────────────────────────────────
+    if (delta?.tool_calls) {
+      // Cerrar bloque de texto si estaba abierto
+      if (state.blockOpen) {
+        claudeEvents.push({
+          event: 'content_block_stop',
+          data: { type: 'content_block_stop', index: state.currentBlockIndex },
+        })
+        state.blockOpen = false
+        state.currentBlockIndex++
+      }
+
+      for (const tc of delta.tool_calls) {
+        const tcIndex = tc.index ?? 0
+
+        // Primera vez que vemos este tool call — abrir bloque tool_use
+        if (!state.toolCallBlocks.has(tcIndex)) {
+          const blockIndex = state.currentBlockIndex
+          state.toolCallBlocks.set(tcIndex, {
+            id: tc.id ?? `call_${crypto.randomUUID().slice(0, 8)}`,
+            name: tc.function?.name ?? '',
+            blockIndex,
+          })
+          state.currentBlockIndex++
+          claudeEvents.push({
+            event: 'content_block_start',
+            data: {
+              type: 'content_block_start',
+              index: blockIndex,
+              content_block: {
+                type: 'tool_use',
+                id: tc.id ?? `call_${crypto.randomUUID().slice(0, 8)}`,
+                name: tc.function?.name ?? '',
+                input: {},
+              },
+            },
+          })
+        }
+
+        // Streaming de argumentos JSON parciales
+        if (tc.function?.arguments) {
+          const block = state.toolCallBlocks.get(tcIndex)!
+          claudeEvents.push({
+            event: 'content_block_delta',
+            data: {
+              type: 'content_block_delta',
+              index: block.blockIndex,
+              delta: { type: 'input_json_delta', partial_json: tc.function.arguments },
+            },
+          })
+        }
+      }
     }
 
-    // message_delta / message_stop on finish_reason
+    // ── finish_reason ────────────────────────────────────────────────────────
     if (choice.finish_reason) {
+      // Cerrar bloque de texto si quedó abierto
+      if (state.blockOpen) {
+        claudeEvents.push({
+          event: 'content_block_stop',
+          data: { type: 'content_block_stop', index: state.currentBlockIndex },
+        })
+        state.blockOpen = false
+      }
+
+      // Cerrar todos los bloques de tool calls abiertos
+      for (const [, block] of state.toolCallBlocks) {
+        claudeEvents.push({
+          event: 'content_block_stop',
+          data: { type: 'content_block_stop', index: block.blockIndex },
+        })
+      }
+      state.toolCallBlocks.clear()
+
+      const stopReason = choice.finish_reason === 'tool_calls' ? 'tool_use'
+        : choice.finish_reason === 'stop' ? 'end_turn'
+          : choice.finish_reason
+
       claudeEvents.push({
         event: 'message_delta',
         data: {
           type: 'message_delta',
-          delta: { stop_reason: choice.finish_reason === 'stop' ? 'end_turn' : choice.finish_reason },
+          delta: { stop_reason: stopReason },
           usage: {},
         },
       })
-      claudeEvents.push({
-        event: 'message_stop',
-        data: { type: 'message_stop' },
-      })
+      claudeEvents.push({ event: 'message_stop', data: { type: 'message_stop' } })
       state.finished = true
+    }
+
+    if (claudeEvents.length > 0) {
+      for (const e of claudeEvents) {
+        console.log('[→Claude]', e.event, JSON.stringify(e.data).slice(0, 100))
+      }
     }
 
     return claudeEvents
   }
+
+
 }

@@ -131,7 +131,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     max_tokens: 32768,
     maxTokensCap: 32768,
     stream: true,
-    supportsToolCalling: false,
+    supportsToolCalling: true,
     extra: {
       chat_template_kwargs: {
         enable_thinking: true,
@@ -163,7 +163,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     max_tokens: 32768,
     stream: true,
   },
-  'claude/claude-opus-4-7': {
+  'antrophic/claude/claude-opus-4-7': {
     endpoint: '/messages',
     format: 'anthropic',
   },
@@ -190,7 +190,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     max_tokens: 32768,
     maxTokensCap: 32768,
     stream: true,
-    supportsToolCalling: false,
+    supportsToolCalling: true,
     extra: {
       "chat_template_kwargs": {
         thinking: true,
@@ -278,6 +278,7 @@ export const resolveModel = (config: ProviderConfig, fullModelID: string | null 
 
 export const resolveAnthropicModel = (env: Record<string, string | undefined>, modelInput: string): string => {
   const lowerModel = modelInput.toLowerCase()
+  console.log(`Resolving Anthropic model for input: "${modelInput}"`)
   if (lowerModel.includes('opus')) {
     return env.ANTHROPIC_OPUS_MODEL || modelInput
   }

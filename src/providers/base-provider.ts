@@ -165,7 +165,7 @@ export abstract class BaseProvider implements AIProvider {
   // --- Shared transformRequest (can be overridden) --------------------------
 
   transformRequest(payload: GenericPayload, config: ProviderConfig): Record<string, unknown> {
-    const fullmodel = payload.model //?.substring(payload.model.indexOf('/') + 1)
+    const fullmodel = payload.model
     if (!fullmodel) {
       logger.warn(`No model found for model "${fullmodel}" in payload: ${JSON.stringify(payload)}. Using provider default model if available.`)
       throw new ProviderError(
@@ -175,7 +175,7 @@ export abstract class BaseProvider implements AIProvider {
         'Model must be specified in the request payload.'
       )
     }
-    
+
     const modelWOProvider = resolveModel(config, fullmodel)
     const modelDefaults = resolveModelDefaults(fullmodel)
     if (!modelDefaults) {
