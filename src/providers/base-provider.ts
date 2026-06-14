@@ -175,9 +175,8 @@ export abstract class BaseProvider implements AIProvider {
         'Model must be specified in the request payload.'
       )
     }
-    // console.log("fullmodel: ", fullmodel) // Debug log for full model ID
+    
     const modelWOProvider = resolveModel(config, fullmodel)
-    // console.log("resolved model: ", modelWOProvider) // Debug log for resolved model
     const modelDefaults = resolveModelDefaults(fullmodel)
     if (!modelDefaults) {
       logger.warn(`No model defaults found for model "${fullmodel}". Using generic defaults.`)
@@ -211,7 +210,7 @@ export abstract class BaseProvider implements AIProvider {
       ),
       stream: payload.stream ?? modelDefaults?.stream ?? DEFAULT_IS_STREAMING,
     }
-
+    // include any extra fields from payload that are not routing keys and not undefined
     for (const [key, value] of Object.entries(payload)) {
       if (ROUTING_PAYLOAD_KEYS.has(key) || value === undefined) continue
       commonPayload[key] = value

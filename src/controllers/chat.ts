@@ -129,20 +129,20 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
 
     // --- Validate ---
     const payloadModel = result.payload?.model
-    // console.log('Extracted model from payload:', payloadModel) // Debug log for extracted model
+
     if (!payloadModel) {
       return c.json(createResponse(false, null, 'Model not specified in request body'), { status: 400 })
     }
 
     // --- Resolve provider ---
     const providerDC = extractProviderFromModel(payloadModel)
-    // console.log('Resolved provider from model:', providerDC) // Debug log for resolved provider
+
     if (!providerDC) {
       return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
 
     const configResult = resolveProviderConfig(providerDC)
-    // console.log('Resolved provider config:', 'error' in configResult ? configResult.error : 'config found') // Debug log for provider config resolution
+    
     if ('error' in configResult) {
       return c.json(createResponse(false, null, configResult.error), { status: configResult.status })
     }
