@@ -7,7 +7,6 @@ type LockResult = {
   allowed: boolean
   delayMs: number
   scheduledAt: number
-  retryAfter: string
   headers: Record<string, string>
 }
 
@@ -77,24 +76,17 @@ export class RateLimiterDurableObject {
       return { scheduledAt, delayMs }
     })
 
-    if (result.delayMs > maxQueueDelayMs) {
-      const headers = buildRateLimitHeaders(result.delayMs, result.scheduledAt, provider)
-      return {
-        allowed: false,
-        delayMs: result.delayMs,
-        scheduledAt: result.scheduledAt,
-        retryAfter: headers['Retry-After'],
-        headers,
-      }
-    }
+    const headers = buildRateLimitHeaders(
+      result.delayMs,
+      result.scheduledAt,
+      provider
+    )
 
-    const headers = buildRateLimitHeaders(result.delayMs, result.scheduledAt, provider)
-
+    const allowed = result.delayMs <= maxQueueDelayMs
     return {
-      allowed: true,
+      allowed,
       delayMs: result.delayMs,
       scheduledAt: result.scheduledAt,
-      retryAfter: headers['Retry-After'],
       headers,
     }
   }
