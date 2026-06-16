@@ -9,7 +9,16 @@ export const DEFAULT_MAX_TOKENS = 32768
 const DEFAULT_MAX_TEMP = 1
 const DEFAULT_MAX_TOP_P = 1
 const DEFAULT_IS_STREAMING = true
-const ROUTING_PAYLOAD_KEYS = new Set(['provider', 'model', 'messages', 'content'])
+const ROUTING_PAYLOAD_KEYS = new Set([
+  'provider',
+  'model',
+  'messages',
+  'content',
+  'max_tokens',
+  'temperature',
+  'top_p',
+  'stream',
+])
 
 // Retry configuration for transient upstream failures
 const RETRY_MAX_ATTEMPTS = 5
@@ -163,7 +172,6 @@ export abstract class BaseProvider implements AIProvider {
   abstract makeStreamRequest(endpoint: string, payload: unknown): Promise<Response>
 
   // --- Shared transformRequest (can be overridden) --------------------------
-
   transformRequest(payload: GenericPayload, config: ProviderConfig): Record<string, unknown> {
     const fullmodel = payload.model
     if (!fullmodel) {
@@ -183,7 +191,10 @@ export abstract class BaseProvider implements AIProvider {
     }
 
     // Apply max_tokens cap when model has instability history
-    const maxTokensCap = modelDefaults?.maxTokensCap ?? modelDefaults?.max_tokens
+    const requestedTokens = payload.max_tokens ?? modelDefaults?.max_tokens ?? DEFAULT_MAX_TOKENS
+    const cappedTokens = modelDefaults?.maxTokensCap
+      ? Math.min(requestedTokens, modelDefaults.maxTokensCap)
+      : requestedTokens
 
     let messages: ChatMessage[] = []
     if (payload.messages && Array.isArray(payload.messages)) {
@@ -204,10 +215,7 @@ export abstract class BaseProvider implements AIProvider {
       messages: messages,
       temperature: payload.temperature ?? modelDefaults?.temperature ?? DEFAULT_MAX_TEMP,
       top_p: payload.top_p ?? modelDefaults?.top_p ?? DEFAULT_MAX_TOP_P,
-      max_tokens: Math.min(
-        payload.max_tokens ?? modelDefaults?.max_tokens ?? DEFAULT_MAX_TOKENS,
-        maxTokensCap ?? DEFAULT_MAX_TOKENS
-      ),
+      max_tokens: cappedTokens,
       stream: payload.stream ?? modelDefaults?.stream ?? DEFAULT_IS_STREAMING,
     }
     // include any extra fields from payload that are not routing keys and not undefined

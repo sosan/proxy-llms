@@ -25,16 +25,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     if (result.error) {
       return c.json(createResponse(false, null, result.error), { status: result.status })
     }
-    // const claudePayload: GenericPayload = bodyResult.payload!
-    // if (!claudePayload) {
-    //   return c.json(createResponse(false, null, 'Request body is empty or invalid'), { status: 400 })
-    // }
 
-    // // -- 2. Resolve model mapping (before knowing provider format) ----------
-    // const payloadModel = claudePayload.model
-    // if (!payloadModel) {
-    //   return c.json(createResponse(false, null, 'Model not specified in request body'), { status: 400 })
-    // }
     // --- Validate ---
     const payloadModel = result.payload?.model
 
@@ -110,7 +101,6 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     })
 
     // -- 6. Strip tools if the specific resolved model doesn't support tool calling -----
-    // const resolvedModelId = genericPayload.model ? `${providerDC}/${genericPayload.model}` : null
     const resolvedModelId = genericPayload.model || 'unknown'
     const modelDefaults = resolvedModelId ? ModelDefaultsById[resolvedModelId] : undefined
     if (modelDefaults?.supportsToolCalling === false) {
@@ -122,16 +112,6 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     // -- 7. Resolve provider instance & make request ------------------------
     const provider = getProviderByName(c.env, providerDC)
     const transformedPayload = provider.transformRequest(genericPayload, config)
-
-    // -- 7a. Apply max_tokens cap if model has instability history -----------
-    const modelCap = modelDefaults?.maxTokensCap ?? DEFAULT_MAX_TOKENS
-    if (modelCap && typeof (transformedPayload as Record<string, unknown>).max_tokens === 'number') {
-      const current = (transformedPayload as Record<string, unknown>).max_tokens as number
-      if (current > modelCap) {
-        log.debug(`[Claude Messages] Capping max_tokens from ${current} to ${modelCap}`)
-          ; (transformedPayload as Record<string, unknown>).max_tokens = modelCap
-      }
-    }
 
     const isStream = (transformedPayload as Record<string, unknown>).stream === true
     const model = ((transformedPayload as Record<string, unknown>).model as string) || 'unknown'
@@ -155,56 +135,6 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     return handleClaudeError(c, error, metricsCollector, log)
   }
 }
-
-// -- Helper: streaming ----------------------------------------------------
-// async function handleStream(
-//   c: Context,
-//   provider: AIProvider,
-//   config: { endpoint: string; format: string },
-//   payload: unknown,
-//   metricsCollector: MetricsCollector
-// ): Promise<Response> {
-//   const log = logger.withEnv(c.env)
-//   log.debug('[handleStream] Starting streaming request to upstream')
-
-//   const upstream = await provider.makeStreamRequest(config.endpoint, payload)
-//   log.debug('[handleStream] Upstream response received', {
-//     status: upstream.status,
-//     contentType: upstream.headers.get('content-type'),
-//     hasBody: !!upstream.body,
-//   })
-//   metricsCollector.setUpstreamStatus(upstream.status)
-
-//   if (!upstream.body) {
-//     throw new ProviderError(
-//       'Provider returned a streaming response without a body',
-//       502 as ContentfulStatusCode,
-//       'upstream_empty_stream',
-//       'Provider returned an empty stream. Retry the request in a few seconds.'
-//     )
-//   }
-
-//   const metricsStream = metricsCollector.createStreamingTransformStream()
-//   const formatTransformStream = createOpenAIStreamToClaudeTransformStream(log)
-
-//   const transformedBody = upstream.body
-//     .pipeThrough(metricsStream)
-//     .pipeThrough(formatTransformStream)
-
-//   log.debug('[handleStream] Stream pipelines configured (metrics + format transform)')
-
-//   const headers = new Headers()
-//   headers.set('Content-Type', 'text/event-stream')
-//   headers.set('Cache-Control', 'no-cache')
-//   headers.set('Connection', 'keep-alive')
-//   headers.set('X-Accel-Buffering', 'no')
-//   headers.delete('Content-Length')
-
-//   return new Response(transformedBody, {
-//     status: upstream.status,
-//     headers,
-//   })
-// }
 
 async function handleStream(
   c: Context,
