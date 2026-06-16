@@ -15,12 +15,10 @@ import { extractProviderFromModel } from './models'
 
 export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
-  const log = logger.withEnv(c.env)
 
   try {
     // -- 1. Parse & validate request body ------------------------------------
     const result = await parseRequestBody(c.req)
-    console.log('Parsed request body:', JSON.stringify(result.payload?.model)  ) // Debug log for parsed request body
     if (result.error) {
       return c.json(createResponse(false, null, result.error), { status: result.status })
     }
@@ -40,7 +38,6 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
       ANTHROPIC_DEFAULT_MODEL: c.env.ANTHROPIC_DEFAULT_MODEL,
     }
     const mappedModel = resolveAnthropicModel(envMap, payloadModel)
-    log.debug(`Mapped Claude model "${payloadModel}" -> "${mappedModel}"`)
     if (mappedModel === '') {
       return c.json(createResponse(false, null, 'Mapped model is empty'), { status: 400 })
     }
@@ -52,7 +49,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
       )
     }
 
-    log.info(`Mapped Claude model "${payloadModel}" -> "${mappedModel}"`)
+    // log.info(`Mapped Claude model "${payloadModel}" -> "${mappedModel}"`)
 
     // -- 3. Resolve provider & validate --------------------------------------
     const providerDC = extractProviderFromModel(mappedModel)
@@ -93,7 +90,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
       delete genericPayload.tool_choice
     }
 
-    log.debug('[Claude Messages] Transformed request', {
+    logger.debug('[Claude Messages] Transformed request', {
       model: genericPayload.model,
       format: modelFormat,
       keys: Object.keys(genericPayload),
@@ -103,7 +100,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     const resolvedModelId = genericPayload.model || 'unknown'
     const modelDefaults = resolvedModelId ? ModelDefaultsById[resolvedModelId] : undefined
     if (modelDefaults?.supportsToolCalling === false) {
-      log.debug(`[Claude Messages] Stripping tools from request (model ${resolvedModelId} does not support tool calling)`)
+      logger.debug(`[Claude Messages] Stripping tools from request (model ${resolvedModelId} does not support tool calling)`)
       const { tools: _tools, tool_choice: _toolChoice, ...rest } = genericPayload
       genericPayload = rest
     }
@@ -131,7 +128,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     return handleNonStream(c, provider, { endpoint, format: modelFormat }, transformedPayload, metricsCollector)
 
   } catch (error) {
-    return handleClaudeError(c, error, metricsCollector, log)
+    return handleClaudeError(c, error, metricsCollector, logger)
   }
 }
 
