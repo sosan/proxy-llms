@@ -80,7 +80,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
         genericPayload = transformClaudeToOpenAI(result.payload!)
         genericPayload.model = mappedModel
         break
-      case 'anthropic':
+      case 'antrophic':
         // Claude-to-Claude passthrough (provider natively accepts Claude format)
         genericPayload = { ...result.payload! }
         genericPayload.model = mappedModel

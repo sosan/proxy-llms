@@ -142,7 +142,7 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     }
 
     const configResult = resolveProviderConfig(providerDC)
-    
+
     if ('error' in configResult) {
       return c.json(createResponse(false, null, configResult.error), { status: configResult.status })
     }
@@ -162,11 +162,11 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     if (!modelDefaults) {
       return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
-    const endpoint = modelDefaults?.endpoint ?? (modelDefaults.format === 'anthropic' ? '/messages' : '/chat/completions')
+    const endpoint = modelDefaults?.endpoint ?? (modelDefaults.format === 'antrophic' ? '/messages' : '/chat/completions')
 
     // let genericPayload: GenericPayload
     switch (modelFormat) {
-      case 'anthropic':
+      case 'antrophic':
       case 'openai':
       case 'google':
 
