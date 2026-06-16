@@ -12,7 +12,6 @@ import { transformOpenAIToClaude } from '../transformers/openai-to-claude'
 import { createOpenAIStreamToClaudeTransformStream } from '../transformers/openai-stream-to-claude'
 import type { AIProvider } from '../interfaces/provider'
 import { extractProviderFromModel } from './models'
-import { DEFAULT_MAX_TOKENS } from '../providers/base-provider'
 
 export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
@@ -121,7 +120,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
 
     // -- 8. Determine endpoint based on model format -----------------------
     const modelDefaultsEntry = ModelDefaultsById[mappedModel]
-    const endpoint = modelDefaultsEntry?.endpoint ?? (modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint)
+    const endpoint = modelDefaultsEntry?.endpoint ?? (modelFormat === 'antrophic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint)
 
     // -- 9a. Streaming response -------------------------------------------
     if (isStream) {
