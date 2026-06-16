@@ -128,7 +128,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     return handleNonStream(c, provider, { endpoint, format: modelFormat }, transformedPayload, metricsCollector)
 
   } catch (error) {
-    return handleClaudeError(c, error, metricsCollector, logger)
+    return handleClaudeError(c, error, metricsCollector)
   }
 }
 
@@ -139,8 +139,7 @@ async function handleStream(
   payload: unknown,
   metricsCollector: MetricsCollector
 ): Promise<Response> {
-  const log = logger.withEnv(c.env)
-  log.debug('[handleStream] Starting streaming request to upstream')
+  logger.debug('[handleStream] Starting streaming request to upstream')
 
   const upstream = await provider.makeStreamRequest(config.endpoint, payload)
   metricsCollector.setUpstreamStatus(upstream.status)
@@ -160,7 +159,7 @@ async function handleStream(
   switch(config.format) {
     case 'openai':
       // ✅ OpenAI SSE → Claude SSE
-      const formatTransformStream = createOpenAIStreamToClaudeTransformStream(log)
+      const formatTransformStream = createOpenAIStreamToClaudeTransformStream(logger)
 
       transformedBody = upstream.body!
         .pipeThrough(metricsStream)
@@ -215,10 +214,8 @@ async function handleNonStream(
 function handleClaudeError(
   c: Context,
   error: unknown,
-  metricsCollector: MetricsCollector | null,
-  log: ReturnType<typeof logger.withEnv>
+  metricsCollector: MetricsCollector | null
 ): Response {
-  log.error('Provider Error (Claude):', error)
   const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
   const status = error instanceof ProviderError ? error.status : 500
   const publicMessage = error instanceof Error ? error.message : 'Provider request failed unexpectedly.'
@@ -236,7 +233,7 @@ function handleClaudeError(
   }
   if (status === 429 && retryAfter) {
     responseHeaders.set('Retry-After', retryAfter)
-    log.warn(`[handleClaudeError] Propagating 429 to client (Retry-After: ${retryAfter})`)
+    logger.warn(`[handleClaudeError] Propagating 429 to client (Retry-After: ${retryAfter})`)
   }
 
   if (metricsCollector) {

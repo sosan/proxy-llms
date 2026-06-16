@@ -51,11 +51,11 @@ describe('handleClaudeMessages', () => {
 
   const createMockContext = (overrides: any = {}) => ({
     req: {
-      json: vi.fn().mockResolvedValue(overrides.body ?? { model: 'nvidia/glm5.1', messages: [] }),
+      json: vi.fn().mockResolvedValue(overrides.body ?? { model: 'nvidia/z-ai/glm5.1', messages: [] }),
       ...overrides.req,
     },
     env: {
-      ANTHROPIC_OPUS_MODEL: 'nvidia/opus',
+      ANTHROPIC_OPUS_MODEL: 'nvidia/moonshotai/kimi-k2.6',
       ANTHROPIC_SONNET_MODEL: 'nvidia/sonnet',
       ANTHROPIC_HAIKU_MODEL: 'nvidia/haiku',
       ANTHROPIC_DEFAULT_MODEL: 'nvidia/default',
@@ -78,7 +78,7 @@ describe('handleClaudeMessages', () => {
 
     it('should use model name as-is when no provider prefix', async () => {
       const c = createMockContext({
-        body: { model: 'nvidia/glm5.1', messages: [] },
+        body: { model: 'nvidia/z-ai/glm5.1', messages: [] },
       })
 
       await handleClaudeMessages(c as any)
@@ -91,7 +91,7 @@ describe('handleClaudeMessages', () => {
   describe('openai format provider', () => {
     it('should call getProviderByName with correct provider', async () => {
       const c = createMockContext({
-        body: { model: 'nvidia/glm5.1', messages: [{ role: 'user', content: 'hello' }] },
+        body: { model: 'nvidia/z-ai/glm5.1', messages: [{ role: 'user', content: 'hello' }] },
       })
 
       await handleClaudeMessages(c as any)
@@ -110,12 +110,12 @@ describe('handleClaudeMessages', () => {
     })
   })
 
-  describe('anthropic format provider', () => {
+  describe('antrophic format provider', () => {
     it('should call getProviderByName with claude provider', async () => {
       const c = createMockContext({
-        body: { model: 'claude/claude-opus-4-7', messages: [{ role: 'user', content: 'hello' }] },
+        body: { model: 'antrophic/claude/claude-opus-4-7', messages: [{ role: 'user', content: 'hello' }] },
         env: {
-          ANTHROPIC_OPUS_MODEL: 'claude/opus-model',
+          ANTHROPIC_OPUS_MODEL: 'antrophic/claude/claude-opus-4-7',
           ANTHROPIC_SONNET_MODEL: '',
           ANTHROPIC_HAIKU_MODEL: '',
           ANTHROPIC_DEFAULT_MODEL: '',
@@ -124,7 +124,7 @@ describe('handleClaudeMessages', () => {
 
       await handleClaudeMessages(c as any)
 
-      expect(getProviderByName).toHaveBeenCalledWith(c.env, 'claude')
+      expect(getProviderByName).toHaveBeenCalledWith(c.env, 'antrophic')
     })
   })
 
