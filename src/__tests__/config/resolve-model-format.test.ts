@@ -3,7 +3,7 @@ import { resolveModelFormat } from '../../config/providers'
 
 describe('resolveModelFormat', () => {
   it('should return model-specific format when defined in ModelDefaultsById', () => {
-    expect(resolveModelFormat('openrouter/stealth/owl-alpha')).toBe('anthropic')
+    expect(resolveModelFormat('openrouter/stealth/owl-alpha')).toBe('antrophic')
     expect(resolveModelFormat('nvidia/moonshotai/kimi-k2.6')).toBe('openai')
   })
 
@@ -19,7 +19,7 @@ describe('resolveModelFormat', () => {
     expect(resolveModelFormat('nvidia/deepseek/deepseek-v4-pro')).toBe('openai')
   })
 
-  it('should return anthropic format for claude provider', () => {
-    expect(resolveModelFormat('claude/claude-opus-4-7')).toBe('anthropic')
+  it('should return antrophic format for claude provider', () => {
+    expect(resolveModelFormat('antrophic/claude/claude-opus-4-7')).toBe('antrophic')
   })
 })

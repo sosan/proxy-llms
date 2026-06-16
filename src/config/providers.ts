@@ -10,7 +10,7 @@ export type ModelDefaults = {
   stream?: boolean
   extra?: Record<string, unknown>
   supportsToolCalling?: boolean
-  format?: 'anthropic' | 'openai' | 'google'
+  format?: 'antrophic' | 'openai' | 'google'
   frequency_penalty?: number
   logit_bias?: Record<string, number>
   presence_penalty?: number
@@ -95,12 +95,14 @@ export type ProviderType = keyof typeof _ProviderConfigs
 
 export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'nvidia/openai/gpt-oss-120b': {
+    format: 'openai',
     temperature: 0.2,
     top_p: 1,
     max_tokens: 32768,
     stream: true,
   },
   'nvidia/z-ai/glm4.7': {
+    format: 'openai',
     temperature: 0.9,
     top_p: 0.95,
     max_tokens: 32768,
@@ -113,6 +115,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/z-ai/glm5.1': {
+    format: 'openai',
     temperature: 0.9,
     top_p: 0.95,
     max_tokens: 32768,
@@ -126,6 +129,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/z-ai/glm-5.1': {
+    format: 'openai',
     temperature: 0.9,
     top_p: 0.95,
     max_tokens: 32768,
@@ -140,6 +144,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/deepseek/deepseek-v4-pro': {
+    format: 'openai',
     temperature: 1,
     top_p: 0.95,
     max_tokens: 16384,
@@ -151,6 +156,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/minimaxai/minimax-m2.7': {
+    format: 'openai',
     temperature: 0.2,
     top_p: 0.9,
     max_tokens: 8192,
@@ -158,6 +164,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     stream: true,
   },
   'nvidia/moonshotai/kimi-k2-thinking': {
+    format: 'openai',
     temperature: 0.6,
     top_p: 0.95,
     max_tokens: 32768,
@@ -165,7 +172,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
   },
   'antrophic/claude/claude-opus-4-7': {
     endpoint: '/messages',
-    format: 'anthropic',
+    format: 'antrophic',
   },
   'openrouter/moonshotai/kimi-k2.6': {
     endpoint: '/chat/completions',
@@ -202,8 +209,10 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     top_p: 0.9,
     max_tokens: 26214,
     stream: true,
+    format: 'openai',
   },
   'nvidia/qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
+    format: 'openai',
     temperature: 0.7,
     top_p: 0.8,
     supportsToolCalling: false,
@@ -211,6 +220,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     stream: true,
   },
   'nvidia/google/gemma-4-31b-it': {
+    format: 'openai',
     temperature: 1,
     top_p: 0.8,
     max_tokens: 32768,
@@ -221,7 +231,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     }
   },
   'openrouter/stealth/owl-alpha': {
-    format: 'anthropic',
+    format: 'antrophic',
     stream: true,
     temperature: 1,
     top_p: 1,
