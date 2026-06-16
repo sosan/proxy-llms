@@ -172,10 +172,10 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     format: 'openai',
     temperature: 1,
     top_p: 0.95,
-    max_tokens: 8192,
-    maxTokensCap: 8192,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
     stream: true,
-    supportsToolCalling: false,
+    supportsToolCalling: true,
     extra: {
       "chat_template_kwargs": {
         thinking: true,

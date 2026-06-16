@@ -12,6 +12,7 @@ import { transformOpenAIToClaude } from '../transformers/openai-to-claude'
 import { createOpenAIStreamToClaudeTransformStream } from '../transformers/openai-stream-to-claude'
 import type { AIProvider } from '../interfaces/provider'
 import { extractProviderFromModel } from './models'
+import { DEFAULT_MAX_TOKENS } from '../providers/base-provider'
 
 export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
@@ -121,6 +122,17 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     // -- 7. Resolve provider instance & make request ------------------------
     const provider = getProviderByName(c.env, providerDC)
     const transformedPayload = provider.transformRequest(genericPayload, config)
+
+    // -- 7a. Apply max_tokens cap if model has instability history -----------
+    const modelCap = modelDefaults?.maxTokensCap ?? DEFAULT_MAX_TOKENS
+    if (modelCap && typeof (transformedPayload as Record<string, unknown>).max_tokens === 'number') {
+      const current = (transformedPayload as Record<string, unknown>).max_tokens as number
+      if (current > modelCap) {
+        log.debug(`[Claude Messages] Capping max_tokens from ${current} to ${modelCap}`)
+          ; (transformedPayload as Record<string, unknown>).max_tokens = modelCap
+      }
+    }
+
     const isStream = (transformedPayload as Record<string, unknown>).stream === true
     const model = ((transformedPayload as Record<string, unknown>).model as string) || 'unknown'
     const requestId = crypto.randomUUID().slice(0, 8)

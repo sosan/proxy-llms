@@ -68,14 +68,8 @@ export function createOpenAIStreamToClaudeTransformStream(
       }
     },
     flush: (controller) => {
-      console.log('[SSE flush] state:', {
-        messageStarted: state.messageStarted,
-        blockOpen: state.blockOpen,
-        finished: state.finished,
-        toolCallBlocks: state.toolCallBlocks.size,
-      })
       if (state.finished) return
-      // Emit any remaining buffered events
+
       if (buffer.trim()) {
         const events = parseSSEEvents(buffer + '\n')
         for (const sseEvent of events.events) {
@@ -85,17 +79,48 @@ export function createOpenAIStreamToClaudeTransformStream(
           }
         }
       }
-      // Ensure block is closed if left open
+
       if (state.blockOpen) {
-        controller.enqueue(encoder.encode(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: state.currentBlockIndex - 1 })}\n\n`))
+        controller.enqueue(encoder.encode(
+          `event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: state.currentBlockIndex })}\n\n`
+        ))
         state.blockOpen = false
       }
-      // Ensure message_stop is sent
+
+      if (state.toolCallBlocks.size > 0) {
+        for (const [, block] of state.toolCallBlocks) {
+          controller.enqueue(encoder.encode(
+            `event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: block.blockIndex })}\n\n`
+          ))
+        }
+        state.toolCallBlocks.clear()
+      }
+
+      if (!state.messageStarted) {
+        state.messageStarted = true
+        controller.enqueue(encoder.encode(
+          `event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: `msg_${crypto.randomUUID().slice(0, 8)}`, type: 'message', role: 'assistant', model: 'unknown', content: [], stop_reason: null, stop_sequence: null } })}\n\n`
+        ))
+      }
+
+      // always emit message_delta + message_stop
       if (state.messageStarted && !state.finished) {
-        controller.enqueue(encoder.encode(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`))
+        controller.enqueue(encoder.encode(
+          `event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: {} })}\n\n`
+        ))
+        controller.enqueue(encoder.encode(
+          `event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`
+        ))
         state.finished = true
       }
-    },
+
+      console.log('[SSE flush] state:', {
+        messageStarted: state.messageStarted,
+        blockOpen: state.blockOpen,
+        finished: state.finished,
+        toolCallBlocks: state.toolCallBlocks.size,
+      })
+    }
   })
 
   function parseSSEEvents(text: string): { events: OpenAIStreamChunk[]; remainder: string } {
@@ -191,7 +216,7 @@ export function createOpenAIStreamToClaudeTransformStream(
 
     const delta = choice.delta
 
-    // ── Texto ────────────────────────────────────────────────────────────────
+    // -- Text ----------------------------------------------------------------
     if (delta?.content) {
       // Abrir bloque de texto si no hay ninguno abierto
       if (!state.blockOpen) {
@@ -215,8 +240,8 @@ export function createOpenAIStreamToClaudeTransformStream(
       })
     }
 
-    // ── Tool calls ───────────────────────────────────────────────────────────
-    if (delta?.tool_calls) {
+    // -- Tool calls -----------------------------------------------------------
+    if (delta?.tool_calls && delta.tool_calls.length > 0) {
       // Cerrar bloque de texto si estaba abierto
       if (state.blockOpen) {
         claudeEvents.push({
@@ -269,7 +294,7 @@ export function createOpenAIStreamToClaudeTransformStream(
       }
     }
 
-    // ── finish_reason ────────────────────────────────────────────────────────
+    // -- finish_reason --------------------------------------------------------
     if (choice.finish_reason) {
       // Cerrar bloque de texto si quedó abierto
       if (state.blockOpen) {

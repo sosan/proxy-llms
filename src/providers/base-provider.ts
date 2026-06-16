@@ -5,7 +5,7 @@ import { ProviderError } from '../errors/provider-error'
 import { resolveModel, resolveModelDefaults } from '../config/providers'
 import { logger } from '../utils/logger'
 
-const DEFAULT_MAX_TOKENS = 32768
+export const DEFAULT_MAX_TOKENS = 32768
 const DEFAULT_MAX_TEMP = 1
 const DEFAULT_MAX_TOP_P = 1
 const DEFAULT_IS_STREAMING = true
