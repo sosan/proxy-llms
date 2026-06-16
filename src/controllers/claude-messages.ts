@@ -234,11 +234,6 @@ async function handleStream(
   switch(config.format) {
     case 'openai':
       // ✅ OpenAI SSE → Claude SSE
-      // const formatTransformStream = createOpenAIStreamToClaudeTransformStream(log)
-      // transformedBody = upstream.body
-      //   // .pipeThrough(metricsStream)
-      //   .pipeThrough(formatTransformStream)
-
       const formatTransformStream = createOpenAIStreamToClaudeTransformStream(log)
 
       transformedBody = upstream.body!
@@ -246,7 +241,7 @@ async function handleStream(
         .pipeThrough(formatTransformStream)
       break
     case 'anthropic':
-      // ✅ Claude → Claude passthrough (sin transformación de formato)
+      // ✅ Claude → Claude passthrough
       transformedBody = upstream.body
         .pipeThrough(metricsStream)
       break
