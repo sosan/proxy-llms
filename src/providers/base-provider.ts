@@ -9,7 +9,7 @@ export const DEFAULT_MAX_TOKENS = 32768
 const DEFAULT_MAX_TEMP = 1
 const DEFAULT_MAX_TOP_P = 1
 const DEFAULT_IS_STREAMING = true
-const ROUTING_PAYLOAD_KEYS = new Set([
+const SKIP_KEYS = new Set([
   'provider',
   'model',
   'messages',
@@ -220,7 +220,7 @@ export abstract class BaseProvider implements AIProvider {
     }
     // include any extra fields from payload that are not routing keys and not undefined
     for (const [key, value] of Object.entries(payload)) {
-      if (ROUTING_PAYLOAD_KEYS.has(key) || value === undefined) continue
+      if (SKIP_KEYS.has(key) || value === undefined) continue
       commonPayload[key] = value
     }
 
