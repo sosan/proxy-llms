@@ -3,6 +3,7 @@
 import { RAW_CAP, MIN_COMPRESS_SIZE } from "./constants";
 import { autoDetectFilter } from "./autodetect";
 import { safeApply } from "./applyFilter";
+import { logger } from "../../utils/logger";
 import type { FilterFn, CompressStats, Message, Block } from "../../interfaces/rtk";
 
 // Compress tool_result content in-place. Returns stats or null if disabled/failed.
@@ -83,7 +84,7 @@ export function compressMessages(body: Record<string, unknown>, enabled: boolean
     }
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
-    console.warn("[RTK] compressMessages error:", message);
+    logger.warn("[RTK] compressMessages error:", message);
     return null;
   }
   return stats;
@@ -120,7 +121,7 @@ function compressKiroFormat(body: Record<string, unknown>, _enabled: boolean): C
     }
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
-    console.warn("[RTK] compressKiroFormat error:", message);
+    logger.warn("[RTK] compressKiroFormat error:", message);
     return null;
   }
   return stats;

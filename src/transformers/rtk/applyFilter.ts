@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import type { FilterFn } from "../../interfaces/rtk";
 
 // Port of apply_filter (rtk/src/cmds/system/pipe_cmd.rs) — catch_unwind equivalent
@@ -12,7 +13,7 @@ export function safeApply(fn: FilterFn, text: string): string {
     // Rust: eprintln!("[rtk] warning: filter panicked — passing through raw output")
     const name = fn.filterName || fn.name || "anonymous";
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[rtk] warning: filter '${name}' panicked — passing through raw output: ${message}`);
+    logger.warn(`[rtk] warning: filter '${name}' panicked — passing through raw output: ${message}`);
     return text;
   }
 }

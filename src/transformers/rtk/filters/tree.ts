@@ -8,8 +8,8 @@ export function tree(input: string): string {
 
   const filtered: string[] = [];
   for (const line of lines) {
-    // Drop "X directories, Y files" summary
-    if (line.includes("director") && line.includes("file")) continue;
+    // Drop "X directories, Y files" summary (e.g. "5 directories, 23 files")
+    if (/^\d+ director(ies|y), \d+ files?$/.test(line)) continue;
     // Drop leading blanks
     if (line.trim() === "" && filtered.length === 0) continue;
     filtered.push(line);
