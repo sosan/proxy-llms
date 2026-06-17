@@ -47,6 +47,7 @@ const _ProviderConfigs = {
       'z-ai/glm5.1': 'z-ai/glm-5.1',
       'zai/glm-5.1': 'z-ai/glm-5.1',
       'zai/glm5.1': 'z-ai/glm-5.1',
+      'minimaxai/minimax-m3': 'minimaxai/minimax-m3',
       'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6', // 7 ranking GB200x4
       'z-ai/glm4.7': 'z-ai/glm4.7', // 20 ranking H100x8
       'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro', // 16 ranking
@@ -190,6 +191,21 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     }
   },
   'nvidia/moonshotai/kimi-k2.6': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 32768,
+    maxTokensCap: 32768,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'nvidia/minimaxai/minimax-m3': {
     endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
