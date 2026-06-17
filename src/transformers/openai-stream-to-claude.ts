@@ -114,7 +114,7 @@ export function createOpenAIStreamToClaudeTransformStream(
         state.finished = true
       }
 
-      console.log('[SSE flush] state:', {
+     logger.debug('[SSE flush] state:', {
         messageStarted: state.messageStarted,
         blockOpen: state.blockOpen,
         finished: state.finished,
@@ -156,13 +156,13 @@ export function createOpenAIStreamToClaudeTransformStream(
     if (event && Object.keys(event).length > 0) {
       const choice = event.choices?.[0]
       if (choice?.delta?.tool_calls) {
-        console.log('[SSE] tool_calls delta:', JSON.stringify(choice.delta.tool_calls))
+        logger.debug('[SSE] tool_calls delta:', JSON.stringify(choice.delta.tool_calls))
       }
       if (choice?.delta?.content) {
-        console.log('[SSE] text delta:', choice.delta.content.slice(0, 50))
+        logger.debug('[SSE] text delta:', choice.delta.content.slice(0, 50))
       }
       if (choice?.finish_reason) {
-        console.log('[SSE] finish_reason:', choice.finish_reason)
+        logger.debug('[SSE] finish_reason:', choice.finish_reason)
       }
     }
 
@@ -332,7 +332,7 @@ export function createOpenAIStreamToClaudeTransformStream(
 
     if (claudeEvents.length > 0) {
       for (const e of claudeEvents) {
-        console.log('[→Claude]', e.event, JSON.stringify(e.data).slice(0, 100))
+        logger.debug('[→Claude]', e.event, JSON.stringify(e.data).slice(0, 100))
       }
     }
 

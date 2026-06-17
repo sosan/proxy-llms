@@ -31,7 +31,8 @@ export function getUserFacingErrorMessage(error: Error): string {
   }
 
   // Specific code-based detection
-  const code = (error as unknown as Record<string, unknown>).code
+  const errorWithCode = error as { code?: string }
+  const code = errorWithCode.code
   if (code === 'upstream_timeout') {
     return 'Provider request timed out.'
   }

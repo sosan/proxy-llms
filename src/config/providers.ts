@@ -304,7 +304,6 @@ export const resolveModel = (config: ProviderConfig, fullModelID: string | null 
 
 export const resolveAnthropicModel = (env: Record<string, string | undefined>, modelInput: string): string => {
   const lowerModel = modelInput.toLowerCase()
-  console.log(`Resolving Anthropic model for input: "${modelInput}"`)
   if (lowerModel.includes('opus')) {
     return env.ANTHROPIC_OPUS_MODEL || modelInput
   }

@@ -98,6 +98,8 @@ export abstract class BaseProvider implements AIProvider {
 
   // --- Shared helpers -------------------------------------------------------
 
+  /** Reads the body of an upstream error response. Error bodies are bounded
+   *  (typically < few KB of JSON or text), so awaiting .text() is safe here. */
   protected async readErrorBody(response: Response): Promise<unknown> {
     const text = await response.text().catch(() => '')
     if (!text) return '<empty>'

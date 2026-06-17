@@ -43,13 +43,14 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
     }
 
     if (mappedModel === payloadModel) {
+      logger.debug(`Mapped Claude model "${payloadModel}" is not supported`)
       return c.json(
         createResponse(false, null, `not supported`),
         { status: 400 }
       )
     }
 
-    // log.info(`Mapped Claude model "${payloadModel}" -> "${mappedModel}"`)
+    logger.debug(`Mapped Claude model "${payloadModel}" -> "${mappedModel}"`)
 
     // -- 3. Resolve provider & validate --------------------------------------
     const providerDC = extractProviderFromModel(mappedModel)
@@ -70,7 +71,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
 
     // -- 5. Transform payload according to provider format ------------------
     let genericPayload: GenericPayload
-    console.log('Model format:', modelFormat, 'Mapped model:', mappedModel, 'Provider:', providerDC) // Debug log for model format and provider
+    logger.debug('Model format:', modelFormat, 'Mapped model:', mappedModel, 'Provider:', providerDC) // Debug log for model format and provider
     switch (modelFormat) {
       case 'openai':
         genericPayload = transformClaudeToOpenAI(result.payload!)
