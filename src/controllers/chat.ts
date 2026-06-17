@@ -162,11 +162,11 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     if (!modelDefaults) {
       return c.json(createResponse(false, null, 'Invalid model format. Expected "provider/model"'), { status: 400 })
     }
-    const endpoint = modelDefaults?.endpoint ?? (modelDefaults.format === 'antrophic' ? '/messages' : '/chat/completions')
+    const endpoint = modelDefaults?.endpoint ?? (modelDefaults.format === 'anthropic' ? '/messages' : '/chat/completions')
 
     // let genericPayload: GenericPayload
     switch (modelFormat) {
-      case 'antrophic':
+      case 'anthropic':
       case 'openai':
       case 'google':
 

@@ -76,7 +76,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
         genericPayload = transformClaudeToOpenAI(result.payload!)
         genericPayload.model = mappedModel
         break
-      case 'antrophic':
+      case 'anthropic':
         // Claude-to-Claude passthrough (provider natively accepts Claude format)
         genericPayload = { ...result.payload! }
         genericPayload.model = mappedModel
@@ -117,7 +117,7 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
 
     // -- 8. Determine endpoint based on model format -----------------------
     const modelDefaultsEntry = ModelDefaultsById[mappedModel]
-    const endpoint = modelDefaultsEntry?.endpoint ?? (modelFormat === 'antrophic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint)
+    const endpoint = modelDefaultsEntry?.endpoint ?? (modelFormat === 'anthropic' && config.alterEndpoint ? config.alterEndpoint : config.endpoint)
 
     // -- 9a. Streaming response -------------------------------------------
     if (isStream) {

@@ -10,7 +10,7 @@ export type ModelDefaults = {
   stream?: boolean
   extra?: Record<string, unknown>
   supportsToolCalling?: boolean
-  format?: 'antrophic' | 'openai' | 'google'
+  format?: 'anthropic' | 'openai' | 'google'
   frequency_penalty?: number
   logit_bias?: Record<string, number>
   presence_penalty?: number
@@ -170,9 +170,9 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     max_tokens: 32768,
     stream: true,
   },
-  'antrophic/claude/claude-opus-4-7': {
+  'anthropic/claude/claude-opus-4-7': {
     endpoint: '/messages',
-    format: 'antrophic',
+    format: 'anthropic',
   },
   'openrouter/moonshotai/kimi-k2.6': {
     endpoint: '/chat/completions',
@@ -231,7 +231,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     }
   },
   'openrouter/stealth/owl-alpha': {
-    format: 'antrophic',
+    format: 'anthropic',
     stream: true,
     temperature: 1,
     top_p: 1,
