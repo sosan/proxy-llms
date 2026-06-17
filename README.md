@@ -1,213 +1,223 @@
-# Multi-Provider AI Proxy with Async Processing
+# Multi-Provider AI Proxy
 
-This proxy allows using multiple AI providers compatible with the OpenAI API through NVIDIA NIM, with async processing capabilities using Cloudflare Durable Objects.
+A Cloudflare Worker proxy that routes OpenAI-compatible requests to multiple AI providers (NVIDIA NIM, OpenRouter, local LLMs) with model alias resolution, streaming, retry logic, rate limiting, and metrics collection.
 
-## Security
-
-This repository follows [npm Security Best Practices](https://github.com/lirantal/npm-security-best-practices) to harden the supply chain and reduce the attack surface of the dependency tree.
-
-### Implemented hardening controls
-
-| Control | File | Description |
-|---|---|---|
-| Ignore lifecycle scripts | `.npmrc` | `ignore-scripts=true` prevents arbitrary code execution during install |
-| Block git deps | `.npmrc` | `allow-git=none` rejects git-source dependencies |
-| Install cooldown | `.npmrc` | `min-release-age=30` blocks packages newer than 30 days |
-| pnpm trust policy | `pnpm-workspace.yaml` | `trustPolicy: no-downgrade` refuses versions with weaker trust signals |
-| Strict dep builds | `pnpm-workspace.yaml` | `strictDepBuilds: true` fails install on unapproved build scripts |
-| Block exotic subdeps | `pnpm-workspace.yaml` | `blockExoticSubdeps: true` blocks git/tarball in transitive deps |
-| Frozen lockfile check | `package.json` | `corepack pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install` validates lockfile consistency |
-| Dependabot cooldown | `.github/dependabot.yml` | 7-day cooldown before auto-upgrading dependencies |
-| CODEOWNERS | `.github/CODEOWNERS` | Mandatory review for lockfiles and package manager config |
-| CI hardening | `.github/workflows/ci-cd.yaml` | Deterministic install (`pnpm install --frozen-lockfile --prefer-offline`) + lockfile validation |
-| Dev container | `.devcontainer/devcontainer.json` | Isolated environment with `--cap-drop=ALL` and `--no-new-privileges` |
-
-### Pre-install audit tools (recommended)
-
-Install [npq](https://github.com/lirantal/npq) to audit packages before installation:
+## Quick Start
 
 ```bash
-pnpm install -g npq
-pnpq install <package>
+pnpm install
+pnpm run dev                 # local dev server on :8787
+pnpm run test                # run tests
+pnpm run typecheck           # type checking
 ```
 
-Or use [Socket Firewall](https://socket.dev/blog/introducing-socket-firewall) (`sfw`) to block malicious packages in real time:
+## Architecture
 
-```bash
-pnpm install -g sfw
-sfw pnpm install <package>
+```
+Client → POST /chat/completions → Route → Controller → Provider → Upstream API
+                          { model: "nvidia/..." }
 ```
 
-### No plaintext secrets
+The proxy extracts the **provider** from the first segment of the `model` field in the request body:
 
-Do not store plaintext secrets in `.env` or `.env.dev` files. Use a secrets manager (Infisical, 1Password, etc.) and inject secrets at runtime with Infisical CLI, example:
+- `"nvidia/moonshotai/kimi-k2.6"` → routes to `nvidia` provider
+- `"claude/claude-sonnet-4-6"` → routes to `claude` provider (via Anthropic-compatible `/v1/messages`)
 
-```bash
-# Basic usage
-infisical run -- pnpm run dev
+### Project Structure
 
-# Watch for secret changes (development only)
-infisical run --watch -- pnpm run dev
-```
-
-> **Tip:** Use `infisical login` to authenticate once, then `infisical run` injects secrets without plaintext files.
-
-**Alternatives:** If you use 1Password, you can do the same with `op run -- pnpm run dev`.
-
-### Local development
-
-Open the project in the provided [Dev Container](.devcontainer/devcontainer.json) to keep dependency execution isolated from your host system.
-
-## Deployment
-
-Detailed setup, Cloudflare secrets, GitHub Environment secrets, and troubleshooting live in [SETUP.md](SETUP.md).
-
-```bash
-# Deploy to staging (default)
-pnpm run deploy:cloudflare
-
-# Deploy to production
-pnpm run deploy:cloudflare -- production
-```
-
-GitHub Actions deploys via `.github/workflows/ci-cd.yaml`; local deploys use `scripts/deploy-cloudflare.sh`.
+| Directory | Responsibility |
+|---|---|
+| `src/controllers/` | Business logic — request processing, provider resolution, streaming/buffering decorators, error handling |
+| `src/routes/` | Thin declarative route registration — zero business logic |
+| `src/providers/` | Provider implementations (NVIDIA, OpenRouter, local) |
+| `src/config/providers.ts` | Provider endpoints, model aliases, defaults |
+| `src/errors/` | `ProviderError` — preserves upstream HTTP status codes |
+| `src/metrics/` | Cloudflare Analytics Engine collection and queries |
+| `src/utils/` | Logging (gated by `DEBUG`), rate gate utilities |
+| `src/durable-objects/` | Async processing + sliding-window rate limiter |
+| `src/transformers/` | Format translators (Claude↔OpenAI) + RTK + Caveman |
 
 ## Endpoints
 
-### Synchronous AI Providers
-- `POST /chat/completions` - Compatible with OpenAI API (provider extracted from the `model` field in the request body, e.g. `"model": "nvidia/moonshotai/kimi-k2.6"`)
-- `POST /v1/messages` - Compatible with Anthropic Claude API (automatically transforms request/response between Claude and OpenAI formats)
+### Chat Completions
 
-> **Note:** The provider is extracted from the first segment of the `model` field in the request body. For example, `"model": "nvidia/moonshotai/kimi-k2.6"` routes to the `nvidia` provider, and `"model": "claude/claude-3.5-sonnet"` routes to the `claude` provider.
-
-#### Claude API Compatibility (`/v1/messages`)
-
-The proxy supports the Anthropic Claude API format on the `/v1/messages` endpoint. When a client sends a request in Claude format, the proxy:
-
-1. **Maps the model** to a gateway model based on environment variables (case-insensitive):
-   - Model name contains "opus" → `ANTHROPIC_OPUS_MODEL`
-   - Model name contains "sonnet" → `ANTHROPIC_SONNET_MODEL`
-   - Model name contains "haiku" → `ANTHROPIC_HAIKU_MODEL`
-   - Any other model name → `ANTHROPIC_DEFAULT_MODEL`
-   - If the env var is not set, the original model name is used
-
-2. **Transforms the request** from Claude format to OpenAI format:
-   - Claude `messages` with `role: system/user/assistant/tool` → OpenAI format
-   - Claude `system` field → OpenAI system message
-   - Claude `tools` → OpenAI `tools`
-   - Claude `tool_choice` → OpenAI `tool_choice`
-   - Supports image blocks (`type: image`, base64 source) → OpenAI `image_url`
-   - Supports tool use/result blocks → OpenAI `tool_calls` / `tool` messages
-
-3. **Routes to the provider** based on the model field (e.g., `nvidia/moonshotai/kimi-k2.6`)
-
-4. **Transforms the response** from OpenAI format back to Claude format:
-   - OpenAI `choices[].message.content` → Claude `content` text blocks
-   - OpenAI `choices[].message.tool_calls` → Claude `tool_use` blocks
-   - OpenAI `finish_reason` → Claude `stop_reason`
-
-This allows clients that expect a Claude-compatible API (e.g. Claude Code) to use any OpenAI-compatible provider transparently, with per-tier model routing.
-
-### Claude Code Configuration
-
-To route Claude Code tiers to specific gateway models, set these environment variables in `wrangler.toml` or `.env`:
-
-```toml
-ANTHROPIC_OPUS_MODEL = "nvidia/..."
-ANTHROPIC_SONNET_MODEL = "openrouter/..."
-ANTHROPIC_HAIKU_MODEL = "lmstudio/..."
-ANTHROPIC_DEFAULT_MODEL = "nvidia/..."
+```
+POST /chat/completions
 ```
 
-Example: When Claude Code sends `claude-4.7-opus`, the proxy routes to `nvidia/moonshotai/kimi-k2.6` (if set). These `ANTHROPIC_*_MODEL` variables configure proxy-side model routing.
+OpenAI-compatible endpoint. The provider and model are resolved from the `model` field (e.g., `nvidia/moonshotai/kimi-k2.6`). Streaming requests pass the upstream SSE body directly; non-streaming requests buffer and return JSON.
 
-For local development, point Claude Code at the local Anthropic-compatible Worker endpoint with `ANTHROPIC_BASE_URL`.Wrangler uses port `8787` by default, so the usual local command is:
+### Claude API Compatible
 
+```
+POST /v1/messages
+```
+
+Accepts Anthropic's Claude API format and transforms it to OpenAI format before forwarding. The response is transformed back to Claude format. Supports per-tier model routing via environment variables:
+
+| Claude tier | Env var | Match (case-insensitive) |
+|---|---|---|
+| Opus | `ANTHROPIC_OPUS_MODEL` | `opus` in model name |
+| Sonnet | `ANTHROPIC_SONNET_MODEL` | `sonnet` in model name |
+| Haiku | `ANTHROPIC_HAIKU_MODEL` | `haiku` in model name |
+| Fallback | `ANTHROPIC_DEFAULT_MODEL` | Any other model |
+
+Each `ANTHROPIC_*_MODEL` value is a **full routing path** in `provider/organization/model` format — not just a model name. The proxy extracts the provider from the first segment and resolves the rest through normal model resolution.
+
+```
+Claude Code sends:
+  POST /v1/messages  { model: "claude-sonnet-4-6" }
+
+        ├─ "opus" in model?   → ANTHROPIC_OPUS_MODEL
+        ├─ "sonnet" in model?  → ANTHROPIC_SONNET_MODEL = "nvidia/z-ai/glm-5.1"
+        ├─ "haiku" in model?   → ANTHROPIC_HAIKU_MODEL
+        └─ else                → ANTHROPIC_DEFAULT_MODEL
+                         │
+                         ▼
+        Parses "nvidia/z-ai/glm-5.1"
+        → provider: "nvidia"
+        → upstream model: "z-ai/glm-5.1"
+        → Forwards to NVIDIA NIM
+```
+
+If a variable is empty, that tier returns an error — it's disabled.
+
+```toml
+# wrangler.toml — examples
+ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
+ANTHROPIC_SONNET_MODEL = "nvidia/z-ai/glm-5.1"
+ANTHROPIC_HAIKU_MODEL = "nvidia/z-ai/glm-5.1"
+ANTHROPIC_DEFAULT_MODEL = "openrouter/anthropic/claude-sonnet-4"
+```
+
+For local development:
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:8787 claude
 ```
 
-`ANTHROPIC_BASE_URL` is a Claude Code client setting, not a Worker runtime variable for `wrangler.toml`.
+### Model Discovery
 
-### Environment Variables
+| Endpoint | Description |
+|---|---|
+| `GET /openai/v1/models` | OpenAI-compatible model list |
+| `GET /claude/v1/models` | Claude-compatible model list |
+| `GET /:provider/models` | Provider-specific model list |
 
-The following public environment variables configure the proxy behavior. Set them in `wrangler.toml` `[vars]` or via `.env` for local development:
+### Async Processing (Durable Objects)
 
-| Variable | Description | Example |
+| Endpoint | Description |
+|---|---|
+| `POST /api/process` | Start async processing |
+| `GET /api/status/:processId` | Poll for status |
+| `GET /api/stream/:processId` | SSE stream for real-time updates |
+| `GET /api/websocket/:processId` | WebSocket for real-time updates |
+
+## Rate Limiting
+
+A sliding-window rate limiter (Durable Object per API key) enforces per-provider limits. Default: **40 requests/minute** with a **1.6 s minimum gap** between requests.
+
+- Window: **60 s sliding window**
+- Bucket: **SHA-256 hash of the provider API key** — all calls using the same key share the same limit
+- Config: `ProviderConfigs[provider].rateLimit.requestsPerMinute` (see `src/config/providers.ts`)
+- When the limit is hit, the proxy returns **429** with `Retry-After`, `RateLimit-Reset`, and `X-RateLimit-*` headers
+
+## Retry Behavior
+
+The NVIDIA provider retries failed requests with **exponential backoff + jitter**. Non-retryable errors propagate immediately.
+
+| Status | Retries? | Base delay | Notes |
+|---|---|---|---|
+| 400 Bad Request | ✅ | 1000ms | Transient model overload |
+| 408 Request Timeout | ✅ | 1000ms | |
+| 429 Rate Limited | ❌ | — | Propagated with `Retry-After`, `RateLimit-Reset`, `X-RateLimit-*` headers |
+| 502 Bad Gateway | ✅ | 5000ms | |
+| 503 Unavailable | ✅ | 5000ms | |
+| 504 Gateway Timeout | ✅ | 5000ms | |
+| 401/403 | ❌ | — | Client auth errors |
+| 422 (malformed response) | ❌ | — | Upstream returned 200 but response unusable |
+| Network errors | ✅ | 1000ms | `TypeError`, `fetch failed`, connection lost |
+
+Each retry doubles the base delay with random jitter (±500ms). Maximum attempts: **5** (`RETRY_MAX_ATTEMPTS`). Configure via `NVIDIA_MAX_RETRIES` and `NVIDIA_RETRY_DELAY_MS`.
+
+## Environment Variables
+
+| Variable | Default | Description |
 |---|---|---|
-| `NVIDIA_BASE_URL` | NVIDIA NIM API base URL | `https://integrate.api.nvidia.com/v1` |
-| `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
-| `OPENCODE_BASE_URL` | Opencode API base URL | `https://api.opencode.dev/v1` |
-| `ANTHROPIC_OPUS_MODEL` | Gateway model for Claude Code "opus" tier | `nvidia/moonshotai/kimi-k2.6` |
-| `ANTHROPIC_SONNET_MODEL` | Gateway model for Claude Code "sonnet" tier | `nvidia/z-ai/glm-5.1` |
-| `ANTHROPIC_HAIKU_MODEL` | Gateway model for Claude Code "haiku" tier | `nvidia/...` |
-| `ANTHROPIC_DEFAULT_MODEL` | Fallback gateway model for Claude Code | `nvidia/...` |
-| `DEBUG` | Enable debug logging (`true`/`false`) | `true` |
-| `LOG_PAYLOAD` | Log upstream request payloads (`true`/`false`) | `true` |
-| `LOG_METRICS` | Enable Analytics Engine metrics (`true`/`false`) | `true` |
-| `RTK_ENABLED` | Enable RTK tool result compression (`true`/`false`) | `true` |
-| `CAVEMAN_ENABLED` | Enable terse-style caveman prompts (`true`/`false`) | `true` |
+| `NVIDIA_BASE_URL` | — | NVIDIA NIM API base URL |
+| `OPENROUTER_BASE_URL` | — | OpenRouter API base URL |
+| `ANTHROPIC_OPUS_MODEL` | — | Gateway model for "opus" tier |
+| `ANTHROPIC_SONNET_MODEL` | — | Gateway model for "sonnet" tier |
+| `ANTHROPIC_HAIKU_MODEL` | — | Gateway model for "haiku" tier |
+| `ANTHROPIC_DEFAULT_MODEL` | — | Fallback gateway model |
+| `DEBUG` | `false` | Enable debug/info/warn logs |
+| `LOG_PAYLOAD` | `false` | Log upstream request payloads (sanitized) |
+| `LOG_METRICS` | `false` | Enable Analytics Engine metrics |
+| `RTK_ENABLED` | `false` | Enable RTK tool result compression |
+| `CAVEMAN_ENABLED` | `false` | Enable terse-style prompts |
+| `CAVEMAN_LEVEL` | `full` | Caveman intensity: `lite`, `full`, `ultra` |
 
-### Legacy routes (backward compatible)
-- `GET /openai/v1/models` - OpenAI-compatible model discovery
-- `GET /claude/v1/models` - Claude-compatible model discovery
-- `GET /:provider/models` - Provider-specific model listing
+## Payload Middlewares
 
-### Async Processing
-- `POST /api/process` - Start async processing
-- `GET /api/status/:processId` - Get status (polling)
-- `GET /api/stream/:processId` - SSE stream for real-time updates
-- `GET /api/websocket/:processId` - WebSocket for real-time updates
+Both `POST /chat/completions` and `POST /v1/messages` apply payload middlewares before sending to the upstream:
 
-## Usage with Cline/Claude Code
+### RTK (Request Transformation Kit)
 
-### Async Processing
+Compresses `tool_result` content in request messages to reduce token usage. Supports:
 
-1. **Start process:**
+- OpenAI `messages` with `role: "tool"`
+- Claude `tool_result` blocks (string and array forms)
+- OpenAI Responses `function_call_output` (string and array forms)
+- Kiro `conversationState` format
+
+Auto-detects content type (git diff, grep, ls, etc.) and applies the appropriate filter. Enabled via `RTK_ENABLED=true`.
+
+### Caveman
+
+Injects a terse-style instruction into the system message before sending to the upstream. Works with OpenAI, Claude, and Gemini formats. Configurable via `CAVEMAN_LEVEL` (`lite`, `full`, `ultra`). Enabled via `CAVEMAN_ENABLED=true`.
 
 ## Metrics
 
-The proxy collects per-request metrics using Cloudflare Analytics Engine. Metrics are only recorded when `LOG_METRICS=true` is set.
-
-### Enabling metrics
-
-Set `LOG_METRICS = "true"` in `wrangler.toml` or via environment variable. When disabled (default), no metrics are collected or written.
-
-### Collected metrics
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `requestId` | string | Unique request identifier |
-| `model` | string | Resolved model ID |
-| `provider` | string | Provider name (nvidia, openrouter, etc.) |
-| `isStream` | boolean | Whether the request was streaming |
-| `upstreamLatencyMs` | number | Time to first byte from upstream |
-| `totalProxyMs` | number | Total time spent in the proxy |
-| `ttftMs` | number | Time to first token (streaming only) |
-| `generationTimeMs` | number | Generation time in ms (streaming only) |
-| `tokensPerSecond` | number | Estimated tokens per second |
-| `promptTokens` | number | Prompt tokens (non-streaming only) |
-| `completionTokens` | number | Completion tokens (non-streaming only) |
-| `totalTokens` | number | Total tokens (non-streaming only) |
-| `finishReason` | string | Finish reason from upstream |
-| `upstreamStatus` | number | HTTP status from upstream |
-| `errorType` | string | Error type if the request failed |
-| `errorMessage` | string | Error message if the request failed |
-
-Metrics are written as data points to the Cloudflare Analytics Engine dataset bound as `ANALYTICS` in `wrangler.toml`.
+Collected via Cloudflare Analytics Engine when `LOG_METRICS=true`. Records latency, token counts, finish reason, and error details per request.
 
 ## Logging
 
-The project uses a centralized `logger` from `utils/logger.ts` that respects the `DEBUG` environment variable. When `DEBUG=true`, debug/info/warn logs are emitted; when `DEBUG=false` (default in production), only `error` logs are visible.
+Uses `utils/logger.ts` — gated by `DEBUG`. Only `logger.error()` is always visible. Never use raw `console.*`.
 
 ```typescript
 import { logger } from './utils/logger'
-
-logger.info('General info', context)          // only when DEBUG=true
-logger.warn('Warning condition', details)     // only when DEBUG=true
-logger.error('Something broke', error)        // always visible
-logger.logUpstreamConfig(id, payload)         // sanitized, only when LOG_PAYLOAD=true
+logger.info('context', details)   // DEBUG=true only
+logger.error('fail', err)          # always visible
 ```
 
-- Set `DEBUG=true` in `.env` to enable debug output during development.
-- Never use raw `console.log` / `console.error` directly.
+## Security
+
+Supply-chain hardening via `.npmrc` (ignore lifecycle scripts, block git deps), pnpm trust policy, frozen lockfile validation, and a Dev Container with dropped capabilities. See [SETUP.md](SETUP.md) for deployment details.
+
+## Deployment
+
+```bash
+pnpm run deploy:cloudflare          # staging
+pnpm run deploy:cloudflare -- production
+```
+
+See [SETUP.md](SETUP.md) for Cloudflare secrets, GitHub Actions setup, and troubleshooting.
+
+### CI/CD Deployment
+
+GitHub Actions deploys through `.github/workflows/ci-cd.yaml`.
+
+The workflow:
+
+1. Runs dependency install, lockfile validation, lint, typecheck, and tests.
+2. Selects the deployment environment from the workflow input, defaulting to `staging`.
+3. Creates `.worker-secrets` from GitHub secrets without printing values.
+4. Uses `secrets.CLOUDFLARE_API_TOKEN` and `secrets.CLOUDFLARE_ACCOUNT_ID` to authenticate Wrangler.
+5. Runs `wrangler deploy --env <environment> --secrets-file .worker-secrets` through `cloudflare/wrangler-action`.
+6. Removes `.worker-secrets` after the deploy step.
+
+Manual workflow dispatch supports:
+
+- `staging`
+- `production`
+
+Pushes to `main` deploy to `staging` by default.
