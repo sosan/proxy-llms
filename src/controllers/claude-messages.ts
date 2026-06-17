@@ -11,7 +11,7 @@ import { transformClaudeToOpenAI } from '../transformers/claude-to-openai'
 import { transformOpenAIToClaude } from '../transformers/openai-to-claude'
 import { createOpenAIStreamToClaudeTransformStream } from '../transformers/openai-stream-to-claude'
 import type { AIProvider } from '../interfaces/provider'
-import { extractProviderFromModel } from './models'
+import { extractProviderFromModel, applyPayloadMiddlewares } from './models'
 
 export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
   let metricsCollector: MetricsCollector | null = null
@@ -105,9 +105,14 @@ export const handleClaudeMessages = async (c: Context<{ Bindings: Env }>) => {
       genericPayload = rest
     }
 
-    // -- 7. Resolve provider instance & make request ------------------------
+    // -- 7. Apply payload middlewares (RTK + Caveman) -----------------------
+    const finalPayload = applyPayloadMiddlewares(genericPayload as any, c.env, {
+      format: modelFormat as 'anthropic' | 'openai' | 'google',
+    })
+
+    // -- 8. Resolve provider instance & make request ------------------------
     const provider = getProviderByName(c.env, providerDC)
-    const transformedPayload = provider.transformRequest(genericPayload, config)
+    const transformedPayload = provider.transformRequest(finalPayload, config)
 
     const isStream = (transformedPayload as Record<string, unknown>).stream === true
     const model = ((transformedPayload as Record<string, unknown>).model as string) || 'unknown'

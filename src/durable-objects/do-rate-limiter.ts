@@ -1,7 +1,8 @@
 import type { Env } from '../interfaces/general'
 import { ProviderConfigs } from '../config/providers'
 
-const LAST_SCHEDULED_AT_KEY = 'lastScheduledAt'
+const REQUEST_LOG_KEY = 'requestLog'
+const WINDOW_MS = 60_000
 
 type LockResult = {
   allowed: boolean
@@ -36,6 +37,12 @@ function buildRateLimitHeaders(delayMs: number, scheduledAt: number, provider: s
   }
 }
 
+/**
+ * Sliding window rate limiter using a request log of timestamps.
+ * Stores an array of {timestamp, id} entries and prunes entries older than
+ * the sliding window (60s).  Enforces a per-minute request cap and a
+ * minimum inter-request delay (slotDelayMs) to smooth burst traffic.
+ */
 export class RateLimiterDurableObject {
   constructor(
     private readonly state: DurableObjectState,
@@ -65,29 +72,49 @@ export class RateLimiterDurableObject {
     const provider = url.searchParams.get('provider') ?? 'nvidia'
     const slotDelayMs = getSlotDelayMs(provider)
     const maxQueueDelayMs = getMaxQueueDelayMs(provider)
+    const requestsPerMinute = getRequestsPerMinute(provider)
 
     const result = await this.state.blockConcurrencyWhile(async () => {
-      const last = (await this.state.storage.get<number>(LAST_SCHEDULED_AT_KEY)) ?? 0
-      const scheduledAt = Math.max(now, last + slotDelayMs)
-      const delayMs = scheduledAt - now
+      // ── sliding window: load, prune, count ──────────────────────────────
+      const log = (await this.state.storage.get<Array<number>>(REQUEST_LOG_KEY)) ?? []
+      const windowStart = now - WINDOW_MS
+      const pruned: number[] = []
+      for (const ts of log) {
+        if (ts >= windowStart) pruned.push(ts)
+      }
+      const currentCount = pruned.length
 
-      await this.state.storage.put(LAST_SCHEDULED_AT_KEY, scheduledAt)
+      // ── compute when this request would be scheduled ─────────────────────
+      const lastScheduledAt = pruned.length > 0 ? Math.max(...pruned) : 0
+      const earliestSlot = Math.max(now, lastScheduledAt + slotDelayMs)
+      const delayMs = earliestSlot - now
 
-      return { scheduledAt, delayMs }
+      // ── enforce per-minute cap ──────────────────────────────────────────
+      if (currentCount >= requestsPerMinute) {
+        // Window is full; compute when the oldest entry in window expires
+        const oldestInWindow = pruned[0]
+        const waitUntil = oldestInWindow + WINDOW_MS
+        const waitMs = waitUntil - now
+        return {
+          allowed: false,
+          delayMs: waitMs,
+          scheduledAt: waitUntil,
+          headers: buildRateLimitHeaders(waitMs, waitUntil, provider),
+        }
+      }
+
+      // ── allowed: record the timestamp and persist ─────────────────────────
+      pruned.push(earliestSlot)
+      await this.state.storage.put(REQUEST_LOG_KEY, pruned)
+
+      return {
+        allowed: true,
+        delayMs,
+        scheduledAt: earliestSlot,
+        headers: buildRateLimitHeaders(delayMs, earliestSlot, provider),
+      }
     })
 
-    const headers = buildRateLimitHeaders(
-      result.delayMs,
-      result.scheduledAt,
-      provider
-    )
-
-    const allowed = result.delayMs <= maxQueueDelayMs
-    return {
-      allowed,
-      delayMs: result.delayMs,
-      scheduledAt: result.scheduledAt,
-      headers,
-    }
+    return result
   }
 }
