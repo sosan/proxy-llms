@@ -45,7 +45,7 @@ bindings = [
   { name = "DO_RATE_LIMITER", class_name = "RateLimiterDurableObject" }
 ]
 
-[env.staging.migrations]
+[[env.staging.migrations]]
 tag = "v1"
 new_sqlite_classes = ["ProcessorDurableObject", "RateLimiterDurableObject"]
 
