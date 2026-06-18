@@ -1,4 +1,6 @@
-import { logger } from '../utils/logger'
+// import { logger } from '../utils/logger'
+
+import { Logger } from "../utils/logger"
 
 /** Local type: only used within this transformer */
 interface OpenAIStreamChunk {
@@ -37,7 +39,7 @@ interface StreamState {
  * Transform an OpenAI SSE stream into a Claude SSE stream.
  */
 export function createOpenAIStreamToClaudeTransformStream(
-  _: ReturnType<typeof logger.withEnv>
+  logger: Logger
 ): TransformStream<Uint8Array, Uint8Array> {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
@@ -114,7 +116,7 @@ export function createOpenAIStreamToClaudeTransformStream(
         state.finished = true
       }
 
-     logger.debug('[SSE flush] state:', {
+      logger.debug('[SSE flush] state:', {
         messageStarted: state.messageStarted,
         blockOpen: state.blockOpen,
         finished: state.finished,

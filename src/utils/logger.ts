@@ -4,12 +4,13 @@
  * - error: always emitted (critical for production)
  */
 
-type LoggerEnv = {
+export type LoggerEnv = {
   DEBUG?: string
   LOG_PAYLOAD?: string
   LOG_METRICS?: string
 }
-type Logger = {
+
+export type Logger = {
   debug: (...args: unknown[]) => void
   info: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
