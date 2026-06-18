@@ -11,11 +11,44 @@ pnpm run test                # run tests
 pnpm run typecheck           # type checking
 ```
 
-## Architecture
+## Client Configuration
 
+### OpenCode
+
+Save as `opencode.json` in your project root or `~/.config/opencode/`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "proxy": {
+      "name": "Local Proxy",
+      "options": {
+        "baseURL": "http://localhost:8787/v1"
+      },
+      "models": {
+        "nvidia/moonshotai/kimi-k2.6": {
+          "name": "MoonshotAI Kimi-k2.6 (NVIDIA NIM)"
+        },
+        "nvidia/minimaxai/minimax-m3": {
+          "name": "Minimax M3 (NVIDIA NIM)"
+        }
+      }
+    }
+  }
+}
 ```
-Client → POST /chat/completions → Route → Controller → Provider → Upstream API
-                          { model: "nvidia/..." }
+
+run:
+
+```bash
+opencode
+```
+
+### Claude Code
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:8787 claude
 ```
 
 The proxy extracts the **provider** from the first segment of the `model` field in the request body:
