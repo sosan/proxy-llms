@@ -11,6 +11,44 @@ pnpm run test                # run tests
 pnpm run typecheck           # type checking
 ```
 
+## Choose A Provider
+
+On the client side, model selection and its default parameters are handled through ModelDefaultsById, a map keyed by the full model slug (provider/organization/model) that defines the request format (openai or anthropic), the endpoint, and generation parameters specific to each model (temperature, top_p, max_tokens, tool-calling support, etc.).
+
+### 1. [NVIDIA NIM](https://build.nvidia.com/)
+
+Get a key at [build.nvidia.com/settings/api-keys](https://build.nvidia.com/settings/api-keys).
+
+Paste it into `NVIDIA_API_KEY` secrets.
+
+Currently configured models:
+
+- nvidia/openai/gpt-oss-120b
+- nvidia/z-ai/glm4.7
+- nvidia/z-ai/glm-5.1
+- nvidia/deepseek/deepseek-v4-pro
+- nvidia/minimaxai/minimax-m2.7
+- nvidia/minimaxai/minimax-m3
+- nvidia/moonshotai/kimi-k2-thinking
+- nvidia/moonshotai/kimi-k2.6
+- nvidia/stepfun-ai/step-3.5-flash
+- nvidia/qwen/qwen3-coder-480b-a35b-instruct
+- nvidia/google/gemma-4-31b-it
+
+Browse models at [build.nvidia.com](https://build.nvidia.com/explore/discover).
+
+### 2. [OpenRouter](https://openrouter.ai/)
+
+Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
+
+Paste it into `OPENROUTER_API_KEY`, then set model to an OpenRouter such as:
+- openrouter/stealth/owl-alpha
+- openrouter/moonshotai/kimi-k2.6
+- openrouter/openai/gpt-oss-120b:free
+
+Browse [all models](https://openrouter.ai/models) or [free models](https://openrouter.ai/collections/free-models).
+
+
 ## Client Configuration
 
 ### OpenCode

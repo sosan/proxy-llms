@@ -70,8 +70,10 @@ const _ProviderConfigs = {
     alterEndpoint: '/messages',
     models: {
       'stealth/owl-alpha': 'owl-alpha',
-      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6'
-
+      'nvidia/nemotron-3-ultra-550b-a55b': 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'openai/gpt-oss-120b': 'openai/gpt-oss-120b:free',
+      'google/gemma-4-31b-it': 'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it': 'google/gemma-4-26b-a4b-it:free'
     },
     supportsToolCalling: true,
   },
@@ -175,21 +177,6 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     endpoint: '/messages',
     format: 'anthropic',
   },
-  'openrouter/moonshotai/kimi-k2.6': {
-    endpoint: '/chat/completions',
-    format: 'openai',
-    temperature: 1,
-    top_p: 0.95,
-    max_tokens: 5834,
-    maxTokensCap: 5834,
-    stream: true,
-    supportsToolCalling: true,
-    extra: {
-      "chat_template_kwargs": {
-        thinking: true,
-      },
-    }
-  },
   'nvidia/moonshotai/kimi-k2.6': {
     endpoint: '/chat/completions',
     format: 'openai',
@@ -247,6 +234,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     }
   },
   'openrouter/stealth/owl-alpha': {
+    endpoint: '/messages',
     format: 'anthropic',
     stream: true,
     temperature: 1,
@@ -255,6 +243,66 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     frequency_penalty: 0,
     presence_penalty: 0,
     repetition_penalty: 1,
+  },
+  'openrouter/nvidia/nemotron-3-ultra-550b-a55b': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'openrouter/openai/gpt-oss-120b': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'openrouter/google/gemma-4-31b-it': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'openrouter/google/gemma-4-26b-a4b-it': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
   },
 }
 
