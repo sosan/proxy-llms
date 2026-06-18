@@ -45,6 +45,10 @@ bindings = [
   { name = "DO_RATE_LIMITER", class_name = "RateLimiterDurableObject" }
 ]
 
+[env.staging.migrations]
+tag = "v1"
+new_sqlite_classes = ["ProcessorDurableObject", "RateLimiterDurableObject"]
+
 [[env.staging.analytics_engine_datasets]]
 binding = "ANALYTICS"
 dataset = "request_metrics"
@@ -71,6 +75,11 @@ bindings = [
   { name = "PROCESSOR", class_name = "ProcessorDurableObject" },
   { name = "DO_RATE_LIMITER", class_name = "RateLimiterDurableObject" }
 ]
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["ProcessorDurableObject", "RateLimiterDurableObject"]
+
 
 [[env.production.analytics_engine_datasets]]
 binding = "ANALYTICS"

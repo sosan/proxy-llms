@@ -19,7 +19,7 @@ fail() { printf "${RED}[FAIL]${NC}  %s\n" "$1"; }
 
 EXIT_CODE=0
 
-echo "── 1. Verificando entorno Node.js ─────────────────────"
+echo "-- 1. Verificando entorno Node.js ---------------------"
 
 # Node.js disponible
 if ! command -v node >/dev/null 2>&1; then
@@ -54,7 +54,7 @@ else
 fi
 
 echo ""
-echo "── 2. Verificando dependencias instaladas ─────────────"
+echo "-- 2. Verificando dependencias instaladas -------------"
 
 if [ ! -d "node_modules" ]; then
   fail "node_modules/ no existe. Ejecuta: pnpm install"
@@ -64,7 +64,7 @@ else
 fi
 
 echo ""
-echo "── 3. Verificando archivos base del proyecto ──────────"
+echo "-- 3. Verificando archivos base del proyecto ----------"
 
 for f in package.json server.ts tsconfig.json wrangler.toml vitest.config.ts config/providers.ts; do
   if [ ! -f "$f" ]; then
@@ -76,7 +76,7 @@ for f in package.json server.ts tsconfig.json wrangler.toml vitest.config.ts con
 done
 
 echo ""
-echo "── 4. Validando package.json ─────────────────────────"
+echo "-- 4. Validando package.json -------------------------"
 
 node - <<'JS'
 const fs = require('fs');
@@ -117,7 +117,7 @@ JS
 if [ $? -ne 0 ]; then EXIT_CODE=1; fi
 
 echo ""
-echo "── 5. Verificando wrangler CLI ────────────────────────"
+echo "-- 5. Verificando wrangler CLI ------------------------"
 
 if npx wrangler --version >/dev/null 2>&1; then
   ok "wrangler CLI disponible -> $(npx wrangler --version 2>/dev/null | head -1)"
@@ -127,7 +127,7 @@ else
 fi
 
 echo ""
-echo "── 6. Ejecutando typecheck ────────────────────────────"
+echo "-- 6. Ejecutando typecheck ----------------------------"
 
 if pnpm run typecheck 2>&1; then
   ok "TypeScript typecheck pasa"
@@ -137,7 +137,7 @@ else
 fi
 
 echo ""
-echo "── 7. Ejecutando tests ────────────────────────────────"
+echo "-- 7. Ejecutando tests --------------------------------"
 
 if pnpm run test 2>&1; then
   ok "Todos los tests pasan"
@@ -147,7 +147,7 @@ else
 fi
 
 echo ""
-echo "── 8. Resumen ─────────────────────────────────────────"
+echo "-- 8. Resumen -----------------------------------------"
 
 if [ $EXIT_CODE -eq 0 ]; then
   ok "Entorno listo. Puedes empezar a trabajar."
