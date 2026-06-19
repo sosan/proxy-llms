@@ -54,16 +54,16 @@ binding = "ANALYTICS"
 dataset = "request_metrics"
 
 [env.staging.vars]
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENCODE_BASE_URL = "https://api.opencode.dev/v1"
 ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
-ANTHROPIC_SONNET_MODEL = "nvidia/z-ai/glm-5.1"
+ANTHROPIC_SONNET_MODEL = "nvidia/minimaxai/minimax-m3"
 ANTHROPIC_HAIKU_MODEL = ""
-ANTHROPIC_DEFAULT_MODEL = ""
+ANTHROPIC_DEFAULT_MODEL = "nvidia/z-ai/glm-5.1"
 DEBUG = "false"
 LOG_PAYLOAD = "false"
 LOG_METRICS = "false"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENCODE_BASE_URL = "https://api.opencode.dev/v1"
 RTK_ENABLED = "true"
 CAVEMAN_ENABLED = "true"
 
@@ -86,21 +86,15 @@ binding = "ANALYTICS"
 dataset = "request_metrics"
 
 [env.production.vars]
+ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
+ANTHROPIC_SONNET_MODEL = "nvidia/minimaxai/minimax-m3"
+ANTHROPIC_HAIKU_MODEL = ""
+ANTHROPIC_DEFAULT_MODEL = "nvidia/z-ai/glm-5.1"
+DEBUG = "false"
+LOG_PAYLOAD = "false"
+LOG_METRICS = "false"
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENCODE_BASE_URL = "https://api.opencode.dev/v1"
-ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
-ANTHROPIC_SONNET_MODEL = "nvidia/z-ai/glm-5.1"
-ANTHROPIC_HAIKU_MODEL = ""
-ANTHROPIC_DEFAULT_MODEL = ""
-DEBUG = "false"
-LOG_PAYLOAD = "false"
-LOG_METRICS = "true"
 RTK_ENABLED = "true"
 CAVEMAN_ENABLED = "true"
-
-# Required secrets (set via `wrangler secret put` or `--secrets-file`):
-# - NVIDIA_API_KEY - API key for NVIDIA NIM upstream
-# - OPENROUTER_API_KEY - API key for OpenRouter upstream (optional)
-# - ANALYTICS_ACCOUNT_ID - Cloudflare account ID for Analytics Engine SQL API
-# - ANALYTICS_API_TOKEN - API token for Analytics Engine SQL API
