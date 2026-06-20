@@ -69,7 +69,6 @@ const _ProviderConfigs = {
     endpoint: '/chat/completions',
     alterEndpoint: '/messages',
     models: {
-      'stealth/owl-alpha': 'owl-alpha',
       'nvidia/nemotron-3-ultra-550b-a55b:free': 'nvidia/nemotron-3-ultra-550b-a55b:free',
       'nvidia/nemotron-3-super-120b-a12b:free': 'nvidia/nemotron-3-super-120b-a12b:free',
       'openai/gpt-oss-120b:free': 'openai/gpt-oss-120b:free',
@@ -248,17 +247,6 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     extra: {
       chat_template_kwargs: { enable_thinking: true },
     }
-  },
-  'openrouter/owl-alpha': {
-    endpoint: '/chat/completions',
-    format: 'openai',
-    stream: true,
-    temperature: 1,
-    top_p: 1,
-    top_k: 0,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-    repetition_penalty: 1,
   },
   'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free': {
     endpoint: '/chat/completions',
