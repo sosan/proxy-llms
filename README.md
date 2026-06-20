@@ -2,13 +2,33 @@
 
 A Cloudflare Worker proxy that routes OpenAI-compatible requests to multiple AI providers (NVIDIA NIM, OpenRouter, local LLMs) with model alias resolution, streaming, retry logic, rate limiting, and metrics collection.
 
-## Quick Start
+## What You Get
+
+- **Drop-in proxy for Claude Code's Anthropic API calls** — `POST /v1/messages` and `GET /v1/models` (`/claude/v1/models`).
+- **Drop-in proxy for OpenAI-compatible chat clients** (Cline, OpenCode, Codex, etc.) — `POST /chat/completions` with body-based provider routing.
+- **Per-model routing for Claude Code tiers** — Opus, Sonnet, Haiku, and fallback traffic can each map to a different provider via `ANTHROPIC_OPUS_MODEL`, `ANTHROPIC_SONNET_MODEL`, `ANTHROPIC_HAIKU_MODEL`, `ANTHROPIC_DEFAULT_MODEL`.
+- **Provider backends**: NVIDIA NIM, OpenRouter, Google (Gemini), Claude (native), LM Studio, llama.cpp, Ollama.
+- **Friendly model aliases** — short IDs like `glm4.7` or `kimi-k2-thinking` resolve to full upstream IDs (`z-ai/glm4.7`, `moonshotai/kimi-k2-thinking`).
+- **Streaming + tool use** — SSE passthrough, OpenAI-compatible `tools` / `tool_choice` / `response_format` / `stream_options`.
+- **Think-tag handling** — `think-tag-parser` strips reasoning blocks from upstream output.
+- **Format translation** — Claude ↔ OpenAI request/response transformers for cross-provider compatibility.
+- **Payload middlewares**: RTK (Request Transformation Kit) — `tool_result` compression with content-type autodetection (`git`, `grep`, `ls`, diffs).
+- **Caveman terse prompts** — opt-in terse-style system prompt injection (`CAVEMAN_ENABLED`, levels: `lite` / `full` / `ultra`).
+- **Sliding-window rate limiter** — Durable Object per API key, default 40 req/min with 1.6s minimum gap; returns 429 with `Retry-After` and `X-RateLimit-*` headers.
+- **Exponential backoff + jitter retries** — for NVIDIA 400/408/502/503/504 and network errors; non-retryable codes (401/403/422/429) propagate immediately.
+- **Cloudflare Analytics Engine metrics** — per-request latency, token counts, finish reason, error details (gated by `LOG_METRICS`).
+- **Async processing flow** — Durable Object–backed `/api/process` for stateful workloads.
+- **CI/CD via GitHub Actions** — `.github/workflows/ci-cd.yaml` runs tests on every push/PR and deploys to `staging` on push to `main`, with `production` available via `workflow_dispatch` and health-check after deploy.
+- **Codex CLI/VS Code support** — shared `~/.codex/config.toml` provider config wired to the proxy.
+- **OpenCode support** — `opencode.json` provider config pointing at the local proxy.
+
+## Local Quick Start
 
 ```bash
 pnpm install
-pnpm run dev                 # local dev server on :8787
 pnpm run test                # run tests
 pnpm run typecheck           # type checking
+pnpm run dev                 # local dev server on :8787
 ```
 
 ## Choose A Provider
