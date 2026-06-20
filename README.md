@@ -31,6 +31,46 @@ pnpm run typecheck           # type checking
 pnpm run dev                 # local dev server on :8787
 ```
 
+## Cloud Quick Start
+
+There are two ways to deploy this Worker to Cloudflare:
+
+### Option A: Deploy via CI/CD (GitHub Actions)
+
+Push to GitHub and let `.github/workflows/ci-cd.yaml` handle the deploy:
+
+1. Set the required secrets in your GitHub repo (`Settings → Secrets and variables → Actions`): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, and (if using metrics) `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_API_TOKEN`.
+2. Push to `main` → runs tests and deploys to **staging** automatically.
+3. To deploy to **production**, trigger the workflow manually from the Actions tab (`workflow_dispatch`) and select `production` as the environment.
+
+### Option B: Deploy manually from local
+
+`scripts/deploy-cloudflare.sh` (run via `pnpm run deploy:cloudflare`) centralizes secrets in a local `.env` file:
+
+```bash
+# .env (gitignored — never commit this file)
+CLOUDFLARE_API_TOKEN=...
+CLOUDFLARE_ACCOUNT_ID=...
+NVIDIA_API_KEY=nvapi-...
+OPENROUTER_API_KEY=sk-or-...
+```
+
+Then deploy:
+
+```bash
+pnpm run deploy:cloudflare               # staging
+pnpm run deploy:cloudflare production    # production
+```
+
+The script will:
+1. Load secrets from `.env` if present (already-exported environment variables take precedence).
+2. Validate that `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set — it exits with an error if either is missing.
+3. Run `pnpm run validate` (lockfile check, lint, typecheck, tests) — the deploy is aborted if this fails.
+4. Upload `NVIDIA_API_KEY` and `OPENROUTER_API_KEY` to Cloudflare via `wrangler secret put` **if present in `.env`**. If they're not set, the script assumes they were already uploaded in a previous run and continues without error.
+5. Run `wrangler deploy --env <environment>`.
+
+Full setup instructions (prerequisites, D1 database setup, troubleshooting) are in [SETUP.md](SETUP.md).
+
 ## Choose A Provider
 
 The proxy extracts the **provider** from the first segment of the `model` field in the request body:
@@ -231,6 +271,16 @@ POST /chat/completions
 ```
 
 OpenAI-compatible endpoint. Forwards the request directly to the configured provider without tier-based routing — the model specified in the request is passed through as-is. The response is returned in the upstream provider's native format (no transformation back to a unified format).
+
+### /v1/models
+
+```
+GET /v1/models
+```
+
+Returns every model alias the proxy can route to, across all configured providers, in OpenAI-compatible shape. Each entry includes `id`, `object`, `created`, `owned_by`, plus `display_name`, `type`, and `created_at` for Anthropic-format consumers. Used by OpenCode for model discovery (the `models` block in `opencode.json` only overrides display names — discovery still happens here).
+
+Claude Code does not call this endpoint. Model selection for Claude Code comes from `--model`, `ANTHROPIC_*_MODEL` env vars configured server-side, and `settings.json` on the client.
 
 ### /messages
 

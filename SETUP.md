@@ -95,25 +95,33 @@ pnpm run test:coverage          # with coverage
 
 ### Cloudflare Workers
 
-Add secrets:
+Secrets can be set either manually via Wrangler, or centralized in a local `.env` file that `scripts/deploy-cloudflare.sh` reads automatically:
+
+```bash
+# .env (gitignored — never commit this file)
+CLOUDFLARE_API_TOKEN=...
+CLOUDFLARE_ACCOUNT_ID=...
+NVIDIA_API_KEY=nvapi-...
+OPENROUTER_API_KEY=sk-or-...
+```
+
+If `NVIDIA_API_KEY` / `OPENROUTER_API_KEY` are present in `.env`, the deploy script uploads them via `wrangler secret put` automatically on each run. If they're omitted, the script assumes they're already set on Cloudflare (e.g. uploaded previously with the manual commands below) and skips that step without failing.
+
+To set secrets manually instead:
 
 ```bash
 echo "nvapi-..." | wrangler secret put NVIDIA_API_KEY
 echo "sk-or-..." | wrangler secret put OPENROUTER_API_KEY
 ```
 
-Set non-secret vars:
-
-```bash
-wrangler secret put ANALYTICS_TOKEN      # if applicable
-```
-
 Then deploy:
 
 ```bash
 pnpm run deploy:cloudflare               # staging
-pnpm run deploy:cloudflare -- production # production
+pnpm run deploy:cloudflare production    # production
 ```
+
+> **Note:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are always required (via `.env` or exported manually) — the script exits immediately if either is missing. `pnpm run validate` (lint, typecheck, tests) runs automatically before every deploy.
 
 ### Durable Objects
 
