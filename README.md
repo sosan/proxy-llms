@@ -165,20 +165,41 @@ codex
 > **Note:** if you see `The 'nvidia/moonshotai/kimi-k2.6' model is not supported when using Codex with a ChatGPT account.`, Codex is authenticated via OAuth (`codex login`) instead of an API key. A ChatGPT login restricts you to OpenAI's own official models, regardless of `model_provider`. Run `codex logout`, export `PROXY_API_KEY` if your proxy requires one, then run `codex` again so it falls back to the `proxy` provider above.
 
 
+### Cursor
+
+## Custom provider in Cursor (localhost:8787)
+
+Cursor doesn't support environment variables or config files for this: it's always done through the UI.
+
+**Steps:**
+1. `Settings → Models → Add Model`
+2. Ex Model name: `nvidia/moonshotai/kimi-k2.6`
+3. Enable **Override OpenAI Base URL**
+4. Base URL: `http://localhost:8787/v1`
+5. API Key: any value (e.g. `local-dev-key`)
+6. **Verify**
+
+> ⚠️ The override only applies to chat/plan mode. Composer, Inline Edit, and autocomplete still use Cursor's own backend.
+
 
 ### Project Structure
 
 | Directory | Responsibility |
 |---|---|
-| `src/controllers/` | Business logic — request processing, provider resolution, streaming/buffering decorators, error handling |
-| `src/routes/` | Thin declarative route registration — zero business logic |
-| `src/providers/` | Provider implementations (NVIDIA, OpenRouter, local) |
-| `src/config/providers.ts` | Provider endpoints, model aliases, defaults |
+| `src/server.ts` | Hono app entrypoint, middleware, error handler, Durable Object re-export |
+| `src/controllers/` | Business logic — request processing, provider resolution, streaming/buffering, error handling |
+| `src/routes/index.ts` | Declarative route registration — imports handlers from controllers, zero business logic |
+| `src/providers/` | Provider implementations (`base-provider`, `nvidia-provider`, `openrouter-provider`, `local-provider`) + `provider-factory` |
+| `src/config/providers.ts` | Provider endpoints, model aliases, model defaults, model listing, model resolution |
 | `src/errors/` | `ProviderError` — preserves upstream HTTP status codes |
 | `src/metrics/` | Cloudflare Analytics Engine collection and queries |
-| `src/utils/` | Logging (gated by `DEBUG`), rate gate utilities |
-| `src/durable-objects/` | Async processing + sliding-window rate limiter |
-| `src/transformers/` | Format translators (Claude↔OpenAI) + RTK + Caveman |
+| `src/utils/` | Logging (gated by `DEBUG`), response helpers, Claude model mapping, error formatting, NVIDIA rate gate |
+| `src/durable-objects/` | `ProcessorDurableObject` (async `/api/process` flow) + `DORateLimiter` (sliding-window per-key) |
+| `src/transformers/` | Format translators (Claude ↔ OpenAI, OpenAI stream → Claude) |
+| `src/transformers/rtk/` | Request Transformation Kit — payload compression + Caveman prompts + content filters (`git`, `grep`, `ls`, etc.) |
+| `src/parsers/` | Heuristic tool-call parser + think-tag parser (model output cleanup) |
+| `src/interfaces/` | Worker bindings (`Env`) + shared request/response types, metrics, provider, RTK |
+| `src/__tests__/` | Vitest suite mirroring `src/` (controllers, providers, parsers, transformers, durable-objects, integration, utils) |
 
 
 ## Endpoints
@@ -198,14 +219,6 @@ POST /v1/messages
 ```
 
 Accepts Anthropic's Claude API format. Applies tier-based routing (Opus/Sonnet/Haiku/Default, based on \`ANTHROPIC_*_MODEL\` environment variables) to select the upstream provider and model, then transforms the request to that provider's format (OpenAI, Anthropic, etc.) before forwarding. The response is transformed back to Claude/Anthropic format before being returned to the client.
-
-### Model Discovery
-
-| Endpoint | Description |
-|---|---|
-| `GET /openai/v1/models` | OpenAI-compatible model list |
-| `GET /claude/v1/models` | Claude-compatible model list |
-| `GET /:provider/models` | Provider-specific model list |
 
 ## Rate Limiting
 
