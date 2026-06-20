@@ -13,6 +13,11 @@ pnpm run typecheck           # type checking
 
 ## Choose A Provider
 
+The proxy extracts the **provider** from the first segment of the `model` field in the request body:
+
+- `"nvidia/moonshotai/kimi-k2.6"` → routes to `nvidia` provider
+- `"openrouter/nvidia/nemotron-3-ultra-550b-a55b"` → routes to `openrouter` provider
+
 On the client side, model selection and its default parameters are handled through ModelDefaultsById, a map keyed by the full model slug (provider/organization/model) that defines the request format (openai or anthropic), the endpoint, and generation parameters specific to each model (temperature, top_p, max_tokens, tool-calling support, etc.).
 
 ### 1. [NVIDIA NIM](https://build.nvidia.com/)
@@ -43,8 +48,16 @@ Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
 
 Paste it into `OPENROUTER_API_KEY`, then set model to an OpenRouter such as:
 - openrouter/stealth/owl-alpha
-- openrouter/moonshotai/kimi-k2.6
+- openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+- openrouter/nvidia/nemotron-3-super-120b-a12b:free
 - openrouter/openai/gpt-oss-120b:free
+- openrouter/openai/gpt-oss-20b:free
+- openrouter/google/gemma-4-31b-it:free
+- openrouter/google/gemma-4-26b-a4b-it:free
+- openrouter/nvidia/nemotron-3-nano-30b-a3b:free
+- openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+- openrouter/nvidia/nemotron-nano-9b-v2:free
+- openrouter/nvidia/nemotron-nano-12b-v2-vl:free
 
 Browse [all models](https://openrouter.ai/models) or [free models](https://openrouter.ai/collections/free-models).
 
@@ -85,14 +98,73 @@ opencode
 
 ### Claude Code
 
+On the server side, environment variables determine which model each Claude tier routes to. For example:
+
+```toml
+# wrangler.toml — examples
+ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
+ANTHROPIC_SONNET_MODEL = "minimaxai/minimax-m3"
+ANTHROPIC_HAIKU_MODEL = "nvidia/z-ai/glm-5.1"
+ANTHROPIC_DEFAULT_MODEL = "nvidia/moonshotai/kimi-k2.6"
+```
+
+Each `ANTHROPIC_*_MODEL` value is a **full routing path** in `provider/organization/model` format — not just a model name. The proxy extracts the provider from the first segment and resolves the rest through normal model resolution. If a variable is empty, that tier returns an error — it's disabled.
+
+Once those variables are configured on the server, to point Claude Code at your local proxy:
+
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:8787 claude
 ```
 
-The proxy extracts the **provider** from the first segment of the `model` field in the request body:
 
-- `"nvidia/moonshotai/kimi-k2.6"` → routes to `nvidia` provider
-- `"claude/claude-sonnet-4-6"` → routes to `claude` provider (via Anthropic-compatible `/v1/messages`)
+### Codex
+
+Save as `.codex/config.toml` in your project root (or `~/.codex/config.toml` for a global setup):
+
+```toml
+# Available models through the proxy (swap "model" for any of these):
+#   nvidia/openai/gpt-oss-120b
+#   nvidia/z-ai/glm4.7
+#   nvidia/z-ai/glm-5.1
+#   nvidia/deepseek/deepseek-v4-pro
+#   nvidia/minimaxai/minimax-m2.7
+#   nvidia/minimaxai/minimax-m3
+#   nvidia/moonshotai/kimi-k2-thinking
+#   nvidia/moonshotai/kimi-k2.6
+#   nvidia/stepfun-ai/step-3.5-flash
+#   nvidia/qwen/qwen3-coder-480b-a35b-instruct
+#   nvidia/google/gemma-4-31b-it
+#   openrouter/stealth/owl-alpha
+#   openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+#   openrouter/nvidia/nemotron-3-super-120b-a12b:free
+#   openrouter/openai/gpt-oss-120b:free
+#   openrouter/openai/gpt-oss-20b:free
+#   openrouter/google/gemma-4-31b-it:free
+#   openrouter/google/gemma-4-26b-a4b-it:free
+#   openrouter/nvidia/nemotron-3-nano-30b-a3b:free
+#   openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+#   openrouter/nvidia/nemotron-nano-9b-v2:free
+#   openrouter/nvidia/nemotron-nano-12b-v2-vl:free
+
+model = "nvidia/moonshotai/kimi-k2.6"
+model_provider = "proxy"
+
+[model_providers.proxy]
+name = "Local Proxy"
+base_url = "http://localhost:8787"
+env_key = "PROXY_API_KEY"
+wire_api = "chat"
+```
+
+run:
+
+```bash
+codex
+```
+
+> **Note:** if you see `The 'nvidia/moonshotai/kimi-k2.6' model is not supported when using Codex with a ChatGPT account.`, Codex is authenticated via OAuth (`codex login`) instead of an API key. A ChatGPT login restricts you to OpenAI's own official models, regardless of `model_provider`. Run `codex logout`, export `PROXY_API_KEY` if your proxy requires one, then run `codex` again so it falls back to the `proxy` provider above.
+
+
 
 ### Project Structure
 
@@ -108,63 +180,24 @@ The proxy extracts the **provider** from the first segment of the `model` field 
 | `src/durable-objects/` | Async processing + sliding-window rate limiter |
 | `src/transformers/` | Format translators (Claude↔OpenAI) + RTK + Caveman |
 
+
 ## Endpoints
 
-### Chat Completions
+### /chat/completions
 
 ```
 POST /chat/completions
 ```
 
-OpenAI-compatible endpoint. The provider and model are resolved from the `model` field (e.g., `nvidia/moonshotai/kimi-k2.6`). Streaming requests pass the upstream SSE body directly; non-streaming requests buffer and return JSON.
+OpenAI-compatible endpoint. Forwards the request directly to the configured provider without tier-based routing — the model specified in the request is passed through as-is. The response is returned in the upstream provider's native format (no transformation back to a unified format).
 
-### Claude API Compatible
+### /messages
 
 ```
 POST /v1/messages
 ```
 
-Accepts Anthropic's Claude API format and transforms it to OpenAI format before forwarding. The response is transformed back to Claude format. Supports per-tier model routing via environment variables:
-
-| Claude tier | Env var | Match (case-insensitive) |
-|---|---|---|
-| Opus | `ANTHROPIC_OPUS_MODEL` | `opus` in model name |
-| Sonnet | `ANTHROPIC_SONNET_MODEL` | `sonnet` in model name |
-| Haiku | `ANTHROPIC_HAIKU_MODEL` | `haiku` in model name |
-| Fallback | `ANTHROPIC_DEFAULT_MODEL` | Any other model |
-
-Each `ANTHROPIC_*_MODEL` value is a **full routing path** in `provider/organization/model` format — not just a model name. The proxy extracts the provider from the first segment and resolves the rest through normal model resolution.
-
-```
-Claude Code sends:
-  POST /v1/messages  { model: "claude-sonnet-4-6" }
-
-        ├─ "opus" in model?   → ANTHROPIC_OPUS_MODEL
-        ├─ "sonnet" in model?  → ANTHROPIC_SONNET_MODEL = "nvidia/z-ai/glm-5.1"
-        ├─ "haiku" in model?   → ANTHROPIC_HAIKU_MODEL
-        └─ else                → ANTHROPIC_DEFAULT_MODEL
-                         │
-                         ▼
-        Parses "nvidia/z-ai/glm-5.1"
-        → provider: "nvidia"
-        → upstream model: "z-ai/glm-5.1"
-        → Forwards to NVIDIA NIM
-```
-
-If a variable is empty, that tier returns an error — it's disabled.
-
-```toml
-# wrangler.toml — examples
-ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
-ANTHROPIC_SONNET_MODEL = "nvidia/z-ai/glm-5.1"
-ANTHROPIC_HAIKU_MODEL = "nvidia/z-ai/glm-5.1"
-ANTHROPIC_DEFAULT_MODEL = "openrouter/anthropic/claude-sonnet-4"
-```
-
-For local development:
-```bash
-ANTHROPIC_BASE_URL=http://localhost:8787 claude
-```
+Accepts Anthropic's Claude API format. Applies tier-based routing (Opus/Sonnet/Haiku/Default, based on \`ANTHROPIC_*_MODEL\` environment variables) to select the upstream provider and model, then transforms the request to that provider's format (OpenAI, Anthropic, etc.) before forwarding. The response is transformed back to Claude/Anthropic format before being returned to the client.
 
 ### Model Discovery
 
@@ -173,15 +206,6 @@ ANTHROPIC_BASE_URL=http://localhost:8787 claude
 | `GET /openai/v1/models` | OpenAI-compatible model list |
 | `GET /claude/v1/models` | Claude-compatible model list |
 | `GET /:provider/models` | Provider-specific model list |
-
-### Async Processing (Durable Objects)
-
-| Endpoint | Description |
-|---|---|
-| `POST /api/process` | Start async processing |
-| `GET /api/status/:processId` | Poll for status |
-| `GET /api/stream/:processId` | SSE stream for real-time updates |
-| `GET /api/websocket/:processId` | WebSocket for real-time updates |
 
 ## Rate Limiting
 
@@ -275,20 +299,31 @@ See [SETUP.md](SETUP.md) for Cloudflare secrets, GitHub Actions setup, and troub
 
 ### CI/CD Deployment
 
-GitHub Actions deploys through `.github/workflows/ci-cd.yaml`.
+Deploys run through `.github/workflows/ci-cd.yaml`. The workflow has two jobs:
 
-The workflow:
+1. **`test`** — runs on every push, pull request, and dispatch.
+   - Installs dependencies (`pnpm install --frozen-lockfile --prefer-offline`)
+   - Validates the lockfile (`pnpm run lint:lockfile`)
+   - Runs lint (`pnpm run lint`), typecheck (`pnpm run typecheck`), and tests (`pnpm run test`)
 
-1. Runs dependency install, lockfile validation, lint, typecheck, and tests.
-2. Selects the deployment environment from the workflow input, defaulting to `staging`.
-3. Creates `.worker-secrets` from GitHub secrets without printing values.
-4. Uses `secrets.CLOUDFLARE_API_TOKEN` and `secrets.CLOUDFLARE_ACCOUNT_ID` to authenticate Wrangler.
-5. Runs `wrangler deploy --env <environment> --secrets-file .worker-secrets` through `cloudflare/wrangler-action`.
-6. Removes `.worker-secrets` after the deploy step.
+2. **`deploy`** — runs after `test` succeeds, only on push to `main`, tags matching `v*`, or `workflow_dispatch`.
+   - Reads the `environment` input (`staging` or `production`, default `staging`).
+   - Creates `.worker-secrets` from GitHub secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_API_TOKEN`) without printing values.
+   - Runs `wrangler deploy --env <environment> --secrets-file .worker-secrets` through `cloudflare/wrangler-action@v4`.
+   - Removes `.worker-secrets` after the deploy step (`if: always()`).
+   - Hits `<deployment-url>/health` to verify the Worker responds.
 
-Manual workflow dispatch supports:
+Triggers:
 
-- `staging`
-- `production`
+| Event | Effect |
+|---|---|
+| `push` to `main` | runs `test` + deploy to `staging` |
+| `push` of tag `v*` | runs `test` + deploy (environment falls back to `staging` unless chosen via dispatch) |
+| `pull_request` | runs `test` only (no deploy) |
+| `workflow_dispatch` | runs `test` + deploy with the chosen `environment` (`staging` or `production`) |
 
-Pushes to `main` deploy to `staging` by default.
+> For `workflow_dispatch`, the input defaults to `staging`. Choose `production` to deploy to that environment — GitHub Environments can enforce required reviewers for production.
+
+### Automated Releases
+
+Releases are managed separately by `.github/workflows/release.yaml`, which runs `npx semantic-release` on `workflow_dispatch`. It analyzes commit messages, bumps the version, generates the changelog, and publishes a GitHub Release — it does **not** deploy the Worker. Deploys happen through `ci-cd.yaml` (see above).
