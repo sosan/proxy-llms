@@ -75,6 +75,9 @@ describe('API Endpoints', () => {
       expect(firstModel).toHaveProperty('id')
       expect(firstModel).toHaveProperty('object', 'model')
       expect(firstModel).toHaveProperty('owned_by')
+      expect(firstModel).toHaveProperty('display_name')
+      expect(firstModel).toHaveProperty('type', 'model')
+      expect(firstModel).toHaveProperty('created_at')
     })
 
     it('should create models list for claude', () => {

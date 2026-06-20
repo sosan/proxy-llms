@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { handleModels, handleProviderModels } from '../../controllers/models'
 
 describe('handleModels', () => {
-  it('should return all models from all providers', async () => {
+  it('should return all models from all providers with enriched metadata', async () => {
     const mockJson = vi.fn().mockReturnValue('mocked-response')
     const c = { json: mockJson } as any
 
@@ -13,6 +13,11 @@ describe('handleModels', () => {
     expect(Array.isArray(callArgs.data)).toBe(true)
     expect(callArgs.data.length).toBeGreaterThan(0)
     expect(result).toBe('mocked-response')
+
+    const firstModel = callArgs.data[0]
+    expect(firstModel).toHaveProperty('display_name')
+    expect(firstModel).toHaveProperty('type', 'model')
+    expect(firstModel).toHaveProperty('created_at')
   })
 })
 

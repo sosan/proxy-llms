@@ -466,6 +466,7 @@ export const createModelsList = (providerName: string) => {
   const config = ProviderConfigs[providerName]
   const created = 0
   const models = Object.entries(config.models)
+  const createdAt = new Date(0).toISOString()
 
   return {
     object: 'list',
@@ -473,14 +474,18 @@ export const createModelsList = (providerName: string) => {
       id,
       object: 'model',
       created,
+      created_at: createdAt,
       owned_by: resolvedId.split('/')[0] || providerName,
+      display_name: resolvedId,
+      type: 'model',
     })),
   }
 }
 
 export const createAllModelsList = () => {
   const created = 0
-  const allModels: Array<{ id: string; object: string; created: number; owned_by: string }> = []
+  const allModels: Array<{ id: string; object: string; created: number; created_at: string; owned_by: string; display_name: string; type: string }> = []
+  const createdAt = new Date(0).toISOString()
 
   for (const [providerName, config] of Object.entries(ProviderConfigs)) {
     const models = Object.entries(config.models)
@@ -489,7 +494,10 @@ export const createAllModelsList = () => {
         id,
         object: 'model',
         created,
+        created_at: createdAt,
         owned_by: resolvedId.split('/')[0] || providerName,
+        display_name: resolvedId,
+        type: 'model',
       })
     }
   }
