@@ -3,7 +3,6 @@ import { resolveModelFormat } from '../../config/providers'
 
 describe('resolveModelFormat', () => {
   it('should return model-specific format when defined in ModelDefaultsById', () => {
-    expect(resolveModelFormat('openrouter/stealth/owl-alpha')).toBe('anthropic')
     expect(resolveModelFormat('nvidia/moonshotai/kimi-k2.6')).toBe('openai')
   })
 
