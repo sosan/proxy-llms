@@ -40,7 +40,8 @@ minimumReleaseAgeExclude:
   - '@cloudflare/workerd-linux-arm64@1.20260521.1'
   - '@cloudflare/workerd-windows-64@1.20260521.1'
   - '@cloudflare/workers-types@4.20260522.1'
-  - hono@4.12.22
+  # Renovate security update: hono@4.12.25
+  - hono@4.12.22 || 4.12.25
   - miniflare@4.20260521.0
   - workerd@1.20260521.1
   - wrangler@4.94.0
