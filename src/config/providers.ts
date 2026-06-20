@@ -58,7 +58,7 @@ const _ProviderConfigs = {
       'stepfun-ai/step-3.5-flash': 'stepfun-ai/step-3.5-flash', // no ranking
       'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
     },
-    supportsToolCalling: true, // Some models support tool calling, some don't; checked per-model via ModelDefaultsById
+    supportsToolCalling: true,
   },
   google: {
     endpoint: '/chat/completions',
@@ -70,10 +70,16 @@ const _ProviderConfigs = {
     alterEndpoint: '/messages',
     models: {
       'stealth/owl-alpha': 'owl-alpha',
-      'nvidia/nemotron-3-ultra-550b-a55b': 'nvidia/nemotron-3-ultra-550b-a55b:free',
-      'openai/gpt-oss-120b': 'openai/gpt-oss-120b:free',
-      'google/gemma-4-31b-it': 'google/gemma-4-31b-it:free',
-      'google/gemma-4-26b-a4b-it': 'google/gemma-4-26b-a4b-it:free'
+      'nvidia/nemotron-3-ultra-550b-a55b:free': 'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'nvidia/nemotron-3-super-120b-a12b:free': 'nvidia/nemotron-3-super-120b-a12b:free',
+      'openai/gpt-oss-120b:free': 'openai/gpt-oss-120b:free',
+      'openai/gpt-oss-20b:free': 'openai/gpt-oss-20b:free',
+      'google/gemma-4-31b-it:free': 'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it:free': 'google/gemma-4-26b-a4b-it:free',
+      'nvidia/nemotron-3-nano-30b-a3b:free': 'nvidia/nemotron-3-nano-30b-a3b:free',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+      'nvidia/nemotron-nano-9b-v2:free': 'nvidia/nemotron-nano-9b-v2:free',
+      'nvidia/nemotron-nano-12b-v2-vl:free': 'nvidia/nemotron-nano-12b-v2-vl:free',
     },
     supportsToolCalling: true,
   },
@@ -98,6 +104,7 @@ export type ProviderType = keyof typeof _ProviderConfigs
 
 export const ModelDefaultsById: Record<string, ModelDefaults> = {
   'nvidia/openai/gpt-oss-120b': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.2,
     top_p: 1,
@@ -105,6 +112,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     stream: true,
   },
   'nvidia/z-ai/glm4.7': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.9,
     top_p: 0.95,
@@ -118,6 +126,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/z-ai/glm5.1': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.9,
     top_p: 0.95,
@@ -132,6 +141,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/z-ai/glm-5.1': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.9,
     top_p: 0.95,
@@ -147,6 +157,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/deepseek/deepseek-v4-pro': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
     top_p: 0.95,
@@ -159,6 +170,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/minimaxai/minimax-m2.7': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.2,
     top_p: 0.9,
@@ -167,6 +179,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     stream: true,
   },
   'nvidia/moonshotai/kimi-k2-thinking': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.6,
     top_p: 0.95,
@@ -208,13 +221,15 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     }
   },
   'nvidia/stepfun-ai/step-3.5-flash': { // no ranking
+    endpoint: '/chat/completions',
+    format: 'openai',
     temperature: 1,
     top_p: 0.9,
     max_tokens: 26214,
     stream: true,
-    format: 'openai',
   },
   'nvidia/qwen/qwen3-coder-480b-a35b-instruct': { // 62 arena ranking
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.7,
     top_p: 0.8,
@@ -223,6 +238,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     stream: true,
   },
   'nvidia/google/gemma-4-31b-it': {
+    endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
     top_p: 0.8,
@@ -233,9 +249,9 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       chat_template_kwargs: { enable_thinking: true },
     }
   },
-  'openrouter/stealth/owl-alpha': {
-    endpoint: '/messages',
-    format: 'anthropic',
+  'openrouter/owl-alpha': {
+    endpoint: '/chat/completions',
+    format: 'openai',
     stream: true,
     temperature: 1,
     top_p: 1,
@@ -244,7 +260,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     presence_penalty: 0,
     repetition_penalty: 1,
   },
-  'openrouter/nvidia/nemotron-3-ultra-550b-a55b': {
+  'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free': {
     endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
@@ -259,7 +275,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     }
   },
-  'openrouter/openai/gpt-oss-120b': {
+  'openrouter/nvidia/nemotron-3-super-120b-a12b:free': {
     endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
@@ -274,7 +290,8 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     }
   },
-  'openrouter/google/gemma-4-31b-it': {
+
+  'openrouter/openai/gpt-oss-120b:free': {
     endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
@@ -289,7 +306,100 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     }
   },
-  'openrouter/google/gemma-4-26b-a4b-it': {
+
+  'openrouter/openai/gpt-oss-20b:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+
+  'openrouter/google/gemma-4-31b-it:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+
+  'openrouter/google/gemma-4-26b-a4b-it:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'openrouter/nvidia/nemotron-3-nano-30b-a3b:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'openrouter/nvidia/nemotron-nano-9b-v2:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      "chat_template_kwargs": {
+        thinking: true,
+      },
+    }
+  },
+  'openrouter/nvidia/nemotron-nano-12b-v2-vl:free': {
     endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
