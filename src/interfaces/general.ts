@@ -43,13 +43,6 @@ export interface ApiResponse<T = unknown> {
   timestamp: string
 }
 
-// Define the structure for content parts within a message
-// export interface MessageContentPart {
-//   type: 'text' | 'image' | 'image_url'; // Add other types as needed
-//   text?: string;
-//   image_url?: { url: string }; // Example for image
-// }
-
 export interface MessageContentPart {
   type: 'text' | 'image' | 'image_url' | 'tool_use' | 'tool_result'
   text?: string
