@@ -1,23 +1,9 @@
-# pnpm security best practices
-# Source: https://github.com/lirantal/npm-security-best-practices
-
 packages:
   - .
 
 enableGlobalVirtualStore: true
-
-# SECURITY: block packages newer than 3 days (4320 minutes)
-minimumReleaseAge: 4320
-
-# SECURITY: reject a version whose publishing trust signals regressed
-trustPolicy: no-downgrade
-
-# SECURITY: keep strict overrides only when necessary and vetted
-# trustPolicyExclude:
-#   - 'chokidar@4.0.3'
-#   - 'webpack@4.47.0 || 5.102.1'
-
-# SECURITY: pnpm blocks install scripts by default, enabled explicitly for:
+# minimumReleaseAge: 4320
+# trustPolicy: no-downgrade
 allowBuilds:
   esbuild: true
   rolldown: true
@@ -25,25 +11,26 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 
-# SECURITY: fail the install if a dependency wants to run a build
-# script that isn't in the allow-list above
 strictDepBuilds: true
-
-# SECURITY: reject dependencies sourced from git URLs
 blockExoticSubdeps: true
-
 minimumReleaseAgeExclude:
-  - '@cloudflare/vitest-pool-workers@0.16.9'
-  - '@cloudflare/workerd-darwin-64@1.20260521.1'
-  - '@cloudflare/workerd-darwin-arm64@1.20260521.1'
-  - '@cloudflare/workerd-linux-64@1.20260521.1'
-  - '@cloudflare/workerd-linux-arm64@1.20260521.1'
-  - '@cloudflare/workerd-windows-64@1.20260521.1'
-  - '@cloudflare/workers-types@4.20260522.1'
-  - hono@4.12.22
-  - miniflare@4.20260521.0
-  - workerd@1.20260521.1
-  - wrangler@4.94.0
-
-# SECURITY: allow recent versions for dev dependencies that update frequently
-# This list must be kept in sync with devDependencies in package.json
+  - '@oxlint/binding-android-arm-eabi@1.71.0'
+  - '@oxlint/binding-android-arm64@1.71.0'
+  - '@oxlint/binding-darwin-arm64@1.71.0'
+  - '@oxlint/binding-darwin-x64@1.71.0'
+  - '@oxlint/binding-freebsd-x64@1.71.0'
+  - '@oxlint/binding-linux-arm-gnueabihf@1.71.0'
+  - '@oxlint/binding-linux-arm-musleabihf@1.71.0'
+  - '@oxlint/binding-linux-arm64-gnu@1.71.0'
+  - '@oxlint/binding-linux-arm64-musl@1.71.0'
+  - '@oxlint/binding-linux-ppc64-gnu@1.71.0'
+  - '@oxlint/binding-linux-riscv64-gnu@1.71.0'
+  - '@oxlint/binding-linux-riscv64-musl@1.71.0'
+  - '@oxlint/binding-linux-s390x-gnu@1.71.0'
+  - '@oxlint/binding-linux-x64-gnu@1.71.0'
+  - '@oxlint/binding-linux-x64-musl@1.71.0'
+  - '@oxlint/binding-openharmony-arm64@1.71.0'
+  - '@oxlint/binding-win32-arm64-msvc@1.71.0'
+  - '@oxlint/binding-win32-ia32-msvc@1.71.0'
+  - '@oxlint/binding-win32-x64-msvc@1.71.0'
+  - oxlint@1.71.0
