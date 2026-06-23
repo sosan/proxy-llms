@@ -10,7 +10,11 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["ProcessorDurableObject", "RateLimiterDurableObject"]
+new_sqlite_classes = ["ProcessorDurableObject"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["RateLimiterDurableObject"]
 
 [observability]
 [observability.logs]
@@ -47,7 +51,11 @@ bindings = [
 
 [[env.staging.migrations]]
 tag = "v1"
-new_sqlite_classes = ["ProcessorDurableObject", "RateLimiterDurableObject"]
+new_sqlite_classes = ["ProcessorDurableObject"]
+
+[[env.staging.migrations]]
+tag = "v2"
+new_sqlite_classes = ["RateLimiterDurableObject"]
 
 [[env.staging.analytics_engine_datasets]]
 binding = "ANALYTICS"
@@ -78,7 +86,11 @@ bindings = [
 
 [[env.production.migrations]]
 tag = "v1"
-new_sqlite_classes = ["ProcessorDurableObject", "RateLimiterDurableObject"]
+new_sqlite_classes = ["ProcessorDurableObject"]
+
+[[env.production.migrations]]
+tag = "v2"
+new_sqlite_classes = ["RateLimiterDurableObject"]
 
 
 [[env.production.analytics_engine_datasets]]
