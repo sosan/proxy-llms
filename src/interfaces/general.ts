@@ -94,6 +94,8 @@ export interface RateLimitConfig {
   maxRetryDelayMs?: number   // maximum delay between retries (ms)
   rateLimitDelayMs?: number  // delay for 429 rate limit responses (ms)
   maxQueueDelayMs?: number   // maximum internal wait before returning 429 (ms)
+  jitterMs: 300
+  circuitBreakerTtlMs: 120_000
 }
 
 export interface RetryStrategy {

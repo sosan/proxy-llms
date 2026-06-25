@@ -37,10 +37,11 @@ const _ProviderConfigs = {
     endpoint: '/chat/completions',
     alterEndpoint: '/messages',
     rateLimit: {
-      requestsPerMinute: 40,
-      minRetryDelayMs: 1600,
-      rateLimitDelayMs: 600000,
-      maxRetryDelayMs: 60000,
+      requestsPerMinute: 25,
+      minRetryDelayMs: 2500,
+      maxQueueDelayMs: 30_000,
+      jitterMs: 300,
+      circuitBreakerTtlMs: 120_000,
     },
     models: {
       'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
