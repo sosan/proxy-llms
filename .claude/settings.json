@@ -3,10 +3,6 @@
     "alwaysThinkingEnabled": true,
     "showThinkingSummaries": true,
     "env": {
-        "CLAUDE_CODE_AUTO_CONNECT_IDE": "true",
-        "DISABLE_ERROR_REPORTING": "1",
-        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
-        "ANTHROPIC_BASE_URL": "http://localhost:8787"
     },
     "permissions": {
         "allow": [

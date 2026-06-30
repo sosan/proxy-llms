@@ -26,6 +26,8 @@ export interface Env {
   PROCESSOR: DurableObjectNamespace
   DO_RATE_LIMITER: DurableObjectNamespace
   ANALYTICS: AnalyticsEngineDataset
+  GINAPSE_BINDING?: Fetcher
+  GINAPSE_ENABLED?: string
   ANALYTICS_ACCOUNT_ID?: string
   ANALYTICS_API_TOKEN?: string
 }

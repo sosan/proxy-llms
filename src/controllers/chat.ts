@@ -8,6 +8,9 @@ import { getProviderByName } from '../providers/provider-factory'
 import { createResponse, parseRequestBody } from '../utils/response'
 import { logger } from '../utils/logger'
 import { applyPayloadMiddlewares, extractProviderFromModel, resolveProviderConfig } from './models'
+import {
+  applyGinapseContextAndGetSession,
+} from './ginapse-middleware'
 
 
 // =============================================================================
@@ -175,9 +178,13 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     // --- Apply middlewares ---
     const finalPayload = applyPayloadMiddlewares(transformedPayload, c.env, { format: modelDefaults.format as 'anthropic' | 'openai' | 'google' })
 
+    // --- Ginapse memory context injection ---
+    const gctx = await applyGinapseContextAndGetSession(c.req, finalPayload, c.env)
+
     // --- Route to stream or non-stream ---
     const isStream = finalPayload.stream === true
     const requestId = crypto.randomUUID().slice(0, 8)
+    if (gctx) logger.debug(`[ginapse] session=${gctx.session_id} project=${gctx.project}`)
 
     metricsCollector = new MetricsCollector(c.env, requestId, resolvedModel, providerDC, isStream)
 
@@ -186,6 +193,20 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     }
 
     const response = await handleNonStreamRequest(provider, endpoint, finalPayload, { format: modelDefaults.format as 'anthropic' | 'openai' | 'google' }, metricsCollector)
+
+    // Ginapse: fire session/end after non-streaming response
+    if (gctx?.doEnd && c.env.GINAPSE_BINDING) {
+      c.executionCtx.waitUntil(
+        c.env.GINAPSE_BINDING.fetch(
+          new Request('http://internal/mem/session/end', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ session_id: gctx.session_id }),
+          }),
+        ).catch((err: unknown) => console.error('[ginapse] session/end failed:', err))
+      )
+    }
+
     return c.json(createResponse(true, response))
 
   } catch (error) {

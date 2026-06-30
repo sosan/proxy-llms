@@ -78,6 +78,9 @@ CAVEMAN_ENABLED = "true"
 [env.production]
 name = "proxy-llms"
 
+[env.production.bindings]
+GINAPSE_BINDING = { service = "ginapse" }
+
 [env.production.durable_objects]
 bindings = [
   { name = "PROCESSOR", class_name = "ProcessorDurableObject" },

@@ -19,20 +19,21 @@
     "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh"
   },
   "dependencies": {
-    "hono": "^4.12.26"
+    "hono": "^4.12.27",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.18",
-    "@cloudflare/workers-types": "^4.20260621.1",
+    "@cloudflare/workers-types": "^4.20260629.1",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^12.0.8",
-    "@types/node": "26.0.0",
+    "@types/node": "26.0.1",
     "@vitest/coverage-v8": "^4.1.9",
     "oxlint": "^1.71.0",
     "semantic-release": "^25.0.5",
     "typescript": "6.0.3",
     "vitest": "^4.1.9",
-    "wrangler": "^4.103.0"
+    "wrangler": "^4.105.0"
   }
 }
