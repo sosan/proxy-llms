@@ -1,0 +1,4 @@
+approvedBuildDependencies:
+  - esbuild
+  - sharp
+  - workerd
