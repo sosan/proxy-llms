@@ -219,6 +219,7 @@ export class NvidiaProvider extends BaseProvider {
       })
     } catch (err) {
       timeout.clear()
+      await this.releaseCooldown()
       if (err instanceof Error && err.name === 'AbortError') {
         logger.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
         throw new ProviderError(
@@ -252,9 +253,11 @@ export class NvidiaProvider extends BaseProvider {
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
       })
+      await this.releaseCooldown()
       throw withRateLimitHeaders(this.createUpstreamError(response, errorBody, this.name), this.name)
     }
 
+    await this.releaseCooldown()
     return response
   }
 
@@ -295,6 +298,42 @@ export class NvidiaProvider extends BaseProvider {
         body: JSON.stringify(payload),
         signal: timeout.signal,
       })
+      timeout.clear()
+
+      logger.info(`[${requestId}] ← Response received`, {
+        status: response.status,
+        contentType: response.headers.get('content-type'),
+      })
+
+      if (!response.ok) {
+        const errorBody = await this.readErrorBody(response)
+        logger.error(`[${requestId}] ✘ Server error`, {
+          status: response.status,
+          retryAfter: response.headers.get('retry-after'),
+          body: errorBody,
+        })
+        throw withRateLimitHeaders(this.createUpstreamError(response, errorBody, this.name), this.name)
+      }
+
+      const json = await response.json()
+
+      validateOpenAIResponse(json)
+
+      const message = ((json as Record<string, unknown>).choices as Array<Record<string, unknown>>)?.[0]?.message as Record<string, unknown> | undefined
+      const content = message?.content
+      if (typeof content === 'string' && hasLeakedReasoning(content)) {
+        throw new ProviderError(
+          'NVIDIA returned response with leaked reasoning tokens',
+          422 as ContentfulStatusCode,
+          'upstream_malformed_response',
+          'NVIDIA returned a malformed response. Retry the request or try a different model.'
+        )
+      }
+
+      logger.info(`[${requestId}] ✔ Completed`, {
+        finish_reason: ((json as Record<string, unknown>).choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason,
+      })
+      return json
     } catch (err) {
       timeout.clear()
       if (err instanceof Error && err.name === 'AbortError') {
@@ -306,6 +345,7 @@ export class NvidiaProvider extends BaseProvider {
           'NVIDIA took too long to respond. Retry the request or try a faster model.'
         )
       }
+      if (err instanceof ProviderError) throw err
       logger.error(`[${requestId}] ✘ Network error`, { error: err instanceof Error ? err.message : err })
       throw new ProviderError(
         `Network error while contacting NVIDIA: ${err instanceof Error ? err.message : 'unknown'}`,
@@ -313,46 +353,9 @@ export class NvidiaProvider extends BaseProvider {
         'upstream_network_error',
         'Could not connect to NVIDIA. Retry the request in a few seconds.'
       )
+    } finally {
+      await this.releaseCooldown()
     }
-
-    timeout.clear()
-
-    logger.info(`[${requestId}] ← Response received`, {
-      status: response.status,
-      contentType: response.headers.get('content-type'),
-    })
-
-    if (!response.ok) {
-      const errorBody = await this.readErrorBody(response)
-      logger.error(`[${requestId}] ✘ Server error`, {
-        status: response.status,
-        retryAfter: response.headers.get('retry-after'),
-        body: errorBody,
-      })
-      throw withRateLimitHeaders(this.createUpstreamError(response, errorBody, this.name), this.name)
-    }
-
-    const json = await response.json()
-
-    // Validate response is not empty / malformed
-    validateOpenAIResponse(json)
-
-    // Detect leaked reasoning in content
-    const message = ((json as Record<string, unknown>).choices as Array<Record<string, unknown>>)?.[0]?.message as Record<string, unknown> | undefined
-    const content = message?.content
-    if (typeof content === 'string' && hasLeakedReasoning(content)) {
-      throw new ProviderError(
-        'NVIDIA returned response with leaked reasoning tokens',
-        422 as ContentfulStatusCode,
-        'upstream_malformed_response',
-        'NVIDIA returned a malformed response. Retry the request or try a different model.'
-      )
-    }
-
-    logger.info(`[${requestId}] ✔ Completed`, {
-      finish_reason: ((json as Record<string, unknown>).choices as Array<{ finish_reason?: string }>)?.[0]?.finish_reason,
-    })
-    return json
   }
 
   private async ensureCooldown(): Promise<void> {
@@ -367,6 +370,21 @@ export class NvidiaProvider extends BaseProvider {
 
     if (!response.ok || lock.allowed === false) {
       throwRateLimited(lock, response.headers)
+    }
+  }
+
+  private async releaseCooldown(): Promise<void> {
+    const bucket = await hashNvidiaApiKey(this.apiKey)
+    const limiter = this.rateLimiter?.getByName(bucket)
+    if (!limiter) return
+
+    try {
+      const response = await limiter.fetch(`https://internal/inflight-done?provider=${this.name}`, { method: 'POST' })
+      if (!response.ok) {
+        logger.warn(`[NVIDIA] Failed to release rate limiter slot: ${response.status}`)
+      }
+    } catch (err) {
+      logger.warn(`[NVIDIA] Rate limiter release call threw: ${err instanceof Error ? err.message : err}`)
     }
   }
 }

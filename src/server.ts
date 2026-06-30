@@ -5,6 +5,7 @@ import { registerRoutes } from './routes'
 import { ProcessorDurableObject } from './durable-objects/processor'
 import { RateLimiterDurableObject } from './durable-objects/do-rate-limiter'
 import { logger, setLoggerEnv } from './utils/logger'
+import { ProviderError } from './errors/provider-error'
 
 // Main application assembly
 const app = new Hono<{ Bindings: Env }>()
@@ -20,6 +21,14 @@ app.use('*', async (c, next) => {
 app.use('*', cors())
 
 app.onError((err, c) => {
+  if (err instanceof ProviderError) {
+    const now = new Date().toUTCString()
+    logger.error(`[${now}] [ERROR] Provider Error: ${err}`)
+    return c.json(
+      { success: false, data: null, error: err.publicMessage },
+      { status: err.status, headers: err.responseHeaders }
+    )
+  }
   const now = new Date().toUTCString()
   logger.error(`[${now}] [ERROR] Application Error: ${err}`)
   const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
