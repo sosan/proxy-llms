@@ -42,6 +42,7 @@ const _ProviderConfigs = {
       maxQueueDelayMs: 30_000,
       jitterMs: 300,
       circuitBreakerTtlMs: 120_000,
+      maxConcurrent: 3,
     },
     models: {
       'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4

@@ -98,6 +98,7 @@ export interface RateLimitConfig {
   maxQueueDelayMs?: number   // maximum internal wait before returning 429 (ms)
   jitterMs: 300
   circuitBreakerTtlMs: 120_000
+  maxConcurrent: number
 }
 
 export interface RetryStrategy {

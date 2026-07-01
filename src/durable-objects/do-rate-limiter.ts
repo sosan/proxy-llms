@@ -7,8 +7,7 @@ const CIRCUIT_KEY     = 'circuitOpenUntil'
 const CONCURRENT_KEY  = 'inflightCount'
 
 // --- Constants ---------------------------------------------------------------
-const WINDOW_MS     = 60_000
-const MAX_CONCURRENT = 3      // máximo de requests simultáneas hacia un provider
+const WINDOW_MS = 60_000
 
 // --- Types -------------------------------------------------------------------
 type LockReason =
@@ -45,6 +44,10 @@ function getCircuitTtlMs(p: string): number {
 
 function getJitterMs(p: string): number {
   return ProviderConfigs[p]?.rateLimit?.jitterMs ?? 300
+}
+
+function getMaxConcurrent(p: string): number {
+  return ProviderConfigs[p]?.rateLimit?.maxConcurrent ?? 3
 }
 
 // --- Header builder -----------------------------------------------------------
@@ -139,8 +142,9 @@ export class RateLimiterDurableObject {
       // -- 2. Concurrency cap -------------------------------------------------
       const concurrentKey = `${CONCURRENT_KEY}:${provider}`
       const inflight      = (await this.state.storage.get<number>(concurrentKey)) ?? 0
+      const maxConcurrent = getMaxConcurrent(provider)
 
-      if (inflight >= MAX_CONCURRENT) {
+      if (inflight >= maxConcurrent) {
         const estimatedWait = slotDelayMs + jitterMs
         const scheduledAt   = now + estimatedWait
         return {
@@ -265,7 +269,7 @@ export class RateLimiterDurableObject {
       },
       concurrency: {
         inflight,
-        max: MAX_CONCURRENT,
+        max: getMaxConcurrent(provider),
       },
       circuitBreaker: {
         open:      circuitOpen,
