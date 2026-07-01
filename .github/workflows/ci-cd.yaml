@@ -42,7 +42,10 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies (deterministic)
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
+          pnpm approve-builds esbuild sharp workerd
+          pnpm rebuild
 
       - name: Lint lockfile
         run: pnpm run lint:lockfile
@@ -84,7 +87,10 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies (deterministic)
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
+          pnpm approve-builds esbuild sharp workerd
+          pnpm rebuild
 
       # ------------------------------------------------------------------
       # OPTIONAL: Use Infisical to fetch runtime secrets (reference only)
