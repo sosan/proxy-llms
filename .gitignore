@@ -9,9 +9,13 @@
 .vscode/settings.json
 .env
 .local
-.cline/
 node_modules/
 .wrangler/
 .infisical.json
 .worker-secrets
+.cline/
+.clinerules/
 .atomcode/
+.opencode/
+openspec/
+.claude/
