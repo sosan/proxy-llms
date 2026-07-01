@@ -59,7 +59,7 @@ describe('NvidiaProvider - retry logic', () => {
       expect(providerError.responseHeaders).toMatchObject({
         'Retry-After': '600',
         'RateLimit-Reset': expect.any(String),
-        'X-RateLimit-Limit': '40',
+        'X-RateLimit-Limit': '25',
         'X-RateLimit-Remaining': '0',
         'X-RateLimit-Reset': expect.any(String),
         'X-RateLimit-Delay-Ms': '600000',

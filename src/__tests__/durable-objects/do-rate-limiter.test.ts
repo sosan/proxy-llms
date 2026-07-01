@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { RateLimiterDurableObject } from '../../durable-objects/do-rate-limiter'
 
 interface ReserveBody {
@@ -57,8 +57,22 @@ async function reserve(limiter: RateLimiterDurableObject, provider = 'nvidia'): 
   return { status: res.status, body: (await res.json()) as ReserveBody }
 }
 
+async function release(limiter: RateLimiterDurableObject, provider = 'nvidia'): Promise<void> {
+  const req = new Request(`https://internal/inflight-done?provider=${provider}`, { method: 'POST' })
+  const res = await limiter.fetch(req)
+  expect(res.status).toBe(204)
+}
+
 // ── Tests ──
 describe('RateLimiterDurableObject sliding window', () => {
+  beforeEach(() => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('allows the first request', async () => {
     const limiter = createRateLimiter()
     const { status, body } = await reserve(limiter)
@@ -66,28 +80,66 @@ describe('RateLimiterDurableObject sliding window', () => {
     expect(status).toBe(200)
     const b = body as ReserveBody
     expect(b.allowed).toBe(true)
-    expect(b.delayMs).toBe(0)
+    expect(b.delayMs).toBe(150) // jitter = 0.5 * 300 = 150
   })
 
-  it('allows up to requestsPerMinute requests in a single burst', async () => {
+  it('allows up to maxConcurrent requests then blocks until released', async () => {
     const limiter = createRateLimiter()
 
-    for (let i = 0; i < 40; i++) {
+    // Reserve up to maxConcurrent (3)
+    for (let i = 0; i < 3; i++) {
       const { status, body } = await reserve(limiter)
       expect(status).toBe(200)
       expect(body.allowed).toBe(true)
     }
+
+    // 4th request should be blocked by concurrency limit
+    const { status, body } = await reserve(limiter)
+    expect(status).toBe(429)
+    expect(body.allowed).toBe(false)
+    expect(body.reason).toBe('concurrency_limit')
+
+    // Release one slot
+    await release(limiter)
+
+    // Now we can reserve again
+    const { status: s2, body: b2 } = await reserve(limiter)
+    expect(s2).toBe(200)
+    expect(b2.allowed).toBe(true)
   })
 
-  it('rejects the 41st request within the same window', async () => {
+  it('allows up to requestsPerMinute requests within the window', async () => {
     const limiter = createRateLimiter()
 
-    // Fill the window
-    for (let i = 0; i < 40; i++) {
+    // Fill the request log to capacity (25 requests within window)
+    const state = (limiter as any).state as any
+    const now = Date.now()
+    const timestamps: number[] = []
+    for (let i = 0; i < 25; i++) {
+      timestamps.push(now - 30_000 + i * 1000) // 30s ago, spaced 1s apart
+    }
+    await state.storage.put('requestLog', timestamps)
+
+    // First request should succeed (within concurrency limit, window has 25)
+    // Wait, actually pruned.length = 25, so this should be rejected
+    const { status, body } = await reserve(limiter)
+    expect(status).toBe(429)
+    expect(body.allowed).toBe(false)
+    expect(body.reason).toBe('quota_full')
+  })
+
+  it('rejects requests when the window is full', async () => {
+    const limiter = createRateLimiter()
+
+    // Fill the window with 25 requests
+    for (let i = 0; i < 25; i++) {
+      if (i >= 3) {
+        await release(limiter)
+      }
       await reserve(limiter)
     }
 
-    // 41st request should be rejected
+    // Next request should be rejected
     const { status, body } = await reserve(limiter)
     expect(status).toBe(429)
     expect(body.allowed).toBe(false)
@@ -101,7 +153,7 @@ describe('RateLimiterDurableObject sliding window', () => {
     const state = (limiter as any).state as any
     const now = Date.now()
     const oldTimestamps: number[] = []
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 25; i++) {
       oldTimestamps.push(now - 61_000 + i * 10) // 61 seconds ago, spaced 10ms apart
     }
     await state.storage.put('requestLog', oldTimestamps)
@@ -119,13 +171,16 @@ describe('RateLimiterDurableObject sliding window', () => {
   it('enforces minimum inter-request delay (slotDelayMs)', async () => {
     const limiter = createRateLimiter()
 
-    // First request: no delay
+    // First request: only jitter delay
     const first = await reserve(limiter)
-    expect(first.body.delayMs).toBe(0)
+    expect(first.body.delayMs).toBe(150) // 0.5 * 300
 
-    // Second request: should be delayed by slotDelayMs (1600ms)
+    // Release first to avoid concurrency block
+    await release(limiter)
+
+    // Second request: should be delayed by slotDelayMs + jitter
     const second = await reserve(limiter)
-    expect(second.body.delayMs).toBeGreaterThan(0)
+    expect(second.body.delayMs).toBeGreaterThanOrEqual(2500) // slotDelayMs + jitter
   })
 
   it('handles a second burst after the window slides', async () => {
