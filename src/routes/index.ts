@@ -12,62 +12,38 @@ import { proxyAuthMiddleware } from '../middleware/proxy-auth'
 
 export const registerRoutes = (app: any) => {
   // ---------------------------------------------------------------------------
-  // Health check
+  // Public routes — registered BEFORE auth middleware
   // ---------------------------------------------------------------------------
   app.get('/health', handleHealth)
   app.on('HEAD,OPTIONS', '/health', handleProbe('GET, HEAD, OPTIONS'))
 
-  // ---------------------------------------------------------------------------
-  // Proxy token auth — applied to all /:proxyToken/... routes
-  // ---------------------------------------------------------------------------
-  app.use('/:proxyToken/*', proxyAuthMiddleware)
+  app.get('/', handleRoot)
+  app.on('HEAD,OPTIONS', '/', handleProbe('GET, HEAD, OPTIONS'))
 
-  // ---------------------------------------------------------------------------
-  // OpenAI-compatible chat completions
-  // ---------------------------------------------------------------------------
-  app.post('/:proxyToken/v1/chat/completions', handleChatCompletions)
+  app.get('/metrics', handleMetrics)
+  app.get('/metrics/timeseries', handleMetricsTimeSeries)
+  app.get('/metrics/providers', handleMetricsProviders)
+  app.get('/metrics/health', handleMetricsHealth)
 
-  // ---------------------------------------------------------------------------
-  // Claude-compatible messages
-  // ---------------------------------------------------------------------------
-  app.post('/:proxyToken/v1/messages', handleClaudeMessages)
-  app.on('HEAD,OPTIONS', '/:proxyToken/v1/messages', handleProbe('POST, HEAD, OPTIONS'))
-
-  // ---------------------------------------------------------------------------
-  // Token counting (Claude-compatible)
-  // ---------------------------------------------------------------------------
-  app.post('/:proxyToken/v1/messages/count_tokens', handleCountTokens)
-  app.on('HEAD,OPTIONS', '/:proxyToken/v1/messages/count_tokens', handleProbe('POST, HEAD, OPTIONS'))
-
-  // ---------------------------------------------------------------------------
-  // Models listing
-  // ---------------------------------------------------------------------------
-  app.get('/:proxyToken/v1/models', handleModels)
-
-  // ---------------------------------------------------------------------------
-  // Durable Object async processing
-  // ---------------------------------------------------------------------------
   app.post('/api/process', handleProcess)
   app.get('/api/status/:processId', handleStatus)
   app.get('/api/stream/:processId', handleStream)
   app.get('/api/websocket/:processId', handleWebSocket)
 
-  // ---------------------------------------------------------------------------
-  // Stop all pending tasks / CLI sessions
-  // ---------------------------------------------------------------------------
   app.post('/stop', handleStop)
 
   // ---------------------------------------------------------------------------
-  // Root
+  // Protected routes — require proxy token in URL path
   // ---------------------------------------------------------------------------
-  app.get('/', handleRoot)
-  app.on('HEAD,OPTIONS', '/', handleProbe('GET, HEAD, OPTIONS'))
+  app.use('/:proxyToken/*', proxyAuthMiddleware)
 
-  // ---------------------------------------------------------------------------
-  // Metrics
-  // ---------------------------------------------------------------------------
-  app.get('/metrics', handleMetrics)
-  app.get('/metrics/timeseries', handleMetricsTimeSeries)
-  app.get('/metrics/providers', handleMetricsProviders)
-  app.get('/metrics/health', handleMetricsHealth)
+  app.post('/:proxyToken/v1/chat/completions', handleChatCompletions)
+
+  app.post('/:proxyToken/v1/messages', handleClaudeMessages)
+  app.on('HEAD,OPTIONS', '/:proxyToken/v1/messages', handleProbe('POST, HEAD, OPTIONS'))
+
+  app.post('/:proxyToken/v1/messages/count_tokens', handleCountTokens)
+  app.on('HEAD,OPTIONS', '/:proxyToken/v1/messages/count_tokens', handleProbe('POST, HEAD, OPTIONS'))
+
+  app.get('/:proxyToken/v1/models', handleModels)
 }
