@@ -8,29 +8,35 @@ import { handleRoot } from '../controllers/root'
 import { handleStop } from '../controllers/stop'
 import { handleProbe } from '../controllers/probe'
 import { handleMetrics, handleMetricsTimeSeries, handleMetricsProviders, handleMetricsHealth } from '../controllers/metrics'
+import { proxyAuthMiddleware } from '../middleware/proxy-auth'
 
 export const registerRoutes = (app: any) => {
   // ---------------------------------------------------------------------------
+  // Proxy token auth — applied to all /:proxyToken/... routes
+  // ---------------------------------------------------------------------------
+  app.use('/:proxyToken/*', proxyAuthMiddleware)
+
+  // ---------------------------------------------------------------------------
   // OpenAI-compatible chat completions
   // ---------------------------------------------------------------------------
-  app.post('/:version/chat/completions', handleChatCompletions)
+  app.post('/:proxyToken/v1/chat/completions', handleChatCompletions)
 
   // ---------------------------------------------------------------------------
   // Claude-compatible messages
   // ---------------------------------------------------------------------------
-  app.post('/:version/messages', handleClaudeMessages)
-  app.on('HEAD,OPTIONS', '/:version/messages', handleProbe('POST, HEAD, OPTIONS'))
+  app.post('/:proxyToken/v1/messages', handleClaudeMessages)
+  app.on('HEAD,OPTIONS', '/:proxyToken/v1/messages', handleProbe('POST, HEAD, OPTIONS'))
 
   // ---------------------------------------------------------------------------
   // Token counting (Claude-compatible)
   // ---------------------------------------------------------------------------
-  app.post('/:version/messages/count_tokens', handleCountTokens)
-  app.on('HEAD,OPTIONS', '/:version/messages/count_tokens', handleProbe('POST, HEAD, OPTIONS'))
+  app.post('/:proxyToken/v1/messages/count_tokens', handleCountTokens)
+  app.on('HEAD,OPTIONS', '/:proxyToken/v1/messages/count_tokens', handleProbe('POST, HEAD, OPTIONS'))
 
   // ---------------------------------------------------------------------------
   // Models listing
   // ---------------------------------------------------------------------------
-  app.get('/:version/models', handleModels)
+  app.get('/:proxyToken/v1/models', handleModels)
 
   // ---------------------------------------------------------------------------
   // Durable Object async processing

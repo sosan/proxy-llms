@@ -39,7 +39,7 @@ There are two ways to deploy this Worker to Cloudflare:
 
 Push to GitHub and let `.github/workflows/ci-cd.yaml` handle the deploy:
 
-1. Set the required secrets in your GitHub repo (`Settings → Secrets and variables → Actions`): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, and (if using metrics) `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_API_TOKEN`.
+1. Set the required secrets in your GitHub repo (`Settings → Secrets and variables → Actions`): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `METRICS_TOKEN`, `PROXY_API_KEY`, and (if using metrics) `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_API_TOKEN`.
 2. Push to `main` → runs tests and deploys to **staging** automatically.
 3. To deploy to **production**, trigger the workflow manually from the Actions tab (`workflow_dispatch`) and select `production` as the environment.
 
@@ -70,6 +70,27 @@ The script will:
 5. Run `wrangler deploy --env <environment>`.
 
 Full setup instructions (prerequisites, D1 database setup, troubleshooting) are in [SETUP.md](SETUP.md).
+
+## Security
+
+This proxy has **no built-in authentication by default**. Upstream API keys are forwarded transparently to the provider — anyone who can reach the proxy can issue requests using the deployer's NVIDIA/OpenRouter/etc. credentials, at the deployer's billing.
+
+**Optional auth via `PROXY_API_KEY`**: Set the `PROXY_API_KEY` environment variable to enable path-based token authentication. When set, all chat and messages endpoints require the token as the first path segment:
+
+```
+http://localhost:8787/{PROXY_API_KEY}/v1/messages
+http://localhost:8787/{PROXY_API_KEY}/v1/chat/completions
+```
+
+Without `PROXY_API_KEY` set, the proxy is open (auth disabled — useful for local development).
+
+**Do not expose this proxy publicly without additional access controls.** Safer deployment patterns:
+
+- Run it in a private network (VPC, VPN, or firewall-gated)
+- Add an IP allowlist at the network or Cloudflare level
+- Put an auth layer in front (e.g. Cloudflare Access, a self-hosted API gateway)
+
+See [SETUP.md](SETUP.md) for operational guidance.
 
 ## Choose A Provider
 
@@ -135,7 +156,7 @@ Save as `opencode.json` in your project root or `~/.config/opencode/`:
     "proxy": {
       "name": "Local Proxy",
       "options": {
-        "baseURL": "http://localhost:8787/v1"
+        "baseURL": "http://localhost:8787/{PROXY_API_KEY}/v1"
       },
       "models": {
         "nvidia/moonshotai/kimi-k2.6": {
@@ -173,7 +194,7 @@ Each `ANTHROPIC_*_MODEL` value is a **full routing path** in `provider/organizat
 Once those variables are configured on the server, to point Claude Code at your local proxy:
 
 ```bash
-ANTHROPIC_BASE_URL=http://localhost:8787 claude
+ANTHROPIC_BASE_URL=http://localhost:8787/{PROXY_API_KEY} claude
 ```
 
 
@@ -211,7 +232,7 @@ model_provider = "proxy"
 
 [model_providers.proxy]
 name = "Local Proxy"
-base_url = "http://localhost:8787"
+base_url = "http://localhost:8787/{PROXY_API_KEY}"
 env_key = "PROXY_API_KEY"
 wire_api = "chat"
 ```
@@ -235,8 +256,8 @@ Cursor doesn't support environment variables or config files for this: it's alwa
 1. `Settings → Models → Add Model`
 2. Ex Model name: `nvidia/moonshotai/kimi-k2.6`
 3. Enable **Override OpenAI Base URL**
-4. Base URL: `http://localhost:8787/v1`
-5. API Key: any value (e.g. `local-dev-key`)
+4. Base URL: `http://localhost:8787/{PROXY_API_KEY}/v1`
+5. API Key: any value (e.g. `local-dev-key`) — the proxy token is in the URL path, not this field
 6. **Verify**
 
 > ⚠️ The override only applies to chat/plan mode. Composer, Inline Edit, and autocomplete still use Cursor's own backend.
@@ -367,7 +388,7 @@ logger.info('context', details)   // DEBUG=true only
 logger.error('fail', err)          # always visible
 ```
 
-## Security
+## Supply Chain Security
 
 Supply-chain hardening via `.npmrc` (ignore lifecycle scripts, block git deps), pnpm trust policy, frozen lockfile validation, and a Dev Container with dropped capabilities. See [SETUP.md](SETUP.md) for deployment details.
 
@@ -391,7 +412,7 @@ Deploys run through `.github/workflows/ci-cd.yaml`. The workflow has two jobs:
 
 2. **`deploy`** — runs after `test` succeeds, only on push to `main`, tags matching `v*`, or `workflow_dispatch`.
    - Reads the `environment` input (`staging` or `production`, default `staging`).
-   - Creates `.worker-secrets` from GitHub secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_API_TOKEN`) without printing values.
+   - Creates `.worker-secrets` from GitHub secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `METRICS_TOKEN`, `PROXY_API_KEY`, `ANALYTICS_ACCOUNT_ID`, `ANALYTICS_API_TOKEN`) without printing values.
    - Runs `wrangler deploy --env <environment> --secrets-file .worker-secrets` through `cloudflare/wrangler-action@v4`.
    - Removes `.worker-secrets` after the deploy step (`if: always()`).
    - Hits `<deployment-url>/health` to verify the Worker responds.

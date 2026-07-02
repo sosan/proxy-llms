@@ -34,12 +34,11 @@ Variable management strategy:
 | `RTK_ENABLED` | ❌ No | RTK compression |
 | `CAVEMAN_ENABLED` | ❌ No | Terse prompts |
 | `CAVEMAN_LEVEL` | ❌ No | Caveman intensity: `lite`, `full`, `ultra` |
+| `PROXY_API_KEY` | ✅ Yes | Proxy access token (optional, enables path-based auth when set) |
 
 ## Setup
 
-```bash
-cp wrangler.example.toml wrangler.toml
-```
+The `wrangler.toml` file is committed to the repository with safe defaults. No copy step needed.
 
 ### Local Development
 
@@ -48,6 +47,8 @@ Create a `.dev.vars` file (gitignored):
 ```
 NVIDIA_API_KEY=nvapi-...
 OPENROUTER_API_KEY=sk-or-...
+METRICS_TOKEN=...
+PROXY_API_KEY=...
 ```
 
 Secrets are injected at runtime via `infisical run` or `op run`:
@@ -91,6 +92,18 @@ pnpm run test:watch             # watch mode
 pnpm run test:coverage          # with coverage
 ```
 
+## Security
+
+This proxy has **no built-in authentication by default**. Upstream API keys are forwarded transparently to the provider — anyone who can reach the proxy can issue requests at the deployer's billing.
+
+**Optional auth via `PROXY_API_KEY`**: When this environment variable is set, all chat and messages endpoints require the token as the first path segment (`/{PROXY_API_KEY}/v1/...`). Without it, the proxy is open (auth disabled). Set it in staging/production via `wrangler secret put PROXY_API_KEY`. See [README.md](README.md) for client configuration examples.
+
+Safer deployment patterns:
+
+- Run in a private network (VPC, VPN, or firewall-gated)
+- Add an IP allowlist at the network or Cloudflare level
+- Put an auth layer in front (e.g. Cloudflare Access, a self-hosted API gateway)
+
 ## Deployment
 
 ### Cloudflare Workers
@@ -103,6 +116,8 @@ CLOUDFLARE_API_TOKEN=...
 CLOUDFLARE_ACCOUNT_ID=...
 NVIDIA_API_KEY=nvapi-...
 OPENROUTER_API_KEY=sk-or-...
+METRICS_TOKEN=...
+PROXY_API_KEY=...
 ```
 
 If `NVIDIA_API_KEY` / `OPENROUTER_API_KEY` are present in `.env`, the deploy script uploads them via `wrangler secret put` automatically on each run. If they're omitted, the script assumes they're already set on Cloudflare (e.g. uploaded previously with the manual commands below) and skips that step without failing.
@@ -112,6 +127,8 @@ To set secrets manually instead:
 ```bash
 echo "nvapi-..." | wrangler secret put NVIDIA_API_KEY
 echo "sk-or-..." | wrangler secret put OPENROUTER_API_KEY
+echo "..." | wrangler secret put METRICS_TOKEN
+echo "..." | wrangler secret put PROXY_API_KEY
 ```
 
 Then deploy:

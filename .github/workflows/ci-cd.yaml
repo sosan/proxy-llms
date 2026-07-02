@@ -102,7 +102,7 @@ jobs:
       # Prerequisites:
       # 1. Create an Infisical project with `staging` and `production` environments.
       # 2. Add `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `ANALYTICS_ACCOUNT_ID`,
-      #    `ANALYTICS_API_TOKEN` to each environment in Infisical.
+      #    `ANALYTICS_API_TOKEN`, `METRICS_TOKEN`, `PROXY_API_KEY` to each environment in Infisical.
       # 3. Create a Machine Identity in Infisical and generate a token.
       # 4. Store the token as `INFISICAL_TOKEN` in the GitHub environment.
       #
@@ -140,6 +140,8 @@ jobs:
             printf 'OPENROUTER_API_KEY=%s\n' '${{ secrets.OPENROUTER_API_KEY }}'
             printf 'ANALYTICS_ACCOUNT_ID=%s\n' '${{ secrets.ANALYTICS_ACCOUNT_ID }}'
             printf 'ANALYTICS_API_TOKEN=%s\n' '${{ secrets.ANALYTICS_API_TOKEN }}'
+            printf 'METRICS_TOKEN=%s\n' '${{ secrets.METRICS_TOKEN }}'
+            printf 'PROXY_API_KEY=%s\n' '${{ secrets.PROXY_API_KEY }}'
           } > .worker-secrets
 
       - name: Deploy to Cloudflare
