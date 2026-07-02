@@ -12,6 +12,12 @@ import { proxyAuthMiddleware } from '../middleware/proxy-auth'
 
 export const registerRoutes = (app: any) => {
   // ---------------------------------------------------------------------------
+  // Health check
+  // ---------------------------------------------------------------------------
+  app.get('/health', handleHealth)
+  app.on('HEAD,OPTIONS', '/health', handleProbe('GET, HEAD, OPTIONS'))
+
+  // ---------------------------------------------------------------------------
   // Proxy token auth — applied to all /:proxyToken/... routes
   // ---------------------------------------------------------------------------
   app.use('/:proxyToken/*', proxyAuthMiddleware)
@@ -64,10 +70,4 @@ export const registerRoutes = (app: any) => {
   app.get('/metrics/timeseries', handleMetricsTimeSeries)
   app.get('/metrics/providers', handleMetricsProviders)
   app.get('/metrics/health', handleMetricsHealth)
-
-  // ---------------------------------------------------------------------------
-  // Health check
-  // ---------------------------------------------------------------------------
-  app.get('/health', handleHealth)
-  app.on('HEAD,OPTIONS', '/health', handleProbe('GET, HEAD, OPTIONS'))
 }
