@@ -50,6 +50,9 @@ jobs:
       - name: Lint lockfile
         run: pnpm run lint:lockfile
 
+      - name: Security audit
+        run: pnpm audit --audit-level=high
+
       - name: Lint code
         run: pnpm run lint
 
