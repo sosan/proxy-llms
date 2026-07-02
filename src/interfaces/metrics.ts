@@ -10,11 +10,12 @@ export interface RequestMetrics {
   ttftMs?: number
   generationTimeMs?: number
   
-  // Token usage (only available for non-streaming)
+  // Token usage (real for non-streaming; from SSE usage chunk for streaming, or char-based fallback)
   promptTokens?: number
   completionTokens?: number
   totalTokens?: number
   tokensPerSecond?: number
+  maxTokensRequested?: number
   
   // Response details
   finishReason?: string

@@ -37,7 +37,7 @@ const _ProviderConfigs = {
     endpoint: '/chat/completions',
     alterEndpoint: '/messages',
     rateLimit: {
-      requestsPerMinute: 25,
+      requestsPerMinute: 10,
       minRetryDelayMs: 2500,
       maxQueueDelayMs: 30_000,
       jitterMs: 300,

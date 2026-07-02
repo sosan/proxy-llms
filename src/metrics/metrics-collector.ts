@@ -16,13 +16,16 @@ export class MetricsCollector {
   private generationEndTime: number | null = null
   private chunkCount = 0
   private totalChars = 0
+  private usage: Record<string, number> | null = null
+  private maxTokensRequested?: number
 
-  constructor(env: Env, requestId: string, model: string, provider: string, isStream: boolean) {
+  constructor(env: Env, requestId: string, model: string, provider: string, isStream: boolean, maxTokensRequested?: number) {
     this.env = env
     this.requestId = requestId
     this.model = model
     this.provider = provider
     this.isStream = isStream
+    this.maxTokensRequested = maxTokensRequested
     this.startTime = Date.now()
     this.upstreamStartTime = Date.now()
   }
@@ -68,6 +71,7 @@ export class MetricsCollector {
       totalProxyMs,
       upstreamStatus,
       timestamp: new Date(),
+      maxTokensRequested: this.maxTokensRequested,
     }
 
     // Streaming-specific metrics
@@ -128,8 +132,16 @@ export class MetricsCollector {
     this.markGenerationEnd()
     const metrics = this.calculateMetrics(upstreamStatus, error)
 
-    // Approximate tokens from character count (rough estimate: ~4 chars per token)
-    if (this.totalChars > 0) {
+    // Use real usage from the final SSE chunk when available
+    if (this.usage) {
+      metrics.promptTokens = this.usage['prompt_tokens']
+      metrics.completionTokens = this.usage['completion_tokens']
+      metrics.totalTokens = this.usage['total_tokens']
+      if (metrics.completionTokens && metrics.generationTimeMs) {
+        metrics.tokensPerSecond = (metrics.completionTokens / metrics.generationTimeMs) * 1000
+      }
+    } else if (this.totalChars > 0) {
+      // Fallback: approximate tokens from character count (~4 chars per token)
       metrics.completionTokens = Math.floor(this.totalChars / 4)
       if (metrics.generationTimeMs) {
         metrics.tokensPerSecond = (metrics.completionTokens / metrics.generationTimeMs) * 1000
@@ -205,6 +217,10 @@ export class MetricsCollector {
                 // Check for finish reason
                 if (json.choices?.[0]?.finish_reason) {
                   this.markGenerationEnd()
+                  // Extract usage from final chunk (NVIDIA sends usage alongside finish_reason)
+                  if (json.usage) {
+                    this.usage = json.usage as Record<string, number>
+                  }
                 }
               } catch {
                 // Ignore parse errors
@@ -233,6 +249,10 @@ export class MetricsCollector {
               const delta = json.choices?.[0]?.delta?.content
               if (delta && typeof delta === 'string') {
                 this.addChunk(delta.length)
+              }
+              // Extract usage from final chunk in flush
+              if (json.choices?.[0]?.finish_reason && json.usage) {
+                this.usage = json.usage as Record<string, number>
               }
             } catch {
               // Ignore parse errors

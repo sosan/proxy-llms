@@ -186,7 +186,7 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     const requestId = crypto.randomUUID().slice(0, 8)
     if (gctx) logger.debug(`[ginapse] session=${gctx.session_id} project=${gctx.project}`)
 
-    metricsCollector = new MetricsCollector(c.env, requestId, resolvedModel, providerDC, isStream)
+    metricsCollector = new MetricsCollector(c.env, requestId, resolvedModel, providerDC, isStream, finalPayload.max_tokens as number | undefined)
 
     if (isStream) {
       return handleStreamRequest(provider, endpoint, finalPayload, metricsCollector)
