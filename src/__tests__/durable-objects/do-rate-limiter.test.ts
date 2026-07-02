@@ -5,7 +5,8 @@ interface ReserveBody {
   allowed: boolean
   delayMs: number
   scheduledAt: number
-  headers?: Record<string, string>
+  reason: string
+  headers: Record<string, string>
 }
 
 // ── Minimal DurableObjectStorage mock with in-memory state ──
