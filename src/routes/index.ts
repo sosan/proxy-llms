@@ -7,6 +7,7 @@ import { handleHealth } from '../controllers/health'
 import { handleRoot } from '../controllers/root'
 import { handleStop } from '../controllers/stop'
 import { handleProbe } from '../controllers/probe'
+import { handleMetrics, handleMetricsTimeSeries, handleMetricsProviders, handleMetricsHealth } from '../controllers/metrics'
 
 export const registerRoutes = (app: any) => {
   // ---------------------------------------------------------------------------
@@ -49,6 +50,14 @@ export const registerRoutes = (app: any) => {
   // ---------------------------------------------------------------------------
   app.get('/', handleRoot)
   app.on('HEAD,OPTIONS', '/', handleProbe('GET, HEAD, OPTIONS'))
+
+  // ---------------------------------------------------------------------------
+  // Metrics
+  // ---------------------------------------------------------------------------
+  app.get('/metrics', handleMetrics)
+  app.get('/metrics/timeseries', handleMetricsTimeSeries)
+  app.get('/metrics/providers', handleMetricsProviders)
+  app.get('/metrics/health', handleMetricsHealth)
 
   // ---------------------------------------------------------------------------
   // Health check

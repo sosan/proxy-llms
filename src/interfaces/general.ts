@@ -30,6 +30,8 @@ export interface Env {
   GINAPSE_ENABLED?: string
   ANALYTICS_ACCOUNT_ID?: string
   ANALYTICS_API_TOKEN?: string
+  METRICS_TOKEN?: string
+  PROXY_API_KEY?: string
 }
 
 

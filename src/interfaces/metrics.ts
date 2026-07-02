@@ -61,3 +61,33 @@ export interface AggregatedMetrics {
   byStatus: StatusMetrics[]
   errors: ErrorMetrics[]
 }
+
+export interface TimeSeriesBucket {
+  time: string
+  requests: number
+  avgLatencyMs: number
+  avgTtftMs: number
+  avgTokensPerSecond: number
+}
+
+export interface TimeSeriesMetrics {
+  window: string
+  bucket: string
+  series: TimeSeriesBucket[]
+}
+
+export interface ProviderComparison {
+  provider: string
+  requests: number
+  avgTtftMs: number
+  errorRate: number
+  avgTokensPerSecond: number
+}
+
+export interface HealthMetrics {
+  status: 'healthy' | 'degraded'
+  errorRate: number
+  p95LatencyMs: number
+  avgTtftMs: number
+  totalRequests: number
+}
