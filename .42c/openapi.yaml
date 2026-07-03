@@ -665,8 +665,8 @@ components:
           properties:
             code:
               type: string
-              maxLength: 128
-              pattern: ^[A-Z0-9_]{1,64}$
+              pattern: ^[\\w.]{1,64}$
+              maxLength: 64
             status:
               type: integer
               format: int32
@@ -1014,9 +1014,11 @@ components:
       - messages
       - max_tokens
     ClaudeMessageResponse:
-      type: object
-      additionalProperties: true
-      description: Anthropic-format response from upstream, passed through unchanged
+      anyOf:
+        - type: 'null'
+        - type: object
+          additionalProperties: true
+      description: Anthropic-format response from upstream, passed through unchanged.
     MetricsAggregated:
       type: object
       additionalProperties: false
