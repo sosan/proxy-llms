@@ -1,55 +1,60 @@
 openapi: 3.1.0
 info:
   title: Proxy LLMs API
-  description: |
-    Cloudflare Worker proxy for OpenAI-compatible clients.
+  description: 'Cloudflare Worker proxy for OpenAI-compatible clients.
+
     Resolves friendly model aliases and forwards requests to upstream LLM providers.
+
+    Authentication is via `PROXY_API_KEY` in the URL path: `/{PROXY_API_KEY}/v1/...`.
+
+    Without `PROXY_API_KEY` set, the proxy is open (local dev mode).'
   version: 1.0.0
   contact:
     name: Proxy LLMs
     url: https://github.com/sosan/proxy-llms
 servers:
-  - url: https://proxy-llms.example.com
-    description: Production server
-
+- url: https://proxy-llms.example.com/{proxyToken}/v1
+  description: Production server
+  variables:
+    proxyToken:
+      default: your-proxy-api-key
+      description: The proxy API key (PROXY_API_KEY env var)
 tags:
-  - name: Chat Completions
-    description: OpenAI-compatible chat completion endpoints
-  - name: Models
-    description: Model discovery endpoints
-  - name: Legacy
-    description: Backward-compatible legacy routes
-  - name: Process
-    description: Asynchronous processing via Durable Objects
-  - name: Health
-    description: Health and monitoring
-
+- name: Chat Completions
+  description: OpenAI-compatible chat completion endpoints
+- name: Claude Messages
+  description: Anthropic-compatible messages endpoint
+- name: Models
+  description: Model discovery endpoints
+- name: Process
+  description: Asynchronous processing via Durable Objects
+- name: Health
+  description: Health and monitoring
+- name: Metrics
+  description: Metrics and monitoring endpoints (auth via X-Metrics-Token header)
 security:
-  - OAuth2:
-      - read
-
+- BearerAuth: []
 paths:
-  /{provider}/chat/completions:
+  /{proxyToken}/v1/chat/completions:
     post:
       tags:
-        - Chat Completions
+      - Chat Completions
       summary: Chat completions
       security:
-        - OAuth2:
-            - read
-            - write
-      description: |
-        Forwards an OpenAI-compatible chat completion request to the specified provider.
-        Supports both streaming (SSE) and non-streaming responses.
+      - BearerAuth: []
+      description: 'Forwards an OpenAI-compatible chat completion request to the specified
+        provider.
+
+        Supports both streaming (SSE) and non-streaming responses.'
       parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-z0-9-]+$"
-            maxLength: 64
-          description: Provider key (e.g., nvidia, openrouter, claude)
+      - name: proxyToken
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z0-9-]+$
+          maxLength: 256
+        description: Proxy API key (PROXY_API_KEY)
       requestBody:
         required: true
         content:
@@ -62,447 +67,273 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_ChatCompletionResponse'
+                $ref: '#/components/schemas/ChatCompletionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           description: Rate limited
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '502':
-          description: Upstream error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Upstream error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         default:
           description: Unexpected error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /models:
-    get:
-      tags:
-        - Models
-      summary: List all models (placeholder)
-      description: Returns a placeholder response. Not yet implemented.
-      responses:
-        '200':
-          description: Placeholder response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  notcreated:
-                    type: string
-                    pattern: "^[\\w\\s-]+$"
-                    maxLength: 64
-                    example: "notcreated"
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /{provider}/models:
-    get:
-      tags:
-        - Models
-      summary: List models for a provider
-      security:
-        - OAuth2:
-            - read
-      description: Returns a list of available models for the specified provider.
-      parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-            pattern: "^[a-z0-9-]+$"
-            maxLength: 64
-          description: Provider key (e.g., nvidia, openrouter, claude)
-      responses:
-        '200':
-          description: List of models
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_ModelList'
-        '400':
-          description: Provider not specified or unknown
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /openai/v1/models:
-    get:
-      tags:
-        - Legacy
-      summary: Legacy OpenAI models
-      security:
-        - OAuth2:
-            - read
-      description: Backward-compatible route. Returns NVIDIA models.
-      responses:
-        '200':
-          description: List of models
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_ModelList'
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /claude/v1/models:
-    get:
-      tags:
-        - Legacy
-      summary: Legacy Claude models
-      security:
-        - OAuth2:
-            - read
-      description: Backward-compatible route. Returns Claude models.
-      responses:
-        '200':
-          description: List of models
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_ModelList'
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /api/process:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: post_v1_chat_completions
+  /{proxyToken}/v1/messages:
     post:
       tags:
-        - Process
-      summary: Start an async process
+      - Claude Messages
+      summary: Anthropic-compatible messages endpoint
       security:
-        - OAuth2:
-            - read
-            - write
-      description: |
-        Creates a Durable Object to process a chat completion asynchronously.
-        Returns a processId and URLs to check status, stream, or connect via WebSocket.
+      - BearerAuth: []
+      description: Accepts Anthropic's Claude API format. Routes to the configured
+        provider based on ANTHROPIC_*_MODEL environment variables (Opus/Sonnet/Haiku/Default
+        tier). Transforms the request to the provider's format before forwarding and
+        transforms the response back to Claude format.
+      parameters:
+      - name: proxyToken
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-zA-Z0-9_-]{1,256}$
+          maxLength: 256
+        description: Proxy API key (PROXY_API_KEY)
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChatCompletionRequest'
+              $ref: '#/components/schemas/ClaudeMessageRequest'
       responses:
         '200':
-          description: Process started successfully
+          description: Successful response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_ProcessStart'
-        '400':
-          description: Invalid request body
+                $ref: '#/components/schemas/ClaudeMessageResponse'
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: Too many requests
+          description: Rate limited
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Failed to start process
+          description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
         default:
           description: Unexpected error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /api/status/{processId}:
-    get:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: post_v1_messages
+    options:
       tags:
-        - Process
-      summary: Get process status
-      security:
-        - OAuth2:
-            - read
-      description: Returns the current state of the async process.
-      parameters:
-        - name: processId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-            maxLength: 36
-          description: UUID of the process
+      - Claude Messages
+      summary: CORS preflight for messages
+      security: []
       responses:
         '200':
-          description: Process status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_ProcessState'
-        '400':
-          description: Process ID not specified
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '500':
-          description: Error checking status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /api/stream/{processId}:
-    get:
-      tags:
-        - Process
-      summary: Stream process updates (SSE)
-      security:
-        - OAuth2:
-            - read
-      description: |
-        Returns a Server-Sent Events stream with the current status of the process.
-        Useful for real-time updates without WebSocket.
-      parameters:
-        - name: processId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-            maxLength: 36
-          description: UUID of the process
-      responses:
-        '200':
-          description: SSE stream of process updates
-          content:
-            text/event-stream:
+          description: Preflight response
+          headers:
+            Access-Control-Allow-Origin:
               schema:
                 type: string
-                maxLength: 1048576
-                example: "data: {\"status\":\"processing\",\"progress\":10}\\n\\n"
-        '400':
-          description: Process ID not specified
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '406':
-          description: Not Acceptable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '500':
-          description: Stream error
-          content:
-            text/plain:
+                maxLength: 1
+                pattern: ^\*$|^https?://
+              example: '*'
+            Access-Control-Allow-Methods:
               schema:
                 type: string
-                pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-                maxLength: 4096
+                pattern: ^[A-Z, ]{1,64}$
+                maxLength: 64
+              example: POST, OPTIONS
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+                maxLength: 256
+                pattern: ^[ -~, ]*$
+              example: Content-Type, Authorization, anthropic-version,anthropic-beta
         default:
           description: Unexpected error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
-  /api/websocket/{processId}:
-    get:
-      tags:
-        - Process
-      summary: WebSocket connection for process
-      security:
-        - OAuth2:
-            - read
-            - write
-      description: Upgrades the connection to WebSocket for real-time process updates.
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: options_v1_messages
       parameters:
-        - name: processId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-            maxLength: 36
-          description: UUID of the process
+      - name: proxyToken
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 256
+          pattern: ^[a-zA-Z0-9_-]{1,256}$
+        description: Proxy API key (PROXY_API_KEY)
+  /{proxyToken}/v1/messages/count_tokens:
+    post:
+      tags:
+      - Claude Messages
+      summary: Count tokens for a messages payload
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: proxyToken
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-zA-Z0-9_-]{1,256}$
+          maxLength: 256
+        description: Proxy API key (PROXY_API_KEY)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaudeMessageRequest'
       responses:
-        '101':
-          description: WebSocket upgrade successful
-          content: {}
         '200':
-          description: WebSocket connection established
+          description: Token count
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
                 properties:
-                  status:
-                    type: string
-                    pattern: "^connected$"
-                    maxLength: 16
-                    example: "connected"
-        '400':
-          description: Process ID not specified
+                  token_count:
+                    type: integer
+                    description: Estimated token count
+                  tokens_per_second:
+                    type: number
+                    format: float
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '406':
           description: Not Acceptable
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '429':
-          description: Too many requests
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Unsupported Media Type
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-        '500':
-          description: WebSocket connection error
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-                pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-                maxLength: 4096
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         default:
           description: Unexpected error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: post_v1_messages_count_tokens
+  /{proxyToken}/v1/models:
+    get:
+      tags:
+      - Models
+      summary: List all available models
+      security:
+      - BearerAuth: []
+      description: Returns every model alias the proxy can route to, across all configured
+        providers.
+      parameters:
+      - name: proxyToken
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-zA-Z0-9_-]{1,256}$
+          maxLength: 256
+        description: Proxy API key (PROXY_API_KEY)
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: get_v1_models
   /health:
     get:
       tags:
-        - Health
+      - Health
       summary: Health check
       description: Returns the health status of the proxy.
       security: []
@@ -512,44 +343,317 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_HealthResponse'
+                $ref: '#/components/schemas/HealthResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '406':
           description: Not Acceptable
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           description: Too many requests
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
+                $ref: '#/components/schemas/ErrorResponse'
         default:
           description: Unexpected error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Error'
-
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: get_health
+  /metrics:
+    get:
+      tags:
+      - Metrics
+      summary: Aggregated metrics
+      security:
+      - MetricsTokenAuth: []
+      description: Returns aggregated metrics for the last hour from Cloudflare Analytics
+        Engine.
+      responses:
+        '200':
+          description: Aggregated metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsAggregated'
+        '401':
+          description: Unauthorized — missing or invalid X-Metrics-Token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — metrics disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: get_metrics
+  /metrics/timeseries:
+    get:
+      tags:
+      - Metrics
+      summary: Time-series metrics
+      security:
+      - MetricsTokenAuth: []
+      description: Returns time-bucketed metrics. Use the bucket query parameter to
+        set the interval.
+      parameters:
+      - name: window
+        in: query
+        required: false
+        schema:
+          type: string
+          default: 1h
+          pattern: ^[a-zA-Z0-9]{1,16}$
+          maxLength: 16
+        description: Time window (e.g., "1h", "24h")
+      - name: bucket
+        in: query
+        required: false
+        schema:
+          type: string
+          default: 5m
+          pattern: ^[a-zA-Z0-9]{1,16}$
+          maxLength: 16
+        description: Bucket interval (e.g., "1m", "5m", "15m", "1h", "1d")
+      responses:
+        '200':
+          description: Time-series metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsTimeSeries'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: get_metrics_timeseries
+  /metrics/providers:
+    get:
+      tags:
+      - Metrics
+      summary: Per-provider metrics comparison
+      security:
+      - MetricsTokenAuth: []
+      description: Returns per-provider comparison of requests, avg TTFT, and error
+        rate.
+      responses:
+        '200':
+          description: Provider comparison
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsProviders'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: get_metrics_providers
+  /metrics/health:
+    get:
+      tags:
+      - Metrics
+      summary: Health score from metrics
+      security:
+      - MetricsTokenAuth: []
+      description: Returns a health score based on recent error rate and latency.
+      responses:
+        '200':
+          description: Health score
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsHealth'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: get_metrics_health
+  /:
+    get:
+      tags:
+      - Health
+      summary: Root endpoint
+      security: []
+      description: Returns basic service information.
+      responses:
+        '200':
+          description: Service info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '406':
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: get_root
 components:
   securitySchemes:
-    OAuth2:
-      type: oauth2
-      flows:
-        authorizationCode:
-          scopes:
-            read: Read access
-            write: Write access
-          authorizationUrl: https://proxy-llms.example.com/oauth/authorize
-          tokenUrl: https://proxy-llms.example.com/oauth/token
-      description: OAuth 2.0 authorization for API access.
-
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: 'Proxy API key (PROXY_API_KEY env var). Pass as the first path
+        segment: /{PROXY_API_KEY}/v1/...'
+    MetricsTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Metrics-Token
+      description: Metrics access token (METRICS_TOKEN env var). Used to authenticate
+        requests to metrics endpoints. Only required when METRICS_TOKEN is set.
   schemas:
-    # ---------------------------------------------------------------------------
-    # Response wrappers (flat, no allOf)
-    # ---------------------------------------------------------------------------
-    ApiResponse_Error:
+    ErrorResponse:
       type: object
       additionalProperties: false
       properties:
@@ -561,181 +665,26 @@ components:
           properties:
             code:
               type: string
-              pattern: "^[A-Za-z0-9_-]+$"
               maxLength: 128
+              pattern: ^[A-Z0-9_]{1,64}$
             status:
               type: integer
               format: int32
             retry_after:
-              type: ["string", "null"]
-              pattern: "^\\d+$"
-              maxLength: 10
-        error:
-          type: ["string", "null"]
-          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-          maxLength: 4096
-        timestamp:
-          type: string
-          format: date-time
-          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
-
-    ApiResponse_ChatCompletionResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          additionalProperties: false
-        error:
-          type: ["string", "null"]
-          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-          maxLength: 4096
-        timestamp:
-          type: string
-          format: date-time
-          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
-
-    ApiResponse_ModelList:
-      type: object
-      additionalProperties: false
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          additionalProperties: false
-          properties:
-            object:
-              type: string
-              pattern: "^list$"
-              maxLength: 16
-              example: "list"
-            models:
-              type: array
-              maxItems: 1000
-              items:
-                type: object
-                additionalProperties: false
-                properties:
-                  id:
-                    type: string
-                    pattern: "^[A-Za-z0-9_.:/-]+$"
-                    maxLength: 256
-                  object:
-                    type: string
-                    pattern: "^model$"
-                    maxLength: 16
-                    example: "model"
-                  created:
-                    type: integer
-                    format: int32
-                  owned_by:
-                    type: string
-                    pattern: "^[A-Za-z0-9_. -]+$"
-                    maxLength: 128
-        error:
-          type: ["string", "null"]
-          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-          maxLength: 4096
-        timestamp:
-          type: string
-          format: date-time
-          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
-
-    ApiResponse_ProcessStart:
-      type: object
-      additionalProperties: false
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          additionalProperties: false
-          properties:
-            processId:
-              type: string
-              format: uuid
-              pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-              maxLength: 36
-            statusUrl:
-              type: string
-              format: uri
-              pattern: "^https?://[^\\s]+$"
-              maxLength: 2048
-            streamUrl:
-              type: string
-              format: uri
-              pattern: "^https?://[^\\s]+$"
-              maxLength: 2048
-            websocketUrl:
-              type: string
-              format: uri
-              pattern: "^wss?://[^\\s]+$"
-              maxLength: 2048
-        error:
-          type: ["string", "null"]
-          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-          maxLength: 4096
-        timestamp:
-          type: string
-          format: date-time
-          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
-
-    ApiResponse_ProcessState:
-      type: object
-      additionalProperties: false
-      properties:
-        success:
-          type: boolean
-        data:
-          $ref: '#/components/schemas/ProcessState'
-        error:
-          type: ["string", "null"]
-          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-          maxLength: 4096
-        timestamp:
-          type: string
-          format: date-time
-          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
-
-    ApiResponse_HealthResponse:
-      type: object
-      additionalProperties: false
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          additionalProperties: false
-          properties:
-            status:
-              type: string
-              pattern: "^(healthy|unhealthy|degraded)$"
-              maxLength: 16
-              example: "healthy"
-            timestamp:
-              type: string
-              format: date-time
-              pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
-            version:
-              type: string
-              pattern: "^\\d+\\.\\d+\\.\\d+$"
+              type:
+              - string
+              - 'null'
               maxLength: 32
-              example: "1.0.0"
+              pattern: ^[a-zA-Z0-9 ]+$
         error:
-          type: ["string", "null"]
-          pattern: "^[ -~\\n\\r\\t]{0,4096}$"
-          maxLength: 4096
+          type:
+          - string
+          - 'null'
+          pattern: ^[\s\S]*$
+          maxLength: 1024
         timestamp:
           type: string
           format: date-time
-          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
-
-    # ---------------------------------------------------------------------------
-    # Domain objects
-    # ---------------------------------------------------------------------------
     ChatCompletionRequest:
       type: object
       additionalProperties: false
@@ -743,12 +692,12 @@ components:
         provider:
           type: string
           description: Optional explicit provider key
-          pattern: "^[a-z0-9-]+$"
+          pattern: ^[a-z0-9-]+$
           maxLength: 64
         model:
           type: string
           description: Model alias or full model ID
-          pattern: "^[A-Za-z0-9_.:/-]+$"
+          pattern: ^[A-Za-z0-9_.:/-]+$
           maxLength: 256
         messages:
           type: array
@@ -757,12 +706,13 @@ components:
             $ref: '#/components/schemas/ChatMessage'
         content:
           oneOf:
-            - type: string
-              maxLength: 100000
-            - type: array
-              maxItems: 10
-              items:
-                $ref: '#/components/schemas/MessageContentPart'
+          - type: string
+            maxLength: 32768
+            pattern: ^[\s\S]*$
+          - type: array
+            maxItems: 10
+            items:
+              $ref: '#/components/schemas/MessageContentPart'
         temperature:
           type: number
           format: float
@@ -779,46 +729,69 @@ components:
           type: integer
           format: int32
           default: 32768
+          minimum: 1
           maximum: 32768
         stream:
           type: boolean
           default: false
         stream_options:
           type: object
-          description: Provider-specific stream options
+          additionalProperties: false
+          description: 'Provider-specific stream options (e.g. { "include_usage":
+            true })'
+          properties:
+            include_usage:
+              type: boolean
+              description: Include usage metadata in streaming responses
+            include_significance:
+              type: boolean
+              description: Include significance information in streaming responses
+        system:
+          type: string
+          maxLength: 32768
+          pattern: ^[\s\S]*$
       required:
-        - messages
-
+      - messages
     ChatMessage:
       type: object
       additionalProperties: false
       properties:
         role:
           type: string
-          enum: [system, user, assistant, tool]
+          enum:
+          - system
+          - user
+          - assistant
+          - tool
         content:
           oneOf:
-            - type: string
-              maxLength: 100000
-            - type: array
-              maxItems: 10
-              items:
-                $ref: '#/components/schemas/MessageContentPart'
+          - type: string
+            maxLength: 32768
+            pattern: ^[\s\S]*$
+          - type: array
+            maxItems: 10
+            items:
+              $ref: '#/components/schemas/MessageContentPart'
+        name:
+          type: string
+          maxLength: 256
+          pattern: ^[a-zA-Z0-9_-]{1,256}$
       required:
-        - role
-        - content
-
+      - role
+      - content
     MessageContentPart:
       type: object
       additionalProperties: false
       properties:
         type:
           type: string
-          enum: [text, image]
+          enum:
+          - text
+          - image
         text:
           type: string
-          pattern: "^[ -~\\n\\r\\t]{0,100000}$"
-          maxLength: 100000
+          maxLength: 32768
+          pattern: ^[\s\S]*$
         image_url:
           type: object
           additionalProperties: false
@@ -826,22 +799,111 @@ components:
             url:
               type: string
               format: uri
-              pattern: "^https?://[^\\s]+$"
               maxLength: 2048
+              pattern: ^https?://
       required:
-        - type
-
+      - type
+    ChatCompletionResponse:
+      type: object
+      additionalProperties: true
+      description: Upstream provider response, passed through unchanged
+    ModelListResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        object:
+          type: string
+          example: list
+          pattern: ^model$
+        data:
+          type: array
+          maxItems: 10000
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                maxLength: 256
+                pattern: ^[a-zA-Z0-9/_-]+$
+              object:
+                type: string
+                maxLength: 32
+                example: model
+                pattern: ^model$
+              created:
+                type: integer
+                format: int32
+              owned_by:
+                type: string
+                maxLength: 64
+                pattern: ^[a-zA-Z0-9/_:-]+$
+              display_name:
+                type:
+                - string
+                - 'null'
+                pattern: ^[\s\S]*$
+                maxLength: 128
+              type:
+                type:
+                - string
+                - 'null'
+                pattern: ^[a-zA-Z0-9_-]{1,32}$
+                maxLength: 32
+              created_at:
+                type:
+                - string
+                - 'null'
+                maxLength: 10
+                pattern: ^\d{4}-\d{2}-\d{2}$
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              example: healthy
+              pattern: ^(healthy|unhealthy|degraded)$
+            timestamp:
+              type: string
+              format: date-time
+            version:
+              type: string
+              example: 1.0.0
+              maxLength: 16
+              pattern: ^\d+\.\d+\.\d+$
+        error:
+          type:
+          - string
+          - 'null'
+          pattern: ^[\s\S]*$
+          maxLength: 1024
+        timestamp:
+          type: string
+          format: date-time
     ProcessState:
       type: object
       additionalProperties: false
       properties:
         status:
           type: string
-          enum: [pending, processing, completed, failed]
+          enum:
+          - pending
+          - processing
+          - completed
+          - failed
         request:
           $ref: '#/components/schemas/ChatCompletionRequest'
         result:
-          type: ["object", "null"]
+          type:
+          - object
+          - 'null'
         startTime:
           type: integer
           format: int64
@@ -857,5 +919,209 @@ components:
           minimum: 0
           maximum: 100
       required:
-        - status
-        - progress
+      - status
+      - progress
+    ClaudeMessageRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        model:
+          type: string
+          description: Claude model name (e.g., claude-3-5-sonnet)
+          pattern: ^[a-zA-Z0-9_/-]{1,128}$
+          maxLength: 128
+        messages:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              role:
+                type: string
+                enum:
+                - system
+                - user
+                - assistant
+              content:
+                oneOf:
+                - type: string
+                  maxLength: 32768
+                  pattern: ^[\s\S]*$
+                - type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                        - text
+                        - image
+                      text:
+                        type: string
+                        maxLength: 32768
+                        pattern: ^[\s\S]*$
+                      source:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          type:
+                            type: string
+                            maxLength: 32
+                            pattern: ^[a-z]{1,32}$
+                          media_type:
+                            type: string
+                            maxLength: 128
+                            pattern: ^[a-zA-Z0-9.+/:-]{1,128}$
+                          data:
+                            type: string
+                            maxLength: 204800
+                            pattern: ^[\s\S]*$
+                          text:
+                            type: string
+                            maxLength: 32768
+                            pattern: ^[\s\S]*$
+            required:
+            - role
+            - content
+        max_tokens:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 8192
+        stream:
+          type: boolean
+          default: false
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+        top_p:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        system:
+          type: string
+          description: System prompt (also valid inside messages)
+          maxLength: 32768
+          pattern: ^[\s\S]*$
+      required:
+      - model
+      - messages
+      - max_tokens
+    ClaudeMessageResponse:
+      type: object
+      additionalProperties: true
+      description: Anthropic-format response from upstream, passed through unchanged
+    MetricsAggregated:
+      type: object
+      additionalProperties: false
+      properties:
+        total_requests:
+          type: integer
+          description: Total requests in the window
+        successful_requests:
+          type: integer
+        failed_requests:
+          type: integer
+        avg_ttft_ms:
+          type: number
+          format: float
+          description: Average time to first byte (ms)
+        avg_total_time_ms:
+          type: number
+          format: float
+          description: Average total response time (ms)
+        error_rate:
+          type: number
+          format: float
+          description: Fraction of requests that errored
+        window:
+          type: string
+          description: Time window (e.g., "1h")
+          pattern: ^\d+[hdwmy]$
+          maxLength: 8
+        providers:
+          type: object
+          additionalProperties: false
+          description: Per-provider breakdown
+    MetricsTimeSeries:
+      type: object
+      additionalProperties: false
+      properties:
+        bucket_interval:
+          type: string
+          description: Bucket size (e.g., "5m")
+          pattern: ^[a-zA-Z0-9]+$
+          maxLength: 16
+        series:
+          type: array
+          maxItems: 1000
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              requests:
+                type: integer
+              errors:
+                type: integer
+              ttft_ms:
+                type: number
+                format: float
+              total_time_ms:
+                type: number
+                format: float
+    MetricsProviders:
+      type: object
+      additionalProperties: false
+      properties:
+        providers:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              name:
+                type: string
+                pattern: ^[a-zA-Z0-9_-]{1,64}$
+                maxLength: 64
+              requests:
+                type: integer
+              avg_ttft_ms:
+                type: number
+                format: float
+              error_rate:
+                type: number
+                format: float
+              avg_total_time_ms:
+                type: number
+                format: float
+    MetricsHealth:
+      type: object
+      additionalProperties: false
+      properties:
+        score:
+          type: number
+          format: float
+          description: Health score 0–1 (1 = perfect)
+        error_rate:
+          type: number
+          format: float
+        avg_latency_ms:
+          type: number
+          format: float
+        window:
+          type: string
+          pattern: ^\d+[hdwmy]$
+          maxLength: 8
+        details:
+          type: object
+          additionalProperties: false

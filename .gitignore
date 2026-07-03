@@ -19,3 +19,5 @@ node_modules/
 .opencode/
 openspec/
 .claude/
+.42c/scan/proxy-llms-api/scanconf.json
+.42c/scan/proxy-llms-api1/scanconf.json
