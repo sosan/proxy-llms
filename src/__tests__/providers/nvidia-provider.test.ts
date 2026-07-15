@@ -157,4 +157,88 @@ describe('NvidiaProvider', () => {
       ).rejects.toThrow('Rate limited')
     })
   })
+
+  describe('inflight lease token + abort signal', () => {
+    it('releases the slot by token on success', async () => {
+      const inflightDone = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+      const reserveFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ allowed: true, token: 'tok-123' }), { status: 200 }),
+      )
+      const rateLimiter = {
+        getByName: vi.fn().mockReturnValue({ fetch: (u: string | Request) => {
+          const url = typeof u === 'string' ? u : u.url
+          if (url.includes('/reserve')) return reserveFetch()
+          return inflightDone(u)
+        } }),
+      }
+      const provider = makeProvider(rateLimiter)
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        mockResponse({ status: 200, body: { choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] } }),
+      ))
+
+      await provider.makeRequest('/v1/chat/completions', { model: 'x' }, 'openai')
+
+      expect(inflightDone).toHaveBeenCalledTimes(1)
+      const releaseUrl = inflightDone.mock.calls[0]![0] as string
+      expect(releaseUrl).toContain('token=tok-123')
+    })
+
+    it('aborts the upstream fetch when the client signal aborts', async () => {
+      const reserveFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ allowed: true, token: 'tok-1' }), { status: 200 }),
+      )
+      const inflightDone = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+      const rateLimiter = {
+        getByName: vi.fn().mockReturnValue({ fetch: (u: string | Request) => {
+          const url = typeof u === 'string' ? u : u.url
+          if (url.includes('/reserve')) return reserveFetch()
+          return inflightDone()
+        } }),
+      }
+      const provider = makeProvider(rateLimiter)
+
+      const clientSignal = AbortSignal.timeout(1)
+      await new Promise((r) => setTimeout(r, 5))
+
+      vi.stubGlobal('fetch', vi.fn())
+
+      await expect(
+        provider.makeRequest('/v1/chat/completions', { model: 'x' }, 'openai', clientSignal),
+      ).rejects.toThrow()
+
+      // The aborted signal must release the lease (no inflight leak) regardless
+      // of how many retry attempts occur.
+      expect(inflightDone).toHaveBeenCalled()
+    })
+  })
+
+  describe('circuit breaker activation on NIM 429', () => {
+    it('opens the circuit when NVIDIA returns 429', async () => {
+      const circuitOpen = vi.fn().mockResolvedValue(new Response(JSON.stringify({ openUntil: 1 }), { status: 200 }))
+      const reserveFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ allowed: true, token: 'tok-c' }), { status: 200 }),
+      )
+      const inflightDone = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+      const rateLimiter = {
+        getByName: vi.fn().mockReturnValue({ fetch: (u: string | Request) => {
+          const url = typeof u === 'string' ? u : u.url
+          if (url.includes('/reserve')) return reserveFetch()
+          if (url.includes('/circuit-open')) return circuitOpen(u)
+          return inflightDone()
+        } }),
+      }
+      const provider = makeProvider(rateLimiter)
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+        mockResponse({ status: 429, body: { error: 'too many' }, headers: { 'Retry-After': '120' } }),
+      ))
+
+      await expect(
+        provider.makeRequest('/v1/chat/completions', { model: 'x' }, 'openai'),
+      ).rejects.toSatisfy((err: ProviderError) => err.status === 429)
+
+      expect(circuitOpen).toHaveBeenCalledTimes(1)
+      expect(circuitOpen.mock.calls[0]![0] as string).toContain('ttl=')
+      expect(inflightDone).toHaveBeenCalledTimes(1)
+    })
+  })
 })

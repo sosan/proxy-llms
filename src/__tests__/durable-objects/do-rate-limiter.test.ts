@@ -1,17 +1,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { RateLimiterDurableObject } from '../../durable-objects/do-rate-limiter'
 
+// The global setup.ts mocks crypto.randomUUID to a constant, which makes every
+// lease collide on one token (real runtime is unique). Override with a counter
+// so the lease map actually grows in these tests.
+let uuidCounter = 0
+beforeEach(() => {
+  uuidCounter = 0
+  const g = globalThis as unknown as { crypto: { randomUUID: () => string } }
+  vi.spyOn(g.crypto, 'randomUUID').mockImplementation(() => `uuid-${uuidCounter++}`)
+})
+
 interface ReserveBody {
   allowed: boolean
   delayMs: number
   scheduledAt: number
   reason: string
+  token?: string
   headers: Record<string, string>
 }
 
 // ── Minimal DurableObjectStorage mock with in-memory state ──
 class MockStorage {
   private store = new Map<string, unknown>()
+  private alarm: number | null = null
 
   get = vi.fn(async <T>(key: string): Promise<T | undefined> => {
     return this.store.get(key) as T | undefined
@@ -27,6 +39,14 @@ class MockStorage {
 
   deleteAll = vi.fn(async (): Promise<void> => {
     this.store.clear()
+  })
+
+  getAlarm = vi.fn(async (): Promise<number | null> => {
+    return this.alarm
+  })
+
+  setAlarm = vi.fn(async (time: number): Promise<void> => {
+    this.alarm = time
   })
 }
 
@@ -45,10 +65,9 @@ class MockState {
   }
 }
 
-function createRateLimiter() {
+function createRateLimiter(env: Record<string, unknown> = {}) {
   const state = new MockState() as unknown as DurableObjectState
-  const env = {} as any
-  return new RateLimiterDurableObject(state, env)
+  return new RateLimiterDurableObject(state, env as any)
 }
 
 // ── Helpers ──
@@ -58,8 +77,11 @@ async function reserve(limiter: RateLimiterDurableObject, provider = 'nvidia'): 
   return { status: res.status, body: (await res.json()) as ReserveBody }
 }
 
-async function release(limiter: RateLimiterDurableObject, provider = 'nvidia'): Promise<void> {
-  const req = new Request(`https://internal/inflight-done?provider=${provider}`, { method: 'POST' })
+async function release(limiter: RateLimiterDurableObject, provider = 'nvidia', token?: string): Promise<void> {
+  const url = token
+    ? `https://internal/inflight-done?provider=${provider}&token=${encodeURIComponent(token)}`
+    : `https://internal/inflight-done?provider=${provider}`
+  const req = new Request(url, { method: 'POST' })
   const res = await limiter.fetch(req)
   expect(res.status).toBe(204)
 }
@@ -88,10 +110,12 @@ describe('RateLimiterDurableObject sliding window', () => {
     const limiter = createRateLimiter()
 
     // Reserve up to maxConcurrent (3)
+    const tokens: (string | undefined)[] = []
     for (let i = 0; i < 3; i++) {
       const { status, body } = await reserve(limiter)
       expect(status).toBe(200)
       expect(body.allowed).toBe(true)
+      tokens.push(body.token)
     }
 
     // 4th request should be blocked by concurrency limit
@@ -100,8 +124,8 @@ describe('RateLimiterDurableObject sliding window', () => {
     expect(body.allowed).toBe(false)
     expect(body.reason).toBe('concurrency_limit')
 
-    // Release one slot
-    await release(limiter)
+    // Release one slot by token
+    await release(limiter, 'nvidia', tokens[0])
 
     // Now we can reserve again
     const { status: s2, body: b2 } = await reserve(limiter)
@@ -132,12 +156,14 @@ describe('RateLimiterDurableObject sliding window', () => {
   it('rejects requests when the window is full', async () => {
     const limiter = createRateLimiter()
 
-    // Fill the window with 25 requests
+    // Fill the window with 25 requests, releasing leases as we go
+    const tokens: (string | undefined)[] = []
     for (let i = 0; i < 25; i++) {
+      const r = await reserve(limiter)
+      tokens.push(r.body.token)
       if (i >= 3) {
-        await release(limiter)
+        await release(limiter, 'nvidia', tokens[i - 3])
       }
-      await reserve(limiter)
     }
 
     // Next request should be rejected
@@ -177,7 +203,7 @@ describe('RateLimiterDurableObject sliding window', () => {
     expect(first.body.delayMs).toBe(150) // 0.5 * 300
 
     // Release first to avoid concurrency block
-    await release(limiter)
+    await release(limiter, 'nvidia', first.body.token)
 
     // Second request: should be delayed by slotDelayMs + jitter
     const second = await reserve(limiter)
@@ -200,5 +226,128 @@ describe('RateLimiterDurableObject sliding window', () => {
     const { status, body } = await reserve(limiter)
     expect(status).toBe(200)
     expect(body.allowed).toBe(true)
+  })
+})
+
+describe('RateLimiterDurableObject inflight leases', () => {
+  beforeEach(() => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('reserve returns a token and release by token decrements concurrency', async () => {
+    const limiter = createRateLimiter()
+    const r1 = await reserve(limiter)
+    expect(r1.body.allowed).toBe(true)
+    expect(r1.body.token).toBeTruthy()
+
+    // Fill up to maxConcurrent (3) with tracked tokens
+    const tokens: (string | undefined)[] = [r1.body.token]
+    for (let i = 0; i < 2; i++) {
+      const r = await reserve(limiter)
+      expect(r.body.allowed).toBe(true)
+      tokens.push(r.body.token)
+    }
+
+    // 4th blocked by concurrency
+    const blocked = await reserve(limiter)
+    expect(blocked.status).toBe(429)
+    expect(blocked.body.reason).toBe('concurrency_limit')
+
+    // Release one by token
+    await release(limiter, 'nvidia', tokens[0])
+
+    const after = await reserve(limiter)
+    expect(after.body.allowed).toBe(true)
+  })
+
+  it('release is idempotent for the same token (double release no-op)', async () => {
+    const limiter = createRateLimiter()
+    const r = await reserve(limiter)
+    const token = r.body.token!
+    await release(limiter, 'nvidia', token)
+    await release(limiter, 'nvidia', token) // no-op, no error
+
+    // Only one slot was consumed; we can still reserve up to maxConcurrent
+    const state = (limiter as any).state as any
+    const leases = await state.storage.get('inflightLeases:nvidia')
+    expect(leases).toEqual([])
+  })
+
+  it('release with an unknown token is a no-op', async () => {
+    const limiter = createRateLimiter()
+    await release(limiter, 'nvidia', 'does-not-exist')
+    const { body } = await reserve(limiter)
+    expect(body.allowed).toBe(true)
+    expect(body.token).toBeTruthy()
+  })
+
+  it('expired leases are swept on reserve so they do not block admission', async () => {
+    const limiter = createRateLimiter()
+    const state = (limiter as any).state as any
+
+    // Seed an expired lease map directly
+    const expiredToken = 'expired-token'
+    await state.storage.put('inflightLeases:nvidia', [[expiredToken, { expiresAt: Date.now() - 1000 }]])
+    // Fill remaining 2 live slots
+    for (let i = 0; i < 2; i++) await reserve(limiter)
+
+    // 4th would be blocked if the expired lease counted; sweep makes it allowed
+    const next = await reserve(limiter)
+    expect(next.body.allowed).toBe(true)
+  })
+
+  it('rate limit overridden via NVIDIA_REQUESTS_PER_MINUTE env', async () => {
+    const limiter = createRateLimiter({ NVIDIA_REQUESTS_PER_MINUTE: '2' })
+    const state = (limiter as any).state as any
+
+    // Fill window to capacity (2)
+    const now = Date.now()
+    await state.storage.put('requestLog', [now - 1000, now - 500])
+
+    const blocked = await reserve(limiter)
+    expect(blocked.status).toBe(429)
+    expect(blocked.body.reason).toBe('quota_full')
+  })
+
+  it('invalid NVIDIA_REQUESTS_PER_MINUTE falls back to config default (10)', async () => {
+    const limiter = createRateLimiter({ NVIDIA_REQUESTS_PER_MINUTE: 'not-a-number' })
+    const state = (limiter as any).state as any
+
+    const now = Date.now()
+    const timestamps: number[] = []
+    for (let i = 0; i < 10; i++) timestamps.push(now - 30_000 + i * 1000)
+    await state.storage.put('requestLog', timestamps)
+
+    const blocked = await reserve(limiter)
+    expect(blocked.status).toBe(429)
+    expect(blocked.body.reason).toBe('quota_full')
+  })
+
+  it('circuit opens on /circuit-open and short-circuits reserve to circuit_open', async () => {
+    const limiter = createRateLimiter()
+    const ttl = 1800_000
+    const openRes = await limiter.fetch(
+      new Request(`https://internal/circuit-open?provider=nvidia&ttl=${ttl}`, { method: 'POST' }),
+    )
+    expect(openRes.status).toBe(200)
+
+    const { status, body } = await reserve(limiter)
+    expect(status).toBe(429)
+    expect(body.reason).toBe('circuit_open')
+  })
+
+  it('alarm sweeps expired leases when no reserve arrives', async () => {
+    const limiter = createRateLimiter()
+    const state = (limiter as any).state as any
+
+    await state.storage.put('inflightLeases:nvidia', [['t1', { expiresAt: Date.now() - 1000 }]])
+    await (limiter as any).alarm()
+
+    const leases = await state.storage.get('inflightLeases:nvidia')
+    expect(leases).toEqual([])
   })
 })

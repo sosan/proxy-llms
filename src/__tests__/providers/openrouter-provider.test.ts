@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { OpenRouterProvider } from '../../providers/openrouter-provider'
 import { ProviderError } from '../../errors/provider-error'
+import { ProviderConfigs } from '../../config/providers'
+import { RETRY_MAX_ATTEMPTS } from '../../providers/base-provider'
 
 vi.mock('../../utils/logger', () => ({
   logger: {
@@ -11,6 +13,14 @@ vi.mock('../../utils/logger', () => ({
     logUpstreamConfig: vi.fn(),
   },
 }))
+
+vi.mock('../../providers/base-provider', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers/base-provider')>()
+  return {
+    ...actual,
+    sleep: vi.fn().mockResolvedValue(undefined),
+  }
+})
 
 function mockResponse(opts: {
   status?: number
@@ -170,6 +180,183 @@ describe('OpenRouterProvider', () => {
       await expect(
         makeProvider().makeStreamRequest('/chat/completions', { model: 'x' }),
       ).rejects.toSatisfy((err: ProviderError) => err.status === 401 && err.code === 'upstream_error')
+    })
+  })
+
+  describe('transformRequest', () => {
+    it('forwards the OpenRouter reasoning map for hy3 and drops chat_template_kwargs', () => {
+      const result = makeProvider().transformRequest(
+        { model: 'openrouter/tencent/hy3:free', messages: [{ role: 'user', content: 'hi' }] },
+        ProviderConfigs.openrouter,
+      ) as Record<string, unknown>
+
+      expect(result.model).toBe('tencent/hy3:free')
+      expect(result.reasoning).toEqual({ enabled: true, exclude: false })
+      expect(result.chat_template_kwargs).toBeUndefined()
+    })
+
+    it('applies OpenRouter documented defaults (temperature 0.9, top_p 1)', () => {
+      const result = makeProvider().transformRequest(
+        { model: 'openrouter/tencent/hy3:free', messages: [{ role: 'user', content: 'hi' }] },
+        ProviderConfigs.openrouter,
+      ) as Record<string, unknown>
+
+      expect(result.temperature).toBe(0.9)
+      expect(result.top_p).toBe(1)
+      expect(result.max_tokens).toBe(5834)
+      expect(result.stream).toBe(true)
+    })
+
+    it('lets payload override defaults', () => {
+      const result = makeProvider().transformRequest(
+        {
+          model: 'openrouter/tencent/hy3:free',
+          messages: [{ role: 'user', content: 'hi' }],
+          temperature: 0.5,
+          top_p: 0.8,
+          max_tokens: 100,
+          stream: false,
+        },
+        ProviderConfigs.openrouter,
+      ) as Record<string, unknown>
+
+      expect(result.temperature).toBe(0.5)
+      expect(result.top_p).toBe(0.8)
+      expect(result.max_tokens).toBe(100)
+      expect(result.stream).toBe(false)
+    })
+
+    it('caps max_tokens at maxTokensCap', () => {
+      const result = makeProvider().transformRequest(
+        {
+          model: 'openrouter/tencent/hy3:free',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 999999,
+        },
+        ProviderConfigs.openrouter,
+      ) as Record<string, unknown>
+
+      expect(result.max_tokens).toBe(5834)
+    })
+
+    it('forwards passthrough fields and overrides reasoning from payload', () => {
+      const result = makeProvider().transformRequest(
+        {
+          model: 'openrouter/tencent/hy3:free',
+          messages: [{ role: 'user', content: 'hi' }],
+          tools: [{ name: 'calculator' }],
+          response_format: { type: 'json_object' },
+          stop: ['\n'],
+          reasoning: { enabled: false },
+        },
+        ProviderConfigs.openrouter,
+      ) as Record<string, unknown>
+
+      expect(result.tools).toEqual([{ name: 'calculator' }])
+      expect(result.response_format).toEqual({ type: 'json_object' })
+      expect(result.stop).toEqual(['\n'])
+      expect(result.reasoning).toEqual({ enabled: false })
+    })
+
+    it('strips routing keys (provider, content)', () => {
+      const result = makeProvider().transformRequest(
+        {
+          provider: 'openrouter',
+          model: 'openrouter/tencent/hy3:free',
+          content: 'should be ignored',
+          messages: [{ role: 'user', content: 'hi' }],
+        },
+        ProviderConfigs.openrouter,
+      ) as Record<string, unknown>
+
+      expect(result.provider).toBeUndefined()
+      expect(result.content).toBeUndefined()
+    })
+
+    it('throws ProviderError when model is missing', () => {
+      expect(() =>
+        makeProvider().transformRequest(
+          { messages: [{ role: 'user', content: 'hi' }] },
+          ProviderConfigs.openrouter,
+        ),
+      ).toThrow(ProviderError)
+    })
+  })
+
+  describe('retry', () => {
+    it('retries a 502 response up to RETRY_MAX_ATTEMPTS then throws upstream_error', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        mockResponse({ status: 502, body: { error: 'bad gateway' } }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      await expect(
+        makeProvider().makeRequest('/chat/completions', { model: 'x' }, 'openai'),
+      ).rejects.toSatisfy((err: ProviderError) => err.status === 502 && err.code === 'upstream_error')
+
+      expect(fetchMock).toHaveBeenCalledTimes(RETRY_MAX_ATTEMPTS)
+    })
+
+    it('retries a 504 response up to RETRY_MAX_ATTEMPTS then throws upstream_error', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        mockResponse({ status: 504, body: { error: 'gateway timeout' } }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      await expect(
+        makeProvider().makeRequest('/chat/completions', { model: 'x' }, 'openai'),
+      ).rejects.toSatisfy((err: ProviderError) => err.status === 504 && err.code === 'upstream_error')
+
+      expect(fetchMock).toHaveBeenCalledTimes(RETRY_MAX_ATTEMPTS)
+    })
+
+    it('does not retry a 401 (single fetch call)', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        mockResponse({ status: 401, body: { error: 'unauthorized' } }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      await expect(
+        makeProvider().makeRequest('/chat/completions', { model: 'x' }, 'openai'),
+      ).rejects.toSatisfy((err: ProviderError) => err.status === 401 && err.code === 'upstream_error')
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not retry a 429 and enriches rate-limit headers', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        mockResponse({ status: 429, body: { error: 'limited' }, headers: { 'Retry-After': '10' } }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      await expect(
+        makeProvider().makeRequest('/chat/completions', { model: 'x' }, 'openai'),
+      ).rejects.toSatisfy((err: ProviderError) => {
+        const h = err.responseHeaders ?? {}
+        return err.status === 429
+          && err.code === 'upstream_rate_limited'
+          && h['Retry-After'] === '10'
+          && h['X-RateLimit-Remaining'] === '0'
+          && h['X-RateLimit-Delay-Ms'] === '10000'
+          && typeof h['RateLimit-Reset'] === 'string'
+          && typeof h['X-RateLimit-Reset'] === 'string'
+          && h['X-RateLimit-Limit'] === undefined
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('retries a 502 stream response up to RETRY_MAX_ATTEMPTS', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        mockResponse({ status: 502, body: { error: 'bad gateway' } }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      await expect(
+        makeProvider().makeStreamRequest('/chat/completions', { model: 'x' }),
+      ).rejects.toSatisfy((err: ProviderError) => err.status === 502 && err.code === 'upstream_error')
+
+      expect(fetchMock).toHaveBeenCalledTimes(RETRY_MAX_ATTEMPTS)
     })
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ProviderConfigs, resolveModel, createModelsList, resolveAnthropicModel } from '../config/providers'
+import { ProviderConfigs, resolveModel, createModelsList, createAllModelsList, resolveModelDefaults, resolveAnthropicModel } from '../config/providers'
 
 describe('Provider Configs', () => {
   describe('resolveModel', () => {
@@ -42,6 +42,23 @@ describe('Provider Configs', () => {
       const claudeConfig = ProviderConfigs.claude
       expect(resolveModel(claudeConfig, 'claude/claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
     })
+
+    it('should resolve openrouter hy3 alias to full model ID', () => {
+      const openrouterConfig = ProviderConfigs.openrouter
+      expect(resolveModel(openrouterConfig, 'openrouter/tencent/hy3:free')).toBe('tencent/hy3:free')
+    })
+
+    it('should resolve openrouter hy3 full ID without provider prefix', () => {
+      const openrouterConfig = ProviderConfigs.openrouter
+      expect(resolveModel(openrouterConfig, 'tencent/hy3:free')).toBe('tencent/hy3:free')
+    })
+
+    it('should throw for an unsupported openrouter model', () => {
+      const openrouterConfig = ProviderConfigs.openrouter
+      expect(() => resolveModel(openrouterConfig, 'openrouter/unknown/model:free')).toThrow(
+        /Model alias openrouter\/unknown\/model:free is not supported/
+      )
+    })
   })
 
   describe('createModelsList', () => {
@@ -63,6 +80,19 @@ describe('Provider Configs', () => {
       const list = createModelsList('claude')
       expect(list.object).toBe('list')
       expect(Array.isArray(list.data)).toBe(true)
+    })
+
+    it('should return a list structure for openrouter including hy3', () => {
+      const list = createModelsList('openrouter')
+      expect(list.object).toBe('list')
+      expect(Array.isArray(list.data)).toBe(true)
+      expect(list.data.length).toBeGreaterThan(0)
+
+      const hy3 = list.data.find((m) => m.id === 'tencent/hy3:free')
+      expect(hy3).toBeDefined()
+      expect(hy3?.object).toBe('model')
+      expect(hy3?.owned_by).toBe('tencent')
+      expect(hy3?.display_name).toBe('tencent/hy3:free')
     })
 
     it('should filter out aliases that are already the full ID', () => {
@@ -98,6 +128,14 @@ describe('Provider Configs', () => {
     it('should have google config', () => {
       expect(ProviderConfigs.google).toBeDefined()
       expect(ProviderConfigs.google.endpoint).toBe('/chat/completions')
+    })
+
+    it('should have openrouter config with endpoint, alterEndpoint and tool calling', () => {
+      expect(ProviderConfigs.openrouter).toBeDefined()
+      expect(ProviderConfigs.openrouter.endpoint).toBe('/chat/completions')
+      expect(ProviderConfigs.openrouter.alterEndpoint).toBe('/messages')
+      expect(ProviderConfigs.openrouter.supportsToolCalling).toBe(true)
+      expect(ProviderConfigs.openrouter.models['tencent/hy3:free']).toBe('tencent/hy3:free')
     })
   })
 
@@ -161,6 +199,47 @@ describe('Provider Configs', () => {
       expect(resolveAnthropicModel(env, 'CLAUDE-3-OPUS')).toBe('nvidia/glm5.1')
       expect(resolveAnthropicModel(env, 'Claude-Sonnet')).toBe('nvidia/kimi-k2.6')
       expect(resolveAnthropicModel(env, 'Haiku')).toBe('nvidia/minimax-m2.7')
+    })
+  })
+
+  describe('createAllModelsList', () => {
+    it('should include models from all providers', () => {
+      const list = createAllModelsList()
+      expect(list.object).toBe('list')
+      expect(Array.isArray(list.data)).toBe(true)
+      expect(list.data.length).toBeGreaterThan(0)
+    })
+
+    it('should include openrouter hy3 in the combined list', () => {
+      const list = createAllModelsList()
+      const hy3 = list.data.find((m) => m.id === 'tencent/hy3:free')
+      expect(hy3).toBeDefined()
+      expect(hy3?.owned_by).toBe('tencent')
+    })
+  })
+
+  describe('resolveModelDefaults', () => {
+    it('should return openrouter hy3 defaults aligned with OpenRouter API docs', () => {
+      const defaults = resolveModelDefaults('openrouter/tencent/hy3:free')
+      expect(defaults).toBeDefined()
+      expect(defaults?.endpoint).toBe('/chat/completions')
+      expect(defaults?.format).toBe('openai')
+      expect(defaults?.temperature).toBe(0.9)
+      expect(defaults?.top_p).toBe(1)
+      expect(defaults?.max_tokens).toBe(5834)
+      expect(defaults?.maxTokensCap).toBe(5834)
+      expect(defaults?.stream).toBe(true)
+      expect(defaults?.supportsToolCalling).toBe(true)
+      expect(defaults?.extra?.reasoning).toEqual({ enabled: true, exclude: false })
+    })
+
+    it('should not expose NVIDIA chat_template_kwargs for openrouter hy3', () => {
+      const defaults = resolveModelDefaults('openrouter/tencent/hy3:free')
+      expect(defaults?.extra?.chat_template_kwargs).toBeUndefined()
+    })
+
+    it('should return undefined for an unknown model', () => {
+      expect(resolveModelDefaults('openrouter/unknown/model:free')).toBeUndefined()
     })
   })
 })

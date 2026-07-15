@@ -21,4 +21,12 @@ describe('resolveModelFormat', () => {
   it('should return anthropic format for claude provider', () => {
     expect(resolveModelFormat('anthropic/claude/claude-opus-4-7')).toBe('anthropic')
   })
+
+  it('should return openai format for openrouter hy3', () => {
+    expect(resolveModelFormat('openrouter/tencent/hy3:free')).toBe('openai')
+  })
+
+  it('should return openai format for openrouter gpt-oss', () => {
+    expect(resolveModelFormat('openrouter/openai/gpt-oss-120b:free')).toBe('openai')
+  })
 })
