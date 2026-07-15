@@ -27,6 +27,7 @@ Variable management strategy:
 | `OPENCODE_API_KEY` | ✅ Yes | Opencode API Account |
 | `OPENROUTER_BASE_URL` | ❌ No | OpenRouter API base URL |
 | `NVIDIA_BASE_URL` | ❌ No | NVIDIA NIM API base URL |
+| `NVIDIA_MAX_REQUESTS_PER_MINUTE` | ❌ No | Override NVIDIA NIM rate limit (integer, min 1); defaults to 10 if unset/invalid |
 | `ANTHROPIC_*_MODEL` | ❌ No | Claude tier model mappings |
 | `DEBUG` | ❌ No | Enable debug logging |
 | `LOG_PAYLOAD` | ❌ No | Log request payloads |
@@ -147,12 +148,14 @@ The project uses two Durable Object classes:
 | Class | Binding | Purpose |
 |---|---|---|
 | `ProcessorDurableObject` | `PROCESSOR` | Async task processing (status polling, SSE, WebSocket) |
-| `RateLimiterDurableObject` | `DO_RATE_LIMITER` | Sliding-window rate limiter (40 req/min default) |
+| `RateLimiterDurableObject` | `DO_RATE_LIMITER` | Sliding-window rate limiter (per-provider limits) |
 
 Rate limiter DO behavior:
 - Bucket: SHA-256 hash of the provider API key
 - Window: 60 s sliding window
-- Default limit: 40 requests/minute (per `ProviderConfigs[provider].rateLimit.requestsPerMinute`)
+- Per-provider limits: NVIDIA defaults to **10 req/min** (overridable via `NVIDIA_MAX_REQUESTS_PER_MINUTE`), other providers default to **40 req/min** (per `ProviderConfigs[provider].rateLimit.requestsPerMinute`)
+- Inflight leases: each in-flight request holds a TTL-bounded lease, released on completion or client disconnect
+- Reactive circuit breaker: a real NIM 429 opens the circuit for a fixed TTL (~30 min), short-circuiting further requests to 429 `circuit_open` so the compounding NIM cooldown is not reset by gate pokes
 - Minimum gap: `minRetryDelayMs` (default 1,600 ms for NVIDIA)
 - On rejection: returns 429 with `Retry-After`, `RateLimit-Reset`, `X-RateLimit-*` headers
 

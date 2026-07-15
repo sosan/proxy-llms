@@ -14,7 +14,7 @@ A Cloudflare Worker proxy that routes OpenAI-compatible requests to multiple AI 
 - **Format translation** — Claude ↔ OpenAI request/response transformers for cross-provider compatibility.
 - **Payload middlewares**: RTK (Request Transformation Kit) — `tool_result` compression with content-type autodetection (`git`, `grep`, `ls`, diffs).
 - **Caveman terse prompts** — opt-in terse-style system prompt injection (`CAVEMAN_ENABLED`, levels: `lite` / `full` / `ultra`).
-- **Sliding-window rate limiter** — Durable Object per API key, default 40 req/min with 1.6s minimum gap; returns 429 with `Retry-After` and `X-RateLimit-*` headers.
+- **Sliding-window rate limiter** — Durable Object per API key; NVIDIA defaults to 10 req/min (overridable via `NVIDIA_MAX_REQUESTS_PER_MINUTE`), other providers 40 req/min; returns 429 with `Retry-After` and `X-RateLimit-*` headers.
 - **Exponential backoff + jitter retries** — for NVIDIA 400/408/502/503/504 and network errors; non-retryable codes (401/403/422/429) propagate immediately.
 - **Cloudflare Analytics Engine metrics** — per-request latency, token counts, finish reason, error details (gated by `LOG_METRICS`).
 - **Async processing flow** — Durable Object–backed `/api/process` for stateful workloads.
@@ -313,12 +313,15 @@ Accepts Anthropic's Claude API format. Applies tier-based routing (Opus/Sonnet/H
 
 ## Rate Limiting
 
-A sliding-window rate limiter (Durable Object per API key) enforces per-provider limits. Default: **40 requests/minute** with a **1.6 s minimum gap** between requests.
+A sliding-window rate limiter (Durable Object per API key) enforces per-provider limits. Other providers default to **40 requests/minute**; **NVIDIA NIM defaults to 10 req/min** with a **1.6 s minimum gap** between requests.
 
 - Window: **60 s sliding window**
 - Bucket: **SHA-256 hash of the provider API key** — all calls using the same key share the same limit
 - Config: `ProviderConfigs[provider].rateLimit.requestsPerMinute` (see `src/config/providers.ts`)
-- When the limit is hit, the proxy returns **429** with `Retry-After`, `RateLimit-Reset`, and `X-RateLimit-*` headers
+- **NVIDIA is tunable at runtime** via the `NVIDIA_MAX_REQUESTS_PER_MINUTE` environment variable (parsed as an integer, min 1) — no redeploy needed to lower/raise the NVIDIA limit
+- **Inflight leases**: each in-flight request holds a TTL-bounded lease (released on completion or client disconnect); the concurrency cap is the count of active leases
+- **Reactive circuit breaker**: when NVIDIA returns a real HTTP 429, the proxy opens a circuit for a fixed TTL (~30 min). While open, requests short-circuit to **429** with `X-RateLimit-Reason: circuit_open` and do **not** probe NVIDIA — this prevents NIM's compounding ~30-min cooldown from being reset by gate pokes. The circuit is eviction-safe: if the Durable Object is evicted, the next request probes NVIDIA and re-opens the circuit if still throttled
+- When the limit or circuit is hit, the proxy returns **429** with `Retry-After`, `RateLimit-Reset`, `X-RateLimit-*` headers (and `X-RateLimit-Reason: quota_full` / `concurrency_limit` / `circuit_open`)
 
 ## Retry Behavior
 
@@ -377,6 +380,8 @@ Injects a terse-style instruction into the system message before sending to the 
 ## Metrics
 
 Collected via Cloudflare Analytics Engine when `LOG_METRICS=true`. Records latency, token counts, finish reason, and error details per request.
+
+For **streaming** responses, the proxy extracts real `prompt_tokens`, `completion_tokens`, and `total_tokens` from the upstream `usage` field in the final SSE chunk (requires `stream_options: { include_usage: true }`). When the upstream does not send `usage`, it falls back to a character-based approximation.
 
 ## Logging
 
