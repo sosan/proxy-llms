@@ -9,10 +9,10 @@ export interface AIProvider {
   readonly name: string
 
   /** Make a non-streaming request */
-  makeRequest(endpoint: string, payload: unknown, configFormat: string): Promise<unknown>
+  makeRequest(endpoint: string, payload: unknown, configFormat: string, signal?: AbortSignal): Promise<unknown>
 
   /** Make a streaming request */
-  makeStreamRequest(endpoint: string, payload: unknown): Promise<Response>
+  makeStreamRequest(endpoint: string, payload: unknown, signal?: AbortSignal): Promise<Response>
 
   /** Transform the generic payload into provider-specific format */
   transformRequest(payload: GenericPayload, config: ProviderConfig): unknown
@@ -23,6 +23,7 @@ export type ReservationResponse = {
   delayMs?: number
   scheduledAt?: number
   retryAfter?: string
+  token?: string
   headers?: Record<string, string>
 }
 

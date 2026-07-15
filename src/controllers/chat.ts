@@ -53,9 +53,10 @@ async function handleStreamRequest(
   provider: ReturnType<typeof getProviderByName>,
   endpoint: string,
   payload: TransformedPayload,
-  metricsCollector: MetricsCollector
+  metricsCollector: MetricsCollector,
+  signal?: AbortSignal
 ): Promise<Response> {
-  const upstream = await provider.makeStreamRequest(endpoint, payload)
+  const upstream = await provider.makeStreamRequest(endpoint, payload, signal)
   metricsCollector.setUpstreamStatus(upstream.status)
 
   if (!upstream.body) {
@@ -109,9 +110,10 @@ async function handleNonStreamRequest(
   endpoint: string,
   payload: TransformedPayload,
   config: { format: 'anthropic' | 'openai' | 'google' },
-  metricsCollector: MetricsCollector
+  metricsCollector: MetricsCollector,
+  signal?: AbortSignal
 ): Promise<unknown> {
-  const response = await provider.makeRequest(endpoint, payload, config.format)
+  const response = await provider.makeRequest(endpoint, payload, config.format, signal)
   metricsCollector.recordNonStreamingMetrics(200, response)
   return response
 }
@@ -189,10 +191,10 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     metricsCollector = new MetricsCollector(c.env, requestId, resolvedModel, providerDC, isStream, finalPayload.max_tokens as number | undefined)
 
     if (isStream) {
-      return handleStreamRequest(provider, endpoint, finalPayload, metricsCollector)
+      return handleStreamRequest(provider, endpoint, finalPayload, metricsCollector, c.req.raw.signal)
     }
 
-    const response = await handleNonStreamRequest(provider, endpoint, finalPayload, { format: modelDefaults.format as 'anthropic' | 'openai' | 'google' }, metricsCollector)
+    const response = await handleNonStreamRequest(provider, endpoint, finalPayload, { format: modelDefaults.format as 'anthropic' | 'openai' | 'google' }, metricsCollector, c.req.raw.signal)
 
     // Ginapse: fire session/end after non-streaming response
     if (gctx?.doEnd && c.env.GINAPSE_BINDING) {

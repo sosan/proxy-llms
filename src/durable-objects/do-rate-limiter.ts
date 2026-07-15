@@ -4,10 +4,14 @@ import { ProviderConfigs } from '../config/providers'
 // --- Storage keys ------------------------------------------------------------
 const REQUEST_LOG_KEY = 'requestLog'
 const CIRCUIT_KEY     = 'circuitOpenUntil'
-const CONCURRENT_KEY  = 'inflightCount'
+const LEASES_KEY      = 'inflightLeases'
 
 // --- Constants ---------------------------------------------------------------
 const WINDOW_MS = 60_000
+// Bridges the 980s upstream response-timeout; an in-flight lease self-heals via
+// sweep/alarm even if the release call never arrives (disconnect, eviction).
+const LEASE_TTL_MS = 1000_000
+const MIN_REQUESTS_PER_MINUTE = 1
 
 // --- Types -------------------------------------------------------------------
 type LockReason =
@@ -34,7 +38,12 @@ function getMaxQueueDelayMs(p: string): number {
   return ProviderConfigs[p]?.rateLimit?.maxQueueDelayMs ?? 30_000
 }
 
-function getRequestsPerMinute(p: string): number {
+function getRequestsPerMinute(p: string, env?: Env): number {
+  const fromEnv = env?.NVIDIA_REQUESTS_PER_MINUTE
+  const parsed = Number(fromEnv)
+  if (fromEnv && fromEnv.trim() !== '' && Number.isFinite(parsed) && parsed >= MIN_REQUESTS_PER_MINUTE) {
+    return Math.floor(parsed)
+  }
   return ProviderConfigs[p]?.rateLimit?.requestsPerMinute ?? 25
 }
 
@@ -114,10 +123,12 @@ export class RateLimiterDurableObject {
 
     const slotDelayMs      = getSlotDelayMs(provider)
     const maxQueueDelayMs  = getMaxQueueDelayMs(provider)
-    const requestsPerMinute = getRequestsPerMinute(provider)
+    const requestsPerMinute = getRequestsPerMinute(provider, this._env)
     const jitterMs         = getJitterMs(provider)
 
     return this.state.blockConcurrencyWhile(async () => {
+      // Sweep expired leases before evaluating any gate (self-heal on disconnect/eviction).
+      const leases = await this.sweepLeases(provider, now)
 
       // -- 1. Circuit breaker -------------------------------------------------
       // 429
@@ -139,10 +150,9 @@ export class RateLimiterDurableObject {
       // clean
       if (openUntil) await this.state.storage.delete(circuitKey)
 
-      // -- 2. Concurrency cap -------------------------------------------------
-      const concurrentKey = `${CONCURRENT_KEY}:${provider}`
-      const inflight      = (await this.state.storage.get<number>(concurrentKey)) ?? 0
+      // -- 2. Concurrency cap (count non-expired leases) ----------------------
       const maxConcurrent = getMaxConcurrent(provider)
+      const inflight = leases.size
 
       if (inflight >= maxConcurrent) {
         const estimatedWait = slotDelayMs + jitterMs
@@ -198,26 +208,81 @@ export class RateLimiterDurableObject {
       // -- 5. Reserve ---------------------------------------
       pruned.push(earliestSlot)
       await this.state.storage.put(REQUEST_LOG_KEY, pruned)
-      await this.state.storage.put(concurrentKey, inflight + 1)
+
+      const token = crypto.randomUUID()
+      const expiresAt = now + LEASE_TTL_MS
+      leases.set(token, { expiresAt })
+      await this.state.storage.put(`${LEASES_KEY}:${provider}`, this.serializeLeases(leases))
+      await this.scheduleLeaseAlarm(leases)
 
       return {
         allowed:     true,
         delayMs,
         scheduledAt: earliestSlot,
         reason:      'scheduled',
+        token,
         headers:     buildRateLimitHeaders(delayMs, earliestSlot, provider),
       }
     })
   }
 
+  // -- lease helpers -----------------------------------------------------------
+  private async loadLeases(provider: string): Promise<Map<string, { expiresAt: number }>> {
+    const raw = await this.state.storage.get<Array<[string, { expiresAt: number }]>>(`${LEASES_KEY}:${provider}`)
+    return new Map(raw ?? [])
+  }
+
+  private serializeLeases(leases: Map<string, { expiresAt: number }>): Array<[string, { expiresAt: number }]> {
+    return [...leases.entries()]
+  }
+
+  /** Drops leases whose TTL has elapsed. Returns the pruned (active) map. */
+  private async sweepLeases(provider: string, now: number): Promise<Map<string, { expiresAt: number }>> {
+    const leases = await this.loadLeases(provider)
+    let changed = false
+    for (const [token, lease] of leases) {
+      if (lease.expiresAt <= now) {
+        leases.delete(token)
+        changed = true
+      }
+    }
+    if (changed) {
+      await this.state.storage.put(`${LEASES_KEY}:${provider}`, this.serializeLeases(leases))
+    }
+    return leases
+  }
+
+  /** Schedules an alarm for the soonest lease expiry so expired leases are
+   *  swept even when no new /reserve arrives (covers the idle-evicted DO). */
+  private async scheduleLeaseAlarm(leases: Map<string, { expiresAt: number }>): Promise<void> {
+    if (leases.size === 0) return
+    const soonest = Math.min(...[...leases.values()].map(l => l.expiresAt))
+    const existing = await this.state.storage.getAlarm()
+    if (existing == null || soonest < existing) {
+      await this.state.storage.setAlarm(soonest)
+    }
+  }
+
+  // -- alarm: sweep expired leases and reschedule if any remain ---------------
+  async alarm(): Promise<void> {
+    const provider = 'nvidia'
+    const leases = await this.sweepLeases(provider, Date.now())
+    if (leases.size > 0) {
+      await this.scheduleLeaseAlarm(leases)
+    }
+  }
+
   // -- /inflight-done ----------------------------------------------------------
   private async handleInflightDone(url: URL): Promise<Response> {
     const provider = url.searchParams.get('provider') ?? 'nvidia'
-    const key      = `${CONCURRENT_KEY}:${provider}`
+    const token    = url.searchParams.get('token')
 
     await this.state.blockConcurrencyWhile(async () => {
-      const current = (await this.state.storage.get<number>(key)) ?? 0
-      await this.state.storage.put(key, Math.max(0, current - 1))
+      const leases = await this.loadLeases(provider)
+      if (token && leases.has(token)) {
+        leases.delete(token)
+        await this.state.storage.put(`${LEASES_KEY}:${provider}`, this.serializeLeases(leases))
+      }
     })
 
     return new Response(null, { status: 204 })
@@ -246,21 +311,23 @@ export class RateLimiterDurableObject {
     const provider = url.searchParams.get('provider') ?? 'nvidia'
     const now      = Date.now()
 
-    const [log, inflight, openUntil] = await Promise.all([
+    const [log, openUntil, leases] = await Promise.all([
       this.state.storage.get<number[]>(REQUEST_LOG_KEY),
-      this.state.storage.get<number>(`${CONCURRENT_KEY}:${provider}`),
       this.state.storage.get<number>(`${CIRCUIT_KEY}:${provider}`),
+      this.loadLeases(provider),
     ])
 
     const pruned       = (log ?? []).filter(ts => ts >= now - WINDOW_MS)
     const circuitOpen  = openUntil != null && now < openUntil
+    const leasesArr    = [...leases.values()]
+    const activeLeases = leasesArr.filter(l => l.expiresAt > now).length
 
     return Response.json({
       provider,
       timestamp:          new Date(now).toISOString(),
       slidingWindow: {
         requestsInWindow: pruned.length,
-        limit:            getRequestsPerMinute(provider),
+        limit:            getRequestsPerMinute(provider, this._env),
         windowMs:         WINDOW_MS,
         oldestSlot:       pruned.length > 0 ? new Date(pruned[0]).toISOString() : null,
         nextSlot:         pruned.length > 0
@@ -268,7 +335,7 @@ export class RateLimiterDurableObject {
           : new Date(now).toISOString(),
       },
       concurrency: {
-        inflight,
+        inflight: activeLeases,
         max: getMaxConcurrent(provider),
       },
       circuitBreaker: {
@@ -277,7 +344,7 @@ export class RateLimiterDurableObject {
         remainingMs: circuitOpen ? openUntil! - now : 0,
       },
       config: {
-        requestsPerMinute:    getRequestsPerMinute(provider),
+        requestsPerMinute:    getRequestsPerMinute(provider, this._env),
         minRetryDelayMs:      getSlotDelayMs(provider),
         maxQueueDelayMs:      getMaxQueueDelayMs(provider),
         jitterMs:             getJitterMs(provider),

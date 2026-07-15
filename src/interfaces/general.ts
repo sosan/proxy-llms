@@ -20,6 +20,7 @@ export interface Env {
   DEBUG?: string
   LOG_PAYLOAD?: string
   LOG_METRICS?: string
+  NVIDIA_REQUESTS_PER_MINUTE?: string
   RTK_ENABLED?: string
   CAVEMAN_ENABLED?: string
   CAVEMAN_LEVEL?: string
@@ -99,7 +100,7 @@ export interface RateLimitConfig {
   rateLimitDelayMs?: number  // delay for 429 rate limit responses (ms)
   maxQueueDelayMs?: number   // maximum internal wait before returning 429 (ms)
   jitterMs: 300
-  circuitBreakerTtlMs: 120_000
+  circuitBreakerTtlMs?: number
   maxConcurrent: number
 }
 

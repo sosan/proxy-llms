@@ -181,7 +181,7 @@ export class NvidiaProvider extends BaseProvider {
     throw lastError ?? new Error('Unknown error during retry')
   }
 
-  async makeStreamRequest(endpoint: string, payload: unknown): Promise<Response> {
+  async makeStreamRequest(endpoint: string, payload: unknown, signal?: AbortSignal): Promise<Response> {
     const requestId = crypto.randomUUID().slice(0, 8)
     const uri = `${this.baseUrl}${endpoint}`
     const sanitizedPayload = sanitizeNvidiaPayload(payload)
@@ -192,20 +192,27 @@ export class NvidiaProvider extends BaseProvider {
     })
     logger.logUpstreamConfig(requestId, sanitizedPayload)
 
-    await this.ensureCooldown().catch((err) => {
+    const token = await this.ensureCooldown().catch((err) => {
       logger.error(`[${requestId}] ✘ Cooldown error`, { error: err instanceof Error ? err.message : err })
       throw err
     })
 
     return this.executeWithRetry(
       requestId,
-      async () => this._doStreamRequest(requestId, uri, sanitizedPayload),
+      async () => this._doStreamRequest(requestId, uri, sanitizedPayload, signal, token),
       (err) => err.status === 408 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 
-  private async _doStreamRequest(requestId: string, uri: string, payload: unknown): Promise<Response> {
+  private async _doStreamRequest(
+    requestId: string,
+    uri: string,
+    payload: unknown,
+    signal?: AbortSignal,
+    token?: string,
+  ): Promise<Response> {
     const timeout = this.createAbortTimeout(requestId)
+    const abort = this.composeSignals(timeout.signal, signal)
     let response: Response
     try {
       response = await fetch(uri, {
@@ -215,12 +222,12 @@ export class NvidiaProvider extends BaseProvider {
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(payload),
-        signal: timeout.signal,
+        signal: abort.signal,
       })
     } catch (err) {
       timeout.clear()
-      await this.releaseCooldown()
-      if (err instanceof Error && err.name === 'AbortError') {
+      await this.releaseCooldown(token)
+      if (err instanceof Error && (err.name === 'AbortError' || abort.signal.aborted)) {
         logger.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
         throw new ProviderError(
           'NVIDIA did not send a response before the proxy timeout',
@@ -253,15 +260,18 @@ export class NvidiaProvider extends BaseProvider {
         retryAfter: response.headers.get('retry-after'),
         body: errorBody,
       })
-      await this.releaseCooldown()
+      if (response.status === 429) {
+        await this.openCircuit()
+      }
+      await this.releaseCooldown(token)
       throw withRateLimitHeaders(this.createUpstreamError(response, errorBody, this.name), this.name)
     }
 
-    await this.releaseCooldown()
+    await this.releaseCooldown(token)
     return response
   }
 
-  async makeRequest(endpoint: string, payload: unknown, _configFormat: string): Promise<unknown> {
+  async makeRequest(endpoint: string, payload: unknown, _configFormat: string, signal?: AbortSignal): Promise<unknown> {
     const requestId = crypto.randomUUID().slice(0, 8)
     const uri = `${this.baseUrl}${endpoint}`
     const sanitizedPayload = sanitizeNvidiaPayload(payload)
@@ -273,20 +283,27 @@ export class NvidiaProvider extends BaseProvider {
     })
     logger.logUpstreamConfig(requestId, sanitizedPayload)
 
-    await this.ensureCooldown().catch((err) => {
+    const token = await this.ensureCooldown().catch((err) => {
       logger.error(`[${requestId}] ✘ Cooldown error`, { error: err instanceof Error ? err.message : err })
       throw err
     })
 
     return this.executeWithRetry(
       requestId,
-      async () => this._doRequest(requestId, uri, sanitizedPayload),
+      async () => this._doRequest(requestId, uri, sanitizedPayload, signal, token),
       (err) => err.status === 400 || err.status === 408 || err.status === 502 || err.status === 503 || err.status === 504
     )
   }
 
-  private async _doRequest(requestId: string, uri: string, payload: unknown): Promise<unknown> {
+  private async _doRequest(
+    requestId: string,
+    uri: string,
+    payload: unknown,
+    signal?: AbortSignal,
+    token?: string,
+  ): Promise<unknown> {
     const timeout = this.createAbortTimeout(requestId)
+    const abort = this.composeSignals(timeout.signal, signal)
     let response: Response
     try {
       response = await fetch(uri, {
@@ -296,7 +313,7 @@ export class NvidiaProvider extends BaseProvider {
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(payload),
-        signal: timeout.signal,
+        signal: abort.signal,
       })
       timeout.clear()
 
@@ -312,6 +329,9 @@ export class NvidiaProvider extends BaseProvider {
           retryAfter: response.headers.get('retry-after'),
           body: errorBody,
         })
+        if (response.status === 429) {
+          await this.openCircuit()
+        }
         throw withRateLimitHeaders(this.createUpstreamError(response, errorBody, this.name), this.name)
       }
 
@@ -336,7 +356,7 @@ export class NvidiaProvider extends BaseProvider {
       return json
     } catch (err) {
       timeout.clear()
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (err instanceof Error && (err.name === 'AbortError' || abort.signal.aborted)) {
         logger.error(`[${requestId}] ✘ Timeout — NVIDIA did not respond in time`)
         throw new ProviderError(
           'NVIDIA did not send a response before the proxy timeout',
@@ -354,16 +374,28 @@ export class NvidiaProvider extends BaseProvider {
         'Could not connect to NVIDIA. Retry the request in a few seconds.'
       )
     } finally {
-      await this.releaseCooldown()
+      await this.releaseCooldown(token)
     }
   }
 
-  private async ensureCooldown(): Promise<void> {
+  /** Composes the internal timeout signal with the optional client request
+   *  signal. Whichever aborts first wins; the returned controller mirrors the
+   *  combined state so callers can check `aborted`. */
+  private composeSignals(timeoutSignal: AbortSignal, clientSignal?: AbortSignal): AbortController {
+    const controller = new AbortController()
+    if (timeoutSignal.aborted) controller.abort()
+    if (clientSignal?.aborted) controller.abort()
+    timeoutSignal.addEventListener('abort', () => controller.abort())
+    clientSignal?.addEventListener('abort', () => controller.abort())
+    return controller
+  }
+
+  private async ensureCooldown(): Promise<string | undefined> {
     const bucket = await hashNvidiaApiKey(this.apiKey)
     const limiter = this.rateLimiter?.getByName(bucket)
     if (!limiter) {
       logger.warn(`NVIDIA rate limiter not configured, proceeding without cooldown slot`)
-      return
+      return undefined
     }
     const response = await limiter.fetch(`https://internal/reserve?provider=${this.name}`, { method: 'POST' })
     const lock = (await response.json().catch(() => ({}))) as ReservationResponse
@@ -371,20 +403,45 @@ export class NvidiaProvider extends BaseProvider {
     if (!response.ok || lock.allowed === false) {
       throwRateLimited(lock, response.headers)
     }
+    return lock.token
   }
 
-  private async releaseCooldown(): Promise<void> {
+  private async releaseCooldown(token?: string): Promise<void> {
     const bucket = await hashNvidiaApiKey(this.apiKey)
     const limiter = this.rateLimiter?.getByName(bucket)
     if (!limiter) return
 
     try {
-      const response = await limiter.fetch(`https://internal/inflight-done?provider=${this.name}`, { method: 'POST' })
+      const url = token
+        ? `https://internal/inflight-done?provider=${this.name}&token=${encodeURIComponent(token)}`
+        : `https://internal/inflight-done?provider=${this.name}`
+      const response = await limiter.fetch(url, { method: 'POST' })
       if (!response.ok) {
         logger.warn(`[NVIDIA] Failed to release rate limiter slot: ${response.status}`)
       }
     } catch (err) {
       logger.warn(`[NVIDIA] Rate limiter release call threw: ${err instanceof Error ? err.message : err}`)
+    }
+  }
+
+  /** Reactively opens the circuit breaker on a real NIM 429 so the gate stops
+   *  probing NVIDIA during the compounding ~30-min cooldown (Case A). */
+  private async openCircuit(): Promise<void> {
+    const bucket = await hashNvidiaApiKey(this.apiKey)
+    const limiter = this.rateLimiter?.getByName(bucket)
+    if (!limiter) return
+
+    const ttlMs = ProviderConfigs[this.name]?.rateLimit?.circuitBreakerTtlMs ?? 30 * 60_000
+    try {
+      const response = await limiter.fetch(
+        `https://internal/circuit-open?provider=${this.name}&ttl=${ttlMs}`,
+        { method: 'POST' },
+      )
+      if (!response.ok) {
+        logger.warn(`[NVIDIA] Failed to open circuit breaker: ${response.status}`)
+      }
+    } catch (err) {
+      logger.warn(`[NVIDIA] Circuit open call threw: ${err instanceof Error ? err.message : err}`)
     }
   }
 }

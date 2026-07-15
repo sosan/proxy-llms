@@ -41,7 +41,7 @@ const _ProviderConfigs = {
       minRetryDelayMs: 2500,
       maxQueueDelayMs: 30_000,
       jitterMs: 300,
-      circuitBreakerTtlMs: 120_000,
+      circuitBreakerTtlMs: 30 * 60_000,
       maxConcurrent: 3,
     },
     models: {
@@ -73,6 +73,7 @@ const _ProviderConfigs = {
     endpoint: '/chat/completions',
     alterEndpoint: '/messages',
     models: {
+      'tencent/hy3:free': 'tencent/hy3:free',
       'nvidia/nemotron-3-ultra-550b-a55b:free': 'nvidia/nemotron-3-ultra-550b-a55b:free',
       'nvidia/nemotron-3-super-120b-a12b:free': 'nvidia/nemotron-3-super-120b-a12b:free',
       'openai/gpt-oss-120b:free': 'openai/gpt-oss-120b:free',
@@ -267,6 +268,22 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     extra: {
       chat_template_kwargs: { enable_thinking: true },
     }
+  },
+  'openrouter/tencent/hy3:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 0.9,
+    top_p: 1,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      reasoning: {
+        enabled: true,
+        exclude: false,
+      },
+    },
   },
   'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free': {
     endpoint: '/chat/completions',
