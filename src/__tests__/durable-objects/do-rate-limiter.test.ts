@@ -300,8 +300,8 @@ describe('RateLimiterDurableObject inflight leases', () => {
     expect(next.body.allowed).toBe(true)
   })
 
-  it('rate limit overridden via NVIDIA_REQUESTS_PER_MINUTE env', async () => {
-    const limiter = createRateLimiter({ NVIDIA_REQUESTS_PER_MINUTE: '2' })
+  it('rate limit overridden via NVIDIA_MAX_REQUESTS_PER_MINUTE env', async () => {
+    const limiter = createRateLimiter({ NVIDIA_MAX_REQUESTS_PER_MINUTE: '2' })
     const state = (limiter as any).state as any
 
     // Fill window to capacity (2)
@@ -313,8 +313,8 @@ describe('RateLimiterDurableObject inflight leases', () => {
     expect(blocked.body.reason).toBe('quota_full')
   })
 
-  it('invalid NVIDIA_REQUESTS_PER_MINUTE falls back to config default (10)', async () => {
-    const limiter = createRateLimiter({ NVIDIA_REQUESTS_PER_MINUTE: 'not-a-number' })
+  it('invalid NVIDIA_MAX_REQUESTS_PER_MINUTE falls back to config default (10)', async () => {
+    const limiter = createRateLimiter({ NVIDIA_MAX_REQUESTS_PER_MINUTE: 'not-a-number' })
     const state = (limiter as any).state as any
 
     const now = Date.now()

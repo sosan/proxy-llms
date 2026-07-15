@@ -3,8 +3,8 @@ import { ProviderConfigs } from '../config/providers'
 
 // --- Storage keys ------------------------------------------------------------
 const REQUEST_LOG_KEY = 'requestLog'
-const CIRCUIT_KEY     = 'circuitOpenUntil'
-const LEASES_KEY      = 'inflightLeases'
+const CIRCUIT_KEY = 'circuitOpenUntil'
+const LEASES_KEY = 'inflightLeases'
 
 // --- Constants ---------------------------------------------------------------
 const WINDOW_MS = 60_000
@@ -22,11 +22,11 @@ type LockReason =
   | 'scheduled'
 
 export type LockResult = {
-  allowed:     boolean
-  delayMs:     number
+  allowed: boolean
+  delayMs: number
   scheduledAt: number
-  reason:      LockReason
-  headers:     Record<string, string>
+  reason: LockReason
+  headers: Record<string, string>
 }
 
 // --- ProviderConfig helpers ---------------------------------------------------
@@ -39,7 +39,7 @@ function getMaxQueueDelayMs(p: string): number {
 }
 
 function getRequestsPerMinute(p: string, env?: Env): number {
-  const fromEnv = env?.NVIDIA_REQUESTS_PER_MINUTE
+  const fromEnv = env?.NVIDIA_MAX_REQUESTS_PER_MINUTE
   const parsed = Number(fromEnv)
   if (fromEnv && fromEnv.trim() !== '' && Number.isFinite(parsed) && parsed >= MIN_REQUESTS_PER_MINUTE) {
     return Math.floor(parsed)
@@ -61,17 +61,17 @@ function getMaxConcurrent(p: string): number {
 
 // --- Header builder -----------------------------------------------------------
 function buildRateLimitHeaders(
-  delayMs:     number,
+  delayMs: number,
   scheduledAt: number,
-  provider:    string,
-  extra?:      Record<string, string>
+  provider: string,
+  extra?: Record<string, string>
 ): Record<string, string> {
   return {
-    'Retry-After':          String(Math.max(1, Math.ceil(delayMs / 1000))),
-    'RateLimit-Reset':      String(Math.ceil(scheduledAt / 1000)),
-    'X-RateLimit-Limit':    String(getRequestsPerMinute(provider)),
+    'Retry-After': String(Math.max(1, Math.ceil(delayMs / 1000))),
+    'RateLimit-Reset': String(Math.ceil(scheduledAt / 1000)),
+    'X-RateLimit-Limit': String(getRequestsPerMinute(provider)),
     'X-RateLimit-Remaining': '0',
-    'X-RateLimit-Reset':    String(Math.ceil(scheduledAt / 1000)),
+    'X-RateLimit-Reset': String(Math.ceil(scheduledAt / 1000)),
     'X-RateLimit-Delay-Ms': String(Math.round(delayMs)),
     ...extra,
   }
@@ -82,7 +82,7 @@ export class RateLimiterDurableObject {
   constructor(
     private readonly state: DurableObjectState,
     private readonly _env: Env
-  ) {}
+  ) { }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -118,13 +118,13 @@ export class RateLimiterDurableObject {
   }
 
   private async reserveLock(url: URL): Promise<LockResult> {
-    const now      = Date.now()
+    const now = Date.now()
     const provider = url.searchParams.get('provider') ?? 'nvidia'
 
-    const slotDelayMs      = getSlotDelayMs(provider)
-    const maxQueueDelayMs  = getMaxQueueDelayMs(provider)
+    const slotDelayMs = getSlotDelayMs(provider)
+    const maxQueueDelayMs = getMaxQueueDelayMs(provider)
     const requestsPerMinute = getRequestsPerMinute(provider, this._env)
-    const jitterMs         = getJitterMs(provider)
+    const jitterMs = getJitterMs(provider)
 
     return this.state.blockConcurrencyWhile(async () => {
       // Sweep expired leases before evaluating any gate (self-heal on disconnect/eviction).
@@ -132,17 +132,17 @@ export class RateLimiterDurableObject {
 
       // -- 1. Circuit breaker -------------------------------------------------
       // 429
-      const circuitKey  = `${CIRCUIT_KEY}:${provider}`
-      const openUntil   = await this.state.storage.get<number>(circuitKey)
+      const circuitKey = `${CIRCUIT_KEY}:${provider}`
+      const openUntil = await this.state.storage.get<number>(circuitKey)
 
       if (openUntil && now < openUntil) {
         const waitMs = openUntil - now
         return {
-          allowed:     false,
-          delayMs:     waitMs,
+          allowed: false,
+          delayMs: waitMs,
           scheduledAt: openUntil,
-          reason:      'circuit_open',
-          headers:     buildRateLimitHeaders(waitMs, openUntil, provider, {
+          reason: 'circuit_open',
+          headers: buildRateLimitHeaders(waitMs, openUntil, provider, {
             'X-RateLimit-Reason': 'circuit_open',
           }),
         }
@@ -156,50 +156,50 @@ export class RateLimiterDurableObject {
 
       if (inflight >= maxConcurrent) {
         const estimatedWait = slotDelayMs + jitterMs
-        const scheduledAt   = now + estimatedWait
+        const scheduledAt = now + estimatedWait
         return {
-          allowed:     false,
-          delayMs:     estimatedWait,
+          allowed: false,
+          delayMs: estimatedWait,
           scheduledAt,
-          reason:      'concurrency_limit',
-          headers:     buildRateLimitHeaders(estimatedWait, scheduledAt, provider, {
+          reason: 'concurrency_limit',
+          headers: buildRateLimitHeaders(estimatedWait, scheduledAt, provider, {
             'X-RateLimit-Reason': 'concurrency_limit',
           }),
         }
       }
 
       // -- 3. Sliding window
-      const log         = (await this.state.storage.get<number[]>(REQUEST_LOG_KEY)) ?? []
+      const log = (await this.state.storage.get<number[]>(REQUEST_LOG_KEY)) ?? []
       const windowStart = now - WINDOW_MS
-      const pruned      = log.filter(ts => ts >= windowStart)
+      const pruned = log.filter(ts => ts >= windowStart)
 
       if (pruned.length >= requestsPerMinute) {
         const waitUntil = pruned[0] + WINDOW_MS
-        const waitMs    = waitUntil - now
+        const waitMs = waitUntil - now
         return {
-          allowed:     false,
-          delayMs:     waitMs,
+          allowed: false,
+          delayMs: waitMs,
           scheduledAt: waitUntil,
-          reason:      'quota_full',
-          headers:     buildRateLimitHeaders(waitMs, waitUntil, provider, {
+          reason: 'quota_full',
+          headers: buildRateLimitHeaders(waitMs, waitUntil, provider, {
             'X-RateLimit-Reason': 'quota_full',
           }),
         }
       }
 
       // -- 4. Slot scheduling con jitter --------------------------------------
-      const jitter          = Math.random() * jitterMs
+      const jitter = Math.random() * jitterMs
       const lastScheduledAt = pruned.length > 0 ? Math.max(...pruned) : 0
-      const earliestSlot    = Math.max(now, lastScheduledAt + slotDelayMs) + jitter
-      const delayMs         = earliestSlot - now
+      const earliestSlot = Math.max(now, lastScheduledAt + slotDelayMs) + jitter
+      const delayMs = earliestSlot - now
 
       if (delayMs > maxQueueDelayMs) {
         return {
-          allowed:     false,
+          allowed: false,
           delayMs,
           scheduledAt: earliestSlot,
-          reason:      'queue_full',
-          headers:     buildRateLimitHeaders(delayMs, earliestSlot, provider, {
+          reason: 'queue_full',
+          headers: buildRateLimitHeaders(delayMs, earliestSlot, provider, {
             'X-RateLimit-Reason': 'queue_full',
           }),
         }
@@ -216,12 +216,12 @@ export class RateLimiterDurableObject {
       await this.scheduleLeaseAlarm(leases)
 
       return {
-        allowed:     true,
+        allowed: true,
         delayMs,
         scheduledAt: earliestSlot,
-        reason:      'scheduled',
+        reason: 'scheduled',
         token,
-        headers:     buildRateLimitHeaders(delayMs, earliestSlot, provider),
+        headers: buildRateLimitHeaders(delayMs, earliestSlot, provider),
       }
     })
   }
@@ -275,7 +275,7 @@ export class RateLimiterDurableObject {
   // -- /inflight-done ----------------------------------------------------------
   private async handleInflightDone(url: URL): Promise<Response> {
     const provider = url.searchParams.get('provider') ?? 'nvidia'
-    const token    = url.searchParams.get('token')
+    const token = url.searchParams.get('token')
 
     await this.state.blockConcurrencyWhile(async () => {
       const leases = await this.loadLeases(provider)
@@ -290,8 +290,8 @@ export class RateLimiterDurableObject {
 
   // -- /circuit-open -----------------------------------------------------------
   private async handleCircuitOpen(url: URL): Promise<Response> {
-    const provider  = url.searchParams.get('provider') ?? 'nvidia'
-    const ttlMs     = Number(url.searchParams.get('ttl') ?? getCircuitTtlMs(provider))
+    const provider = url.searchParams.get('provider') ?? 'nvidia'
+    const ttlMs = Number(url.searchParams.get('ttl') ?? getCircuitTtlMs(provider))
     const openUntil = Date.now() + ttlMs
 
     await this.state.storage.put(`${CIRCUIT_KEY}:${provider}`, openUntil)
@@ -309,7 +309,7 @@ export class RateLimiterDurableObject {
   // -- /status -----------------------------------------------------------------
   private async handleStatus(url: URL): Promise<Response> {
     const provider = url.searchParams.get('provider') ?? 'nvidia'
-    const now      = Date.now()
+    const now = Date.now()
 
     const [log, openUntil, leases] = await Promise.all([
       this.state.storage.get<number[]>(REQUEST_LOG_KEY),
@@ -317,20 +317,20 @@ export class RateLimiterDurableObject {
       this.loadLeases(provider),
     ])
 
-    const pruned       = (log ?? []).filter(ts => ts >= now - WINDOW_MS)
-    const circuitOpen  = openUntil != null && now < openUntil
-    const leasesArr    = [...leases.values()]
+    const pruned = (log ?? []).filter(ts => ts >= now - WINDOW_MS)
+    const circuitOpen = openUntil != null && now < openUntil
+    const leasesArr = [...leases.values()]
     const activeLeases = leasesArr.filter(l => l.expiresAt > now).length
 
     return Response.json({
       provider,
-      timestamp:          new Date(now).toISOString(),
+      timestamp: new Date(now).toISOString(),
       slidingWindow: {
         requestsInWindow: pruned.length,
-        limit:            getRequestsPerMinute(provider, this._env),
-        windowMs:         WINDOW_MS,
-        oldestSlot:       pruned.length > 0 ? new Date(pruned[0]).toISOString() : null,
-        nextSlot:         pruned.length > 0
+        limit: getRequestsPerMinute(provider, this._env),
+        windowMs: WINDOW_MS,
+        oldestSlot: pruned.length > 0 ? new Date(pruned[0]).toISOString() : null,
+        nextSlot: pruned.length > 0
           ? new Date(Math.max(...pruned) + getSlotDelayMs(provider)).toISOString()
           : new Date(now).toISOString(),
       },
@@ -339,16 +339,16 @@ export class RateLimiterDurableObject {
         max: getMaxConcurrent(provider),
       },
       circuitBreaker: {
-        open:      circuitOpen,
+        open: circuitOpen,
         openUntil: openUntil ? new Date(openUntil).toISOString() : null,
         remainingMs: circuitOpen ? openUntil! - now : 0,
       },
       config: {
-        requestsPerMinute:    getRequestsPerMinute(provider, this._env),
-        minRetryDelayMs:      getSlotDelayMs(provider),
-        maxQueueDelayMs:      getMaxQueueDelayMs(provider),
-        jitterMs:             getJitterMs(provider),
-        circuitBreakerTtlMs:  getCircuitTtlMs(provider),
+        requestsPerMinute: getRequestsPerMinute(provider, this._env),
+        minRetryDelayMs: getSlotDelayMs(provider),
+        maxQueueDelayMs: getMaxQueueDelayMs(provider),
+        jitterMs: getJitterMs(provider),
+        circuitBreakerTtlMs: getCircuitTtlMs(provider),
       },
     })
   }

@@ -20,7 +20,7 @@ export interface Env {
   DEBUG?: string
   LOG_PAYLOAD?: string
   LOG_METRICS?: string
-  NVIDIA_REQUESTS_PER_MINUTE?: string
+  NVIDIA_MAX_REQUESTS_PER_MINUTE?: string
   RTK_ENABLED?: string
   CAVEMAN_ENABLED?: string
   CAVEMAN_LEVEL?: string
