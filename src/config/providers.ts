@@ -73,6 +73,7 @@ const _ProviderConfigs = {
     endpoint: '/chat/completions',
     alterEndpoint: '/messages',
     models: {
+      'poolside/laguna-s-2.1:free': 'poolside/laguna-s-2.1:free',
       'tencent/hy3:free': 'tencent/hy3:free',
       'nvidia/nemotron-3-ultra-550b-a55b:free': 'nvidia/nemotron-3-ultra-550b-a55b:free',
       'nvidia/nemotron-3-super-120b-a12b:free': 'nvidia/nemotron-3-super-120b-a12b:free',
@@ -268,6 +269,22 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     extra: {
       chat_template_kwargs: { enable_thinking: true },
     }
+  },
+  'openrouter/poolside/laguna-s-2.1:free': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 0.9,
+    top_p: 1,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      reasoning: {
+        enabled: true,
+        exclude: false,
+      },
+    },
   },
   'openrouter/tencent/hy3:free': {
     endpoint: '/chat/completions',
