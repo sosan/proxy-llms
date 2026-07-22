@@ -81,6 +81,10 @@ name = "proxy-llms"
 [env.production.bindings]
 GINAPSE_BINDING = { service = "ginapse" }
 
+# Local dev only: when GINAPSE_BINDING is absent, proxy-llms calls ginapse
+# over HTTP at this URL instead of the service binding. Example:
+# GINAPSE_LOCAL_URL = "http://localhost:8788"
+
 [env.production.durable_objects]
 bindings = [
   { name = "PROCESSOR", class_name = "ProcessorDurableObject" },

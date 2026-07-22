@@ -15,8 +15,15 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "lint:lockfile": "pnpm install --lockfile-only --frozen-lockfile --ignore-scripts --optimistic-repeat-install",
+    "prepare": "husky",
     "deploy": "pnpm run validate && echo 'fake deploying comand, replace with actual deploy command'",
     "deploy:cloudflare": "bash scripts/deploy-cloudflare.sh"
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "oxlint --fix",
+      "sh -c 'tsc --noEmit' --"
+    ]
   },
   "dependencies": {
     "hono": "^4.12.27",
@@ -31,6 +38,8 @@
     "@types/node": "26.0.1",
     "@vitest/coverage-v8": "^4.1.9",
     "oxlint": "^1.71.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
     "semantic-release": "^25.0.5",
     "typescript": "6.0.3",
     "vitest": "^4.1.9",

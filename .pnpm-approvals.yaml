@@ -2,3 +2,4 @@ approvedBuildDependencies:
   - esbuild
   - sharp
   - workerd
+  - husky
