@@ -187,7 +187,6 @@ export class MetricsCollector {
 
   createStreamingTransformStream(): TransformStream<Uint8Array, Uint8Array> {
     const decoder = new TextDecoder()
-    const encoder = new TextEncoder()
     let pendingLine = ''
 
     return new TransformStream({
@@ -260,9 +259,10 @@ export class MetricsCollector {
           }
         }
 
-        // Re-emit the pending line so downstream consumers receive it
-        if (pendingLine) {
-          controller.enqueue(encoder.encode(pendingLine + '\n\n'))
+        // Ensure generationStartTime is set even if markFirstChunk was never called
+        // (e.g. upstream sent only [DONE] or empty data lines)
+        if (this.firstChunkTime === null) {
+          this.markFirstChunk()
         }
 
         // Stream ended, record metrics

@@ -2,6 +2,30 @@ import type { HonoRequest } from 'hono'
 import { Env } from '../interfaces/general'
 
 // ─────────────────────────────────────────────
+// ginapseRequest — transport resolver
+// Routes to the CF service binding (http://internal) when deployed,
+// or to a local HTTP URL (GINAPSE_LOCAL_URL) for local dev.
+// Returns null when neither is configured (callers fail-open).
+// ─────────────────────────────────────────────
+
+function ginapseRequest(
+  env: Env,
+  path: string,
+  init?: RequestInit,
+): Promise<Response> | null {
+  if (env.GINAPSE_BINDING) {
+    return env.GINAPSE_BINDING.fetch(
+      new Request(`http://internal${path}`, init),
+    )
+  }
+  if (env.GINAPSE_LOCAL_URL) {
+    const base = env.GINAPSE_LOCAL_URL.replace(/\/$/, '')
+    return fetch(`${base}${path}`, init)
+  }
+  return null
+}
+
+// ─────────────────────────────────────────────
 // applyGinapseContext — called by chat controller
 // Fetches memory context from Ginapse via service binding
 // and injects it as a system message into the payload.
@@ -18,23 +42,21 @@ export async function applyGinapseContextAndGetSession(
   if (!gctx) return null
 
   // ── Fire session/start if needed ─────────────
-  if (gctx.doStart && env.GINAPSE_BINDING) {
-    env.GINAPSE_BINDING.fetch(
-      new Request('http://internal/mem/session/start', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ project: gctx.project, session_id: gctx.session_id }),
-      }),
-    ).catch((err: unknown) => console.error('[ginapse] session/start failed:', err))
+  if (gctx.doStart) {
+    ginapseRequest(env, '/mem/session/start', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ project: gctx.project, session_id: gctx.session_id }),
+    })?.catch((err: unknown) => console.error('[ginapse] session/start failed:', err))
   }
 
   // ── Fetch memory context ────────────────────
-  if (!env.GINAPSE_BINDING) return null
+  const ctxReq = ginapseRequest(env, `/mem/context?project=${encodeURIComponent(gctx.project)}&limit=${MAX_CONTEXT_OBS}`)
+  if (!ctxReq) return null
 
   let observations: ContextObservation[] = []
   try {
-    const url = `http://internal/mem/context?project=${encodeURIComponent(gctx.project)}&limit=${MAX_CONTEXT_OBS}`
-    const resp = await env.GINAPSE_BINDING.fetch(new Request(url))
+    const resp = await ctxReq
     if (resp.ok) {
       observations = await resp.json() as ContextObservation[]
     }
@@ -145,7 +167,8 @@ export function extractGinapseContext(
   env: Env,
 ): GinapseContext | null {
   // Feature flag — skip entirely if not configured
-  if (!env.GINAPSE_BINDING || env.GINAPSE_ENABLED === 'false') {
+  const ginapseConfigured = !!env.GINAPSE_BINDING || !!env.GINAPSE_LOCAL_URL
+  if (!ginapseConfigured || env.GINAPSE_ENABLED === 'false') {
     return null
   }
 

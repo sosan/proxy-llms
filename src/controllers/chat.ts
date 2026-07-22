@@ -49,14 +49,25 @@ function buildErrorResponse(error: unknown): {
 /**
  * Handles streaming requests to the upstream provider.
  */
-async function handleStreamRequest(
+export async function handleStreamRequest(
   provider: ReturnType<typeof getProviderByName>,
   endpoint: string,
   payload: TransformedPayload,
   metricsCollector: MetricsCollector,
   signal?: AbortSignal
 ): Promise<Response> {
-  const upstream = await provider.makeStreamRequest(endpoint, payload, signal)
+  let upstream: Response
+  try {
+    upstream = await provider.makeStreamRequest(endpoint, payload, signal)
+  } catch (err) {
+    if (err instanceof ProviderError) throw err
+    throw new ProviderError(
+      `Upstream stream request failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      502 as ContentfulStatusCode,
+      'upstream_network_error',
+      'Could not reach the upstream provider. Retry the request in a few seconds.'
+    )
+  }
   metricsCollector.setUpstreamStatus(upstream.status)
 
   if (!upstream.body) {

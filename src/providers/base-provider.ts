@@ -73,6 +73,11 @@ export function isNetworkError(err: unknown): boolean {
     msg.includes('etimedout') ||
     msg.includes('socket hang up') ||
     msg.includes('aborted') ||
+    msg.includes('internal error') ||
+    msg.includes('dns') ||
+    msg.includes('dns lookup failed') ||
+    msg.includes('name or service not known') ||
+    msg.includes('failed to resolve') ||
     err.name === 'TypeError'
   )
 }
