@@ -2,6 +2,15 @@ import type { RequestMetrics } from '../interfaces/metrics'
 import type { Env } from '../interfaces/general'
 import { logger } from '../utils/logger'
 
+/**
+ * TransformStream options that include the `catch` handler.
+ * The `catch` callback is part of the Streams API spec but is not yet
+ * declared in @cloudflare/workers-types, so we extend the Transformer type.
+ */
+type StreamingTransformer = Omit<Transformer<Uint8Array, Uint8Array>, 'catch'> & {
+  catch?: (reason: unknown) => void
+}
+
 export class MetricsCollector {
   private env: Env
   private requestId: string
@@ -189,7 +198,7 @@ export class MetricsCollector {
     const decoder = new TextDecoder()
     let pendingLine = ''
 
-    return new TransformStream({
+    const options: StreamingTransformer = {
       transform: (chunk, controller) => {
         const text = decoder.decode(chunk, { stream: true })
         const lines = (pendingLine + text).split('\n')
@@ -202,6 +211,7 @@ export class MetricsCollector {
             // Mark first chunk with content
             if (data !== '[DONE]' && this.firstChunkTime === null) {
               this.markFirstChunk()
+              logger.withEnv(this.env).debug(`[stream] first SSE data chunk received (requestId=${this.requestId})`)
             }
 
             // Parse SSE data to extract content for token approximation
@@ -216,9 +226,11 @@ export class MetricsCollector {
                 // Check for finish reason
                 if (json.choices?.[0]?.finish_reason) {
                   this.markGenerationEnd()
+                  logger.withEnv(this.env).debug(`[stream] finish_reason=${json.choices[0].finish_reason} (requestId=${this.requestId})`)
                   // Extract usage from final chunk (NVIDIA sends usage alongside finish_reason)
                   if (json.usage) {
                     this.usage = json.usage as Record<string, number>
+                    logger.withEnv(this.env).debug(`[stream] usage extracted from final chunk (requestId=${this.requestId})`, this.usage)
                   }
                 }
               } catch {
@@ -227,6 +239,7 @@ export class MetricsCollector {
             } else {
               // Stream finished
               this.markGenerationEnd()
+              logger.withEnv(this.env).debug(`[stream] [DONE] received (requestId=${this.requestId})`)
             }
           }
         }
@@ -263,12 +276,24 @@ export class MetricsCollector {
         // (e.g. upstream sent only [DONE] or empty data lines)
         if (this.firstChunkTime === null) {
           this.markFirstChunk()
+          logger.withEnv(this.env).debug(`[stream] flush: no first chunk was marked — forcing markFirstChunk (requestId=${this.requestId})`)
         }
 
         // Stream ended, record metrics
         this.markGenerationEnd()
         this.recordStreamingMetrics(this.upstreamStatus || 200)
+        logger.withEnv(this.env).debug(`[stream] flush complete — metrics recorded (requestId=${this.requestId}) chunks=${this.chunkCount} chars=${this.totalChars}`)
       },
-    })
+      catch: (err) => {
+        logger.withEnv(this.env).error(`[stream] TransformStream error (requestId=${this.requestId})`, { error: err instanceof Error ? err.message : String(err) })
+        this.markGenerationEnd()
+        this.recordStreamingMetrics(this.upstreamStatus || 500, {
+          type: 'stream_transform_error',
+          message: err instanceof Error ? err.message : String(err),
+        })
+      },
+    }
+
+    return new TransformStream(options)
   }
 }

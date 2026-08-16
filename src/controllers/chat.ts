@@ -70,7 +70,10 @@ export async function handleStreamRequest(
   }
   metricsCollector.setUpstreamStatus(upstream.status)
 
+  logger.debug(`[stream] upstream response status=${upstream.status} contentType=${upstream.headers.get('content-type')} body=${upstream.body ? 'ReadableStream' : 'null'}`)
+
   if (!upstream.body) {
+    logger.error('[stream] upstream returned no body — cannot stream')
     throw new ProviderError(
       'Upstream returned a streaming response without a body',
       502 as ContentfulStatusCode,
@@ -83,7 +86,9 @@ export async function handleStreamRequest(
   let transformedBody: ReadableStream<Uint8Array> | null = null
   try {
     transformedBody = upstream.body.pipeThrough(transformStream)
+    logger.debug('[stream] pipeThrough OK — transformed body created')
   } catch (err) {
+    logger.error('[stream] pipeThrough failed', { error: err instanceof Error ? err.message : String(err) })
     throw new ProviderError(
       `Failed to pipe upstream stream: ${err instanceof Error ? err.message : 'unknown'}`,
       502 as ContentfulStatusCode,
@@ -93,6 +98,7 @@ export async function handleStreamRequest(
   }
 
   if (!transformedBody) {
+    logger.error('[stream] transformed body is null after pipeThrough')
     throw new ProviderError(
       'Upstream returned a streaming response without a body',
       502 as ContentfulStatusCode,
@@ -106,6 +112,8 @@ export async function handleStreamRequest(
   headers.set('Cache-Control', 'no-cache')
   headers.set('Connection', 'keep-alive')
   headers.delete('Content-Length')
+
+  logger.debug('[stream] returning SSE response to client', { status: upstream.status, contentType: headers.get('content-type') })
 
   return new Response(transformedBody, {
     status: upstream.status,
@@ -202,6 +210,7 @@ export const handleChatCompletions = async (c: Context<{ Bindings: Env }>) => {
     metricsCollector = new MetricsCollector(c.env, requestId, resolvedModel, providerDC, isStream, finalPayload.max_tokens as number | undefined)
 
     if (isStream) {
+      logger.debug(`[chat] entering streaming path (requestId=${requestId} model=${resolvedModel} provider=${providerDC} endpoint=${endpoint})`)
       return handleStreamRequest(provider, endpoint, finalPayload, metricsCollector, c.req.raw.signal)
     }
 
