@@ -54,8 +54,8 @@ const _ProviderConfigs = {
       'minimaxai/minimax-m3': 'minimaxai/minimax-m3',
       'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6',
       'z-ai/glm4.7': 'z-ai/glm4.7',
-      'deepseek/deepseek-v4-flash-0731': 'deepseek/deepseek-v4-flash-0731',
-      'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro', // 16 ranking
+      'deepseek/deepseek-v4-flash-0731': 'deepseek-ai/deepseek-v4-flash-0731',
+      'deepseek/deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro', // 16 ranking
       'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7', // 28 ranking
       'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking', // 56 ranking
       'qwen/qwen3-coder-480b-a35b-instruct': 'qwen/qwen3-coder-480b-a35b-instruct', // 62 arena ranking
@@ -180,6 +180,19 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       },
     },
   },
+  'nvidia/deepseek/deepseek-v4-flash-0731': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 1,
+    top_p: 0.95,
+    max_tokens: 16384,
+    stream: true,
+    extra: {
+      chat_template_kwargs: {
+        thinking: false,
+      },
+    },
+  },
   'nvidia/deepseek/deepseek-v4-pro': {
     endpoint: '/chat/completions',
     format: 'openai',
@@ -273,6 +286,23 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
       chat_template_kwargs: { enable_thinking: true },
     }
   },
+  'nvidia/poolside/laguna-xs-2.1': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 0.9,
+    top_p: 1,
+    max_tokens: 5834,
+    maxTokensCap: 5834,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      reasoning: {
+        enabled: true,
+        exclude: false,
+      },
+    },
+  },
+
   'openrouter/poolside/laguna-s-2.1:free': {
     endpoint: '/chat/completions',
     format: 'openai',
