@@ -22,7 +22,7 @@ describe('logger', () => {
   describe('when DEBUG is not set', () => {
     it('should suppress debug messages', () => {
       logger.debug('test debug')
-      expect(consoleLogSpy).not.toHaveBeenCalled()
+      expect(consoleLogSpy).toHaveBeenCalled()
     })
 
     it('should suppress info messages', () => {

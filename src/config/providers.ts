@@ -52,8 +52,9 @@ const _ProviderConfigs = {
       'zai/glm5.1': 'z-ai/glm-5.1',
 
       'minimaxai/minimax-m3': 'minimaxai/minimax-m3',
-      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6', // 7 ranking GB200x4
-      'z-ai/glm4.7': 'z-ai/glm4.7', // 20 ranking H100x8
+      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6',
+      'z-ai/glm4.7': 'z-ai/glm4.7',
+      'deepseek/deepseek-v4-flash-0731': 'deepseek/deepseek-v4-flash-0731',
       'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro', // 16 ranking
       'minimaxai/minimax-m2.7': 'minimaxai/minimax-m2.7', // 28 ranking
       'moonshotai/kimi-k2-thinking': 'moonshotai/kimi-k2-thinking', // 56 ranking
@@ -61,6 +62,7 @@ const _ProviderConfigs = {
       'openai/gpt-oss-120b': 'openai/gpt-oss-120b', // no ranking
       'stepfun-ai/step-3.5-flash': 'stepfun-ai/step-3.5-flash', // no ranking
       'google/gemma-4-31b-it': 'google/gemma-4-31b-it', // 43 ranking
+      'poolside/laguna-xs-2.1': 'poolside/laguna-xs-2.1',
     },
     supportsToolCalling: true,
   },
@@ -73,6 +75,7 @@ const _ProviderConfigs = {
     endpoint: '/chat/completions',
     alterEndpoint: '/messages',
     models: {
+
       'poolside/laguna-s-2.1:free': 'poolside/laguna-s-2.1:free',
       'tencent/hy3:free': 'tencent/hy3:free',
       'nvidia/nemotron-3-ultra-550b-a55b:free': 'nvidia/nemotron-3-ultra-550b-a55b:free',
