@@ -143,7 +143,7 @@ describe('Provider Configs', () => {
     it('should map opus to ANTHROPIC_OPUS_MODEL', () => {
       const env = {
         ANTHROPIC_OPUS_MODEL: 'nvidia/glm5.1',
-        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k2.6',
+        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k3',
         ANTHROPIC_HAIKU_MODEL: 'nvidia/minimax-m2.7',
         ANTHROPIC_DEFAULT_MODEL: 'nvidia/glm-5.1',
       }
@@ -154,18 +154,18 @@ describe('Provider Configs', () => {
     it('should map sonnet to ANTHROPIC_SONNET_MODEL', () => {
       const env = {
         ANTHROPIC_OPUS_MODEL: 'nvidia/glm5.1',
-        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k2.6',
+        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k3',
         ANTHROPIC_HAIKU_MODEL: 'nvidia/minimax-m2.7',
         ANTHROPIC_DEFAULT_MODEL: 'nvidia/glm-5.1',
       }
-      expect(resolveAnthropicModel(env, 'claude-3-sonnet-20240229')).toBe('nvidia/kimi-k2.6')
-      expect(resolveAnthropicModel(env, 'claude-sonnet')).toBe('nvidia/kimi-k2.6')
+      expect(resolveAnthropicModel(env, 'claude-3-sonnet-20240229')).toBe('nvidia/kimi-k3')
+      expect(resolveAnthropicModel(env, 'claude-sonnet')).toBe('nvidia/kimi-k3')
     })
 
     it('should map haiku to ANTHROPIC_HAIKU_MODEL', () => {
       const env = {
         ANTHROPIC_OPUS_MODEL: 'nvidia/glm5.1',
-        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k2.6',
+        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k3',
         ANTHROPIC_HAIKU_MODEL: 'nvidia/minimax-m2.7',
         ANTHROPIC_DEFAULT_MODEL: 'nvidia/glm-5.1',
       }
@@ -176,7 +176,7 @@ describe('Provider Configs', () => {
     it('should fallback to ANTHROPIC_DEFAULT_MODEL for unknown model', () => {
       const env = {
         ANTHROPIC_OPUS_MODEL: 'nvidia/glm5.1',
-        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k2.6',
+        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k3',
         ANTHROPIC_HAIKU_MODEL: 'nvidia/minimax-m2.7',
         ANTHROPIC_DEFAULT_MODEL: 'nvidia/glm-5.1',
       }
@@ -192,12 +192,12 @@ describe('Provider Configs', () => {
     it('should be case-insensitive', () => {
       const env = {
         ANTHROPIC_OPUS_MODEL: 'nvidia/glm5.1',
-        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k2.6',
+        ANTHROPIC_SONNET_MODEL: 'nvidia/kimi-k3',
         ANTHROPIC_HAIKU_MODEL: 'nvidia/minimax-m2.7',
         ANTHROPIC_DEFAULT_MODEL: 'nvidia/glm-5.1',
       }
       expect(resolveAnthropicModel(env, 'CLAUDE-3-OPUS')).toBe('nvidia/glm5.1')
-      expect(resolveAnthropicModel(env, 'Claude-Sonnet')).toBe('nvidia/kimi-k2.6')
+      expect(resolveAnthropicModel(env, 'Claude-Sonnet')).toBe('nvidia/kimi-k3')
       expect(resolveAnthropicModel(env, 'Haiku')).toBe('nvidia/minimax-m2.7')
     })
   })

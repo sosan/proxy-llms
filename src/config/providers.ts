@@ -52,7 +52,7 @@ const _ProviderConfigs = {
       'zai/glm5.1': 'z-ai/glm-5.1',
 
       'minimaxai/minimax-m3': 'minimaxai/minimax-m3',
-      'moonshotai/kimi-k2.6': 'moonshotai/kimi-k2.6',
+      'moonshotai/kimi-k3': 'moonshotai/kimi-k3',
       'z-ai/glm4.7': 'z-ai/glm4.7',
       'deepseek/deepseek-v4-flash-0731': 'deepseek-ai/deepseek-v4-flash-0731',
       'deepseek/deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro', // 16 ranking
@@ -227,7 +227,7 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     endpoint: '/messages',
     format: 'anthropic',
   },
-  'nvidia/moonshotai/kimi-k2.6': {
+  'nvidia/moonshotai/kimi-k3': {
     endpoint: '/chat/completions',
     format: 'openai',
     temperature: 1,
@@ -521,7 +521,7 @@ export const resolveModel = (config: ProviderConfig, fullModelID: string | null 
     if (fullIds.includes(model)) {
       return model
     }
-    // Fallback: allow partial match (e.g., "kimi-k2.6" matches "moonshotai/kimi-k2.6")
+    // Fallback: allow partial match (e.g., "kimi-k3" matches "moonshotai/kimi-k3")
     const partialMatch = fullIds.find(id => id === fullModelID || id.endsWith(`/${fullModelID}`))
     if (partialMatch) {
       return partialMatch

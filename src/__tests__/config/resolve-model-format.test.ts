@@ -3,7 +3,7 @@ import { resolveModelFormat } from '../../config/providers'
 
 describe('resolveModelFormat', () => {
   it('should return model-specific format when defined in ModelDefaultsById', () => {
-    expect(resolveModelFormat('nvidia/moonshotai/kimi-k2.6')).toBe('openai')
+    expect(resolveModelFormat('nvidia/moonshotai/kimi-k3')).toBe('openai')
   })
 
   it('should fallback to provider default format when no model-specific format', () => {

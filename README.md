@@ -96,7 +96,7 @@ See [SETUP.md](SETUP.md) for operational guidance.
 
 The proxy extracts the **provider** from the first segment of the `model` field in the request body:
 
-- `"nvidia/moonshotai/kimi-k2.6"` → routes to `nvidia` provider
+- `"nvidia/moonshotai/kimi-k3"` → routes to `nvidia` provider
 - `"openrouter/nvidia/nemotron-3-ultra-550b-a55b"` → routes to `openrouter` provider
 
 On the client side, model selection and its default parameters are handled through ModelDefaultsById, a map keyed by the full model slug (provider/organization/model) that defines the request format (openai or anthropic), the endpoint, and generation parameters specific to each model (temperature, top_p, max_tokens, tool-calling support, etc.).
@@ -116,7 +116,7 @@ Currently configured models:
 - nvidia/minimaxai/minimax-m2.7
 - nvidia/minimaxai/minimax-m3
 - nvidia/moonshotai/kimi-k2-thinking
-- nvidia/moonshotai/kimi-k2.6
+- nvidia/moonshotai/kimi-k3
 - nvidia/stepfun-ai/step-3.5-flash
 - nvidia/qwen/qwen3-coder-480b-a35b-instruct
 - nvidia/google/gemma-4-31b-it
@@ -159,7 +159,7 @@ Save as `opencode.json` in your project root or `~/.config/opencode/`:
         "baseURL": "http://localhost:8787/{PROXY_API_KEY}/v1"
       },
       "models": {
-        "nvidia/moonshotai/kimi-k2.6": {
+        "nvidia/moonshotai/kimi-k3": {
           "name": "MoonshotAI Kimi-k2.6 (NVIDIA NIM)"
         },
         "nvidia/minimaxai/minimax-m3": {
@@ -183,10 +183,10 @@ On the server side, environment variables determine which model each Claude tier
 
 ```toml
 # wrangler.toml — examples
-ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k2.6"
+ANTHROPIC_OPUS_MODEL = "nvidia/moonshotai/kimi-k3"
 ANTHROPIC_SONNET_MODEL = "minimaxai/minimax-m3"
 ANTHROPIC_HAIKU_MODEL = "nvidia/z-ai/glm-5.1"
-ANTHROPIC_DEFAULT_MODEL = "nvidia/moonshotai/kimi-k2.6"
+ANTHROPIC_DEFAULT_MODEL = "nvidia/moonshotai/kimi-k3"
 ```
 
 Each `ANTHROPIC_*_MODEL` value is a **full routing path** in `provider/organization/model` format — not just a model name. The proxy extracts the provider from the first segment and resolves the rest through normal model resolution. If a variable is empty, that tier returns an error — it's disabled.
@@ -211,7 +211,7 @@ Save as `.codex/config.toml` in your project root (or `~/.codex/config.toml` for
 #   nvidia/minimaxai/minimax-m2.7
 #   nvidia/minimaxai/minimax-m3
 #   nvidia/moonshotai/kimi-k2-thinking
-#   nvidia/moonshotai/kimi-k2.6
+#   nvidia/moonshotai/kimi-k3
 #   nvidia/stepfun-ai/step-3.5-flash
 #   nvidia/qwen/qwen3-coder-480b-a35b-instruct
 #   nvidia/google/gemma-4-31b-it
@@ -227,7 +227,7 @@ Save as `.codex/config.toml` in your project root (or `~/.codex/config.toml` for
 #   openrouter/nvidia/nemotron-nano-9b-v2:free
 #   openrouter/nvidia/nemotron-nano-12b-v2-vl:free
 
-model = "nvidia/moonshotai/kimi-k2.6"
+model = "nvidia/moonshotai/kimi-k3"
 model_provider = "proxy"
 
 [model_providers.proxy]
@@ -243,7 +243,7 @@ run:
 codex
 ```
 
-> **Note:** if you see `The 'nvidia/moonshotai/kimi-k2.6' model is not supported when using Codex with a ChatGPT account.`, Codex is authenticated via OAuth (`codex login`) instead of an API key. A ChatGPT login restricts you to OpenAI's own official models, regardless of `model_provider`. Run `codex logout`, export `PROXY_API_KEY` if your proxy requires one, then run `codex` again so it falls back to the `proxy` provider above.
+> **Note:** if you see `The 'nvidia/moonshotai/kimi-k3' model is not supported when using Codex with a ChatGPT account.`, Codex is authenticated via OAuth (`codex login`) instead of an API key. A ChatGPT login restricts you to OpenAI's own official models, regardless of `model_provider`. Run `codex logout`, export `PROXY_API_KEY` if your proxy requires one, then run `codex` again so it falls back to the `proxy` provider above.
 
 
 ### Cursor
@@ -254,7 +254,7 @@ Cursor doesn't support environment variables or config files for this: it's alwa
 
 **Steps:**
 1. `Settings → Models → Add Model`
-2. Ex Model name: `nvidia/moonshotai/kimi-k2.6`
+2. Ex Model name: `nvidia/moonshotai/kimi-k3`
 3. Enable **Override OpenAI Base URL**
 4. Base URL: `http://localhost:8787/{PROXY_API_KEY}/v1`
 5. API Key: any value (e.g. `local-dev-key`) — the proxy token is in the URL path, not this field

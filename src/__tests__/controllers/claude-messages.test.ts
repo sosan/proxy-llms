@@ -61,7 +61,7 @@ describe('handleClaudeMessages', () => {
       ...overrides.req,
     },
     env: {
-      ANTHROPIC_OPUS_MODEL: 'nvidia/moonshotai/kimi-k2.6',
+      ANTHROPIC_OPUS_MODEL: 'nvidia/moonshotai/kimi-k3',
       ANTHROPIC_SONNET_MODEL: 'nvidia/sonnet',
       ANTHROPIC_HAIKU_MODEL: 'nvidia/haiku',
       ANTHROPIC_DEFAULT_MODEL: 'nvidia/default',

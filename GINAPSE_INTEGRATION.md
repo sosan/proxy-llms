@@ -58,7 +58,7 @@ curl -X POST https://your-proxy.workers.dev/chat/completions \
   -H "X-Ginapse-Project: myapp" \
   -H "X-Ginapse-Session-Start: true" \
   -d '{
-    "model": "nvidia/moonshotai/kimi-k2.6",
+    "model": "nvidia/moonshotai/kimi-k3",
     "messages": [{"role": "user", "content": "fix the auth bug"}]
   }'
 ```

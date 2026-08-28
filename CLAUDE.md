@@ -51,7 +51,7 @@ Prefer `pnpm run typecheck` after TypeScript changes. Run `pnpm run test` before
 ## Runtime Behavior
 
 - **Body-based routing**: The provider is extracted from the first segment of the `model` field in the request body
-  - Example: `POST /chat/completions` with body `{ "model": "nvidia/moonshotai/kimi-k2.6", ... }` routes to the `nvidia` provider
+  - Example: `POST /chat/completions` with body `{ "model": "nvidia/moonshotai/kimi-k3", ... }` routes to the `nvidia` provider
   - Example: `POST /chat/completions` with body `{ "model": "claude/claude-3.5-sonnet", ... }` routes to the `claude` provider
   - `provider` is the first segment of the `model` field before the first `/`. It must match a key in `ProviderConfigs` (nvidia, claude, google, openrouter, lmstudio, llamacpp, ollama).
   - The remaining segments are the model name (alias or full upstream ID), which is resolved in `config/providers.ts`.
@@ -99,7 +99,7 @@ Prefer `pnpm run typecheck` after TypeScript changes. Run `pnpm run test` before
   2. Add `case` in `createProvider()` in `providers/provider-factory.ts`.
   3. Add credentials to `Env` in `interfaces/general.ts`.
   4. `ProviderType` is derived automatically from `ProviderConfigs` keys — no need to edit `interfaces/provider.ts`.
-- Body-based routing: `POST /chat/completions` — the provider is extracted from the first segment of the `model` field in the request body (e.g., `"nvidia/moonshotai/kimi-k2.6"` → provider = `nvidia`). The route handler looks up `ProviderConfigs[provider]` directly. No hardcoded format-to-config mapping.
+- Body-based routing: `POST /chat/completions` — the provider is extracted from the first segment of the `model` field in the request body (e.g., `"nvidia/moonshotai/kimi-k3"` → provider = `nvidia`). The route handler looks up `ProviderConfigs[provider]` directly. No hardcoded format-to-config mapping.
 
 ## Development Workflow
 
