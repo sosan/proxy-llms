@@ -2,7 +2,7 @@
   "name": "ai-proxy-structured",
   "version": "1.0.0",
   "description": "Multi-Provider AI Proxy following Structured-Prompt-Driven Development pattern",
-  "packageManager": "pnpm@11.2.2+sha512.36e6621fad506178936455e70247b8808ef4ec25797a9f437a93281a020484e2607f6a469a22e982987c3dbb8866e3071514ab10a4a1749e06edcd1ec118436f",
+  "packageManager": "pnpm@11.27.0+sha512.ad12821463bb143295f1fa3ecde77a6b9b97a7990386da800ff57bffc3964dc64b7b1c7559d5dbe5c337aea659ed9c8937d4370bd198ca2009bc6fa0249808e7",
   "type": "module",
   "main": "src/server.ts",
   "scripts": {
