@@ -47,6 +47,7 @@ const _ProviderConfigs = {
     models: {
       'z-ai/glm-5.1': 'z-ai/glm-5.1', // 5 ranking GB200x4
       'z-ai/glm-5.2': 'z-ai/glm-5.2', // 5 ranking GB200x4
+      'z-ai/glm-5.3-flash': 'z-ai/glm-5.3-flash',
       'z-ai/glm5.1': 'z-ai/glm-5.1',
       'zai/glm-5.1': 'z-ai/glm-5.1',
       'zai/glm5.1': 'z-ai/glm-5.1',
@@ -165,6 +166,22 @@ export const ModelDefaultsById: Record<string, ModelDefaults> = {
     },
   },
   'nvidia/z-ai/glm-5.2': {
+    endpoint: '/chat/completions',
+    format: 'openai',
+    temperature: 0.9,
+    top_p: 0.95,
+    max_tokens: 32768,
+    maxTokensCap: 32768,
+    stream: true,
+    supportsToolCalling: true,
+    extra: {
+      chat_template_kwargs: {
+        enable_thinking: true,
+        clear_thinking: false,
+      },
+    },
+  },
+  'nvidia/z-ai/glm-5.3-flash': {
     endpoint: '/chat/completions',
     format: 'openai',
     temperature: 0.9,
